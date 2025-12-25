@@ -1,6 +1,4 @@
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
-
+-- Supabase Schema per Gestione Fatture
 -- Create users table extension (if needed for profiles)
 -- Note: auth.users is managed by Supabase Auth
 
