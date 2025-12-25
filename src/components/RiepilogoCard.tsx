@@ -5,16 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Props {
   fatture: Fattura[];
+  anno: number;
 }
 
-export function RiepilogoCard({ fatture }: Props) {
+export function RiepilogoCard({ fatture, anno }: Props) {
   const riepilogo = calcolaRiepilogoAnnuale(fatture);
   const percentualeTasse = calcolaPercentualeTasse(fatture);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Riepilogo Annuale 2025</CardTitle>
+        <CardTitle>Riepilogo Annuale {anno}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">

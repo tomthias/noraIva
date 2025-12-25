@@ -2,16 +2,16 @@ import type { Fattura, Prelievo, Uscita } from "../types/fattura";
 import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliFisco";
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ANNO } from "../constants/fiscali";
 import { CheckCircle, AlertCircle, Calendar } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
   prelievi: Prelievo[];
   uscite: Uscita[];
+  annoSelezionato: number;
 }
 
-export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
+export function NettoDisponibile({ fatture, prelievi, uscite, annoSelezionato }: Props) {
   const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite);
 
   // Calcola tasse già pagate totali (dalle uscite con categoria Tasse)
@@ -19,9 +19,9 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
     .filter((u) => u.categoria === "Tasse")
     .reduce((sum, u) => sum + u.importo, 0);
 
-  // Fatture per anno
-  const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(ANNO)));
-  const fattureAnnoPrecedente = fatture.filter((f) => f.data.startsWith(String(ANNO - 1)));
+  // Fatture per anno (basato sull'anno selezionato)
+  const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
+  const fattureAnnoPrecedente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato - 1)));
 
   // Tasse teoriche per anno
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
@@ -50,14 +50,9 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
 
   // Totale da accantonare per giugno = Saldo + Primo acconto (40%)
-  const totaleDaAccantonareGiugno = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+  const totaleDaAccantonare = saldoAnnoCorrente + primoAccontoAnnoProssimo;
 
-  // Coefficiente di sicurezza (3.32%)
-  const COEFFICIENTE_SICUREZZA = 0.0332;
-  const marginesSicurezza = totaleDaAccantonareGiugno * COEFFICIENTE_SICUREZZA;
-  const totaleDaAccantonare = totaleDaAccantonareGiugno + marginesSicurezza;
-
-  // Netto sicuro = Saldo conto - Totale da accantonare (con margine)
+  // Netto sicuro = Saldo conto - Totale da accantonare
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 
   return (
@@ -101,22 +96,18 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
       <div className="mx-4 mb-4 p-4 rounded-lg bg-muted/50 border">
         <div className="flex items-center gap-2 mb-3">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Da accantonare per giugno {ANNO + 1}</span>
+          <span className="text-sm font-medium">Da accantonare per giugno {annoSelezionato + 1}</span>
         </div>
         <div className="grid gap-2 text-sm">
           {saldoAnnoCorrente > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Saldo tasse {ANNO}</span>
+              <span className="text-muted-foreground">Saldo tasse {annoSelezionato}</span>
               <span className="text-amber-500">- {formatCurrency(saldoAnnoCorrente)}</span>
             </div>
           )}
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Primo acconto {ANNO + 1} (40%)</span>
+            <span className="text-muted-foreground">Primo acconto {annoSelezionato + 1} (40%)</span>
             <span className="text-amber-500">- {formatCurrency(primoAccontoAnnoProssimo)}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Margine sicurezza (3,32%)</span>
-            <span className="text-amber-500">- {formatCurrency(marginesSicurezza)}</span>
           </div>
           <div className="flex justify-between items-center pt-2 border-t">
             <span className="font-medium">Totale da accantonare</span>
@@ -152,7 +143,7 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
           nettoSicuro >= 0 ? "text-green-600" : "text-red-600"
         }`}>
           {nettoSicuro >= 0
-            ? `Saldo ${ANNO} e primo acconto ${ANNO + 1} coperti`
+            ? `Saldo ${annoSelezionato} e primo acconto ${annoSelezionato + 1} coperti`
             : `Devi ancora accantonare per saldo e primo acconto`
           }
         </p>

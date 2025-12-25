@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
 import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { AuthForm } from "./components/AuthForm";
 import { Sidebar, type SidebarSection } from "./components/Sidebar";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
+import { GraficoFatturato } from "./components/GraficoFatturato";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
+import { YearFilter } from "./components/YearFilter";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
@@ -32,15 +35,27 @@ function App() {
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [annoDashboard, setAnnoDashboard] = useState<number>(ANNO);
 
-  // Filtra fatture per anno corrente (per il riepilogo)
-  const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(ANNO)));
+  // Estrai anni disponibili dalle fatture
+  const anniDisponibili = useMemo(() => {
+    const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
+    return Array.from(anni).sort((a, b) => b - a);
+  }, [fatture]);
+
+  // Filtra fatture per anno selezionato (per il riepilogo)
+  const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
 
   // Mostra schermata di caricamento durante verifica auth
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Caricamento...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <DotLottieReact
+          src="https://lottie.host/39b0daf0-2b9f-4b8a-8152-0ea79e0f2cf2/EwJoAQGdc3.lottie"
+          loop
+          autoplay
+          style={{ width: 200, height: 200 }}
+        />
       </div>
     );
   }
@@ -53,8 +68,13 @@ function App() {
   // Mostra schermata di caricamento dati
   if (dataLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Caricamento dati...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <DotLottieReact
+          src="https://lottie.host/39b0daf0-2b9f-4b8a-8152-0ea79e0f2cf2/EwJoAQGdc3.lottie"
+          loop
+          autoplay
+          style={{ width: 200, height: 200 }}
+        />
       </div>
     );
   }
@@ -79,14 +99,22 @@ function App() {
 
           {activeSection === "dashboard" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
-                <p className="text-muted-foreground">Panoramica della tua situazione fiscale {ANNO}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
+                  <p className="text-muted-foreground">Panoramica della tua situazione fiscale</p>
+                </div>
+                <YearFilter
+                  anni={anniDisponibili}
+                  annoSelezionato={annoDashboard}
+                  onChange={(anno) => setAnnoDashboard(anno ?? ANNO)}
+                />
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <RiepilogoCard fatture={fattureAnnoCorrente} />
-                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} />
+                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} annoSelezionato={annoDashboard} />
               </div>
+              <GraficoFatturato fatture={fatture} anno={annoDashboard} />
             </div>
           )}
 

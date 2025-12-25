@@ -1,12 +1,15 @@
 /**
- * Costanti fiscali per il Regime Forfettario 2025
+ * Costanti fiscali per il Regime Forfettario
  *
  * Queste costanti sono fisse e non configurabili dall'utente.
- * Seguono le regole del regime forfettario italiano per l'anno 2025.
+ * Seguono le regole del regime forfettario italiano.
  */
 
-// Anno fiscale di riferimento
-export const ANNO = 2025;
+// Anno fiscale corrente (basato sulla data di sistema)
+export const ANNO_CORRENTE = new Date().getFullYear();
+
+// Anno di default per la visualizzazione (anno corrente)
+export const ANNO = ANNO_CORRENTE;
 
 // Tipo di regime fiscale
 export const REGIME = "forfettario" as const;
