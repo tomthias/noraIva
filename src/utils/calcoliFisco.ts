@@ -132,19 +132,30 @@ export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
 /**
  * Calcola la situazione del cash flow
  * Mostra quanto è disponibile da ritirare
+ *
+ * NOTA: Usa il fatturato lordo meno prelievi e uscite (che includono tasse già pagate)
+ * Le tasse sono già incluse nelle uscite con categoria "Tasse"
  */
 export function calcolaSituazioneCashFlow(
   fatture: Fattura[],
   prelievi: Prelievo[],
   uscite: Uscita[]
 ): SituazioneCashFlow {
-  const nettoFatture = calcolaNettoFatture(fatture);
+  // Fatturato totale lordo
+  const totaleFatturato = calcolaTotaleFatture(fatture);
+
+  // Prelievi effettuati (stipendi)
   const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
+
+  // Uscite totali (include tasse già pagate)
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
-  const nettoDisponibile = nettoFatture - totalePrelievi - totaleUscite;
+
+  // Netto disponibile = Fatturato - Prelievi - Uscite
+  // Le tasse pagate sono già nelle uscite, quindi non le calcoliamo teoricamente
+  const nettoDisponibile = totaleFatturato - totalePrelievi - totaleUscite;
 
   return {
-    nettoFatture,
+    nettoFatture: totaleFatturato, // Ora mostra il fatturato lordo
     totalePrelievi,
     totaleUscite,
     nettoDisponibile,
