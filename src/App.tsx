@@ -6,7 +6,8 @@ import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { ANNO } from "./constants/fiscali";
-import "./App.css";
+import { Button } from "@/components/ui/button";
+import { Plus, X } from "lucide-react";
 
 function App() {
   const { fatture, isLoading, aggiungiFattura, modificaFattura, eliminaFattura, aggiornaStato } =
@@ -14,34 +15,48 @@ function App() {
   const [showForm, setShowForm] = useState(false);
 
   if (isLoading) {
-    return <div className="loading">Caricamento...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-lg text-muted-foreground">Caricamento...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Gestione Fatture {ANNO}</h1>
-        <p className="subtitle">Regime Forfettario - Partita IVA</p>
+    <div className="min-h-screen bg-background">
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <h1 className="text-3xl font-bold">Gestione Fatture {ANNO}</h1>
+          <p className="text-muted-foreground">Regime Forfettario - Partita IVA</p>
+        </div>
       </header>
 
-      <main className="app-main">
-        <section className="section-cards">
-          <div className="cards-grid">
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <RiepilogoCard fatture={fatture} />
             <NettoDisponibile fatture={fatture} />
           </div>
         </section>
 
-        <section className="section-fatture">
-          <div className="section-header">
-            <h2>Fatture</h2>
-            <button className="btn-add" onClick={() => setShowForm(!showForm)}>
-              {showForm ? "Chiudi" : "Nuova fattura"}
-            </button>
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Fatture</h2>
+            <Button onClick={() => setShowForm(!showForm)}>
+              {showForm ? (
+                <>
+                  <X className="h-4 w-4" /> Chiudi
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" /> Nuova fattura
+                </>
+              )}
+            </Button>
           </div>
 
           {showForm && (
-            <div className="form-container">
+            <div className="border rounded-lg p-6 bg-card">
               <FormFattura
                 onSubmit={(dati) => {
                   aggiungiFattura(dati);
@@ -60,15 +75,17 @@ function App() {
           />
         </section>
 
-        <section className="section-scenario">
+        <section>
           <ScenarioSimulator fatture={fatture} />
         </section>
       </main>
 
-      <footer className="app-footer">
-        <p>
-          Regime forfettario: coefficiente 78%, imposta sostitutiva 5%, contributi INPS GS 26,07%
-        </p>
+      <footer className="border-t mt-12">
+        <div className="container mx-auto px-4 py-6">
+          <p className="text-sm text-muted-foreground text-center">
+            Regime forfettario: coefficiente 78%, imposta sostitutiva 5%, contributi INPS GS 26,07%
+          </p>
+        </div>
       </footer>
     </div>
   );
