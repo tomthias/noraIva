@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useCashFlow } from "./hooks/useCashFlow";
+import { useAuth } from "./hooks/useAuth";
+import { Login } from "./components/Login";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
 import { TabellaFatture } from "./components/TabellaFatture";
@@ -8,9 +10,10 @@ import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
-import { Plus, X } from "lucide-react";
+import { Plus, X, LogOut } from "lucide-react";
 
 function App() {
+  const { isAuthenticated, login, logout } = useAuth();
   const {
     fatture,
     prelievi,
@@ -26,6 +29,11 @@ function App() {
   } = useCashFlow();
   const [showForm, setShowForm] = useState(false);
 
+  // Mostra schermata login se non autenticato
+  if (!isAuthenticated) {
+    return <Login onLogin={login} />;
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -38,8 +46,16 @@ function App() {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold">Gestione Fatture {ANNO}</h1>
-          <p className="text-muted-foreground">Regime Forfettario - Partita IVA</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Gestione Fatture {ANNO}</h1>
+              <p className="text-muted-foreground">Regime Forfettario - Partita IVA</p>
+            </div>
+            <Button variant="outline" onClick={logout} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Esci
+            </Button>
+          </div>
         </div>
       </header>
 
