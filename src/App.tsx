@@ -4,13 +4,14 @@ import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { AuthForm } from "./components/AuthForm";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
+import { Grafici } from "./components/Grafici";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
-import { Plus, X, LogOut } from "lucide-react";
+import { Plus, X, LogOut, BarChart3 } from "lucide-react";
 
 function App() {
   const { user, loading: authLoading, signIn, signUp, signOut } = useSupabaseAuth();
@@ -29,6 +30,7 @@ function App() {
     eliminaUscita,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
+  const [showGrafici, setShowGrafici] = useState(true);
 
   // Mostra schermata di caricamento durante verifica auth
   if (authLoading) {
@@ -82,6 +84,18 @@ function App() {
             <RiepilogoCard fatture={fatture} />
             <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} />
           </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">Grafici & Proiezioni</h2>
+            <Button variant="outline" onClick={() => setShowGrafici(!showGrafici)}>
+              <BarChart3 className="h-4 w-4" />
+              {showGrafici ? "Nascondi" : "Mostra"}
+            </Button>
+          </div>
+
+          {showGrafici && <Grafici fatture={fatture} prelievi={prelievi} uscite={uscite} />}
         </section>
 
         <section className="space-y-4">
