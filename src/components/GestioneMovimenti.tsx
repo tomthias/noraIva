@@ -5,11 +5,13 @@
 import { useState, useMemo } from "react";
 import type { Prelievo, Uscita } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
+import { YearFilter } from "./YearFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, TrendingDown, Receipt } from "lucide-react";
+import { ANNO } from "../constants/fiscali";
 
 interface Props {
   prelievi: Prelievo[];
@@ -30,6 +32,7 @@ export function GestioneMovimenti({
 }: Props) {
   const [showFormPrelievo, setShowFormPrelievo] = useState(false);
   const [showFormUscita, setShowFormUscita] = useState(false);
+  const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
 
   // Form Prelievo
   const [dataPrelievo, setDataPrelievo] = useState(new Date().toISOString().split("T")[0]);
@@ -42,17 +45,36 @@ export function GestioneMovimenti({
   const [categoriaUscita, setCategoriaUscita] = useState("");
   const [importoUscita, setImportoUscita] = useState("");
 
-  // Calcoli totali
+  // Estrai anni disponibili da prelievi e uscite
+  const anniDisponibili = useMemo(() => {
+    const anniPrelievi = prelievi.map((p) => parseInt(p.data.substring(0, 4)));
+    const anniUscite = uscite.map((u) => parseInt(u.data.substring(0, 4)));
+    const anni = new Set([...anniPrelievi, ...anniUscite]);
+    return Array.from(anni).sort((a, b) => b - a);
+  }, [prelievi, uscite]);
+
+  // Filtra per anno selezionato
+  const prelieviFiltrati = useMemo(() => {
+    if (annoSelezionato === null) return prelievi;
+    return prelievi.filter((p) => p.data.startsWith(String(annoSelezionato)));
+  }, [prelievi, annoSelezionato]);
+
+  const usciteFiltrate = useMemo(() => {
+    if (annoSelezionato === null) return uscite;
+    return uscite.filter((u) => u.data.startsWith(String(annoSelezionato)));
+  }, [uscite, annoSelezionato]);
+
+  // Calcoli totali (sui dati filtrati)
   const totali = useMemo(() => {
-    const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
-    const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
-    const tassePagate = uscite
+    const totalePrelievi = prelieviFiltrati.reduce((sum, p) => sum + p.importo, 0);
+    const totaleUscite = usciteFiltrate.reduce((sum, u) => sum + u.importo, 0);
+    const tassePagate = usciteFiltrate
       .filter((u) => u.categoria === "Tasse")
       .reduce((sum, u) => sum + u.importo, 0);
     const altreSpese = totaleUscite - tassePagate;
 
     return { totalePrelievi, totaleUscite, tassePagate, altreSpese };
-  }, [prelievi, uscite]);
+  }, [prelieviFiltrati, usciteFiltrate]);
 
   const handleSubmitPrelievo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +104,13 @@ export function GestioneMovimenti({
 
   return (
     <div className="space-y-6">
+      {/* Filtro Anno */}
+      <YearFilter
+        anni={anniDisponibili}
+        annoSelezionato={annoSelezionato}
+        onChange={setAnnoSelezionato}
+      />
+
       {/* Card Riepilogo Totali */}
       <Card className="bg-muted/30">
         <CardContent className="pt-6">
@@ -186,13 +215,13 @@ export function GestioneMovimenti({
             </form>
           )}
 
-          {prelievi.length === 0 ? (
+          {prelieviFiltrati.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               Nessun prelievo registrato
             </p>
           ) : (
             <div className="space-y-2">
-              {prelievi.map((prelievo) => (
+              {prelieviFiltrati.map((prelievo) => (
                 <div
                   key={prelievo.id}
                   className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
@@ -298,11 +327,11 @@ export function GestioneMovimenti({
             </form>
           )}
 
-          {uscite.length === 0 ? (
+          {usciteFiltrate.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Nessuna uscita registrata</p>
           ) : (
             <div className="space-y-2">
-              {uscite.map((uscita) => (
+              {usciteFiltrate.map((uscita) => (
                 <div
                   key={uscita.id}
                   className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"

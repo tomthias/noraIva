@@ -3,7 +3,7 @@ import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliF
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ANNO } from "../constants/fiscali";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, AlertCircle, Calendar } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
@@ -14,25 +14,51 @@ interface Props {
 export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
   const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite);
 
-  // Calcola tasse già pagate (dalle uscite con categoria Tasse)
+  // Calcola tasse già pagate totali (dalle uscite con categoria Tasse)
   const tassePagate = uscite
     .filter((u) => u.categoria === "Tasse")
     .reduce((sum, u) => sum + u.importo, 0);
 
-  // Fatture dell'anno corrente per calcolare tasse future
+  // Fatture per anno
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(ANNO)));
+  const fattureAnnoPrecedente = fatture.filter((f) => f.data.startsWith(String(ANNO - 1)));
+
+  // Tasse teoriche per anno
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
+  const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
-  // Tasse pagate quest'anno (per l'anno corrente)
-  const tassePagateAnnoCorrente = uscite
-    .filter((u) => u.categoria === "Tasse" && u.data.startsWith(String(ANNO)))
-    .reduce((sum, u) => sum + u.importo, 0);
+  // Stima degli acconti anno corrente già versati
+  // Gli acconti 2025 = circa tasse 2024 (perché si basano sull'anno precedente)
+  // Acconti versati nel 2025 ≈ tassePagateAnnoCorrente - saldoAnnoPrecedente
+  // Saldo anno precedente ≈ tasseTeoricheAnnoPrecedente - accontiAnnoPrecedente
 
-  // Stima tasse ancora da pagare per l'anno corrente
-  const tasseDaAccantonare = Math.max(0, tasseTeoricheAnnoCorrente - tassePagateAnnoCorrente);
+  // Semplificazione: gli acconti si basano sulle tasse dell'anno precedente
+  // Acconti 2025 = tasse 2024 (perché non avevi storico precedente significativo)
+  // Acconti 2026 = tasse 2025
 
-  // Netto sicuro = Netto disponibile - Tasse da accantonare
-  const nettoSicuro = cashFlow.nettoDisponibile - tasseDaAccantonare;
+  // Metodo storico Fiscozen:
+  // - Acconti anno X = basati sulle tasse dell'anno X-1
+  // - Gli acconti 2025 versati = tasse 2024
+  // - Gli acconti 2026 = tasse 2025
+  const accontiAnnoCorrenteVersati = tasseTeoricheAnnoPrecedente;
+
+  // Saldo anno corrente = Tasse anno corrente - Acconti già versati
+  // Se negativo (hai fatturato meno), il saldo è 0 e avrai un credito
+  const saldoAnnoCorrente = Math.max(0, tasseTeoricheAnnoCorrente - accontiAnnoCorrenteVersati);
+
+  // Primo acconto anno prossimo (40% a giugno) = 40% delle tasse anno corrente
+  const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
+
+  // Totale da accantonare per giugno = Saldo + Primo acconto (40%)
+  const totaleDaAccantonareGiugno = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+
+  // Coefficiente di sicurezza (3.32%)
+  const COEFFICIENTE_SICUREZZA = 0.0332;
+  const marginesSicurezza = totaleDaAccantonareGiugno * COEFFICIENTE_SICUREZZA;
+  const totaleDaAccantonare = totaleDaAccantonareGiugno + marginesSicurezza;
+
+  // Netto sicuro = Saldo conto - Totale da accantonare (con margine)
+  const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 
   return (
     <Card>
@@ -63,21 +89,43 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
             </span>
           </div>
           <div className="flex justify-between items-center pt-3 border-t">
-            <span className="font-medium">Saldo teorico</span>
+            <span className="font-medium">Saldo conto</span>
             <span className="font-semibold">
               {formatCurrency(cashFlow.nettoDisponibile)}
             </span>
           </div>
-          {tasseDaAccantonare > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-amber-600">Tasse {ANNO} da accantonare</span>
-              <span className="font-medium text-amber-600">
-                - {formatCurrency(tasseDaAccantonare)}
-              </span>
-            </div>
-          )}
         </div>
       </CardContent>
+
+      {/* Box previsione tasse giugno anno prossimo */}
+      <div className="mx-4 mb-4 p-4 rounded-lg bg-muted/50 border">
+        <div className="flex items-center gap-2 mb-3">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Da accantonare per giugno {ANNO + 1}</span>
+        </div>
+        <div className="grid gap-2 text-sm">
+          {saldoAnnoCorrente > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Saldo tasse {ANNO}</span>
+              <span className="text-amber-500">- {formatCurrency(saldoAnnoCorrente)}</span>
+            </div>
+          )}
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Primo acconto {ANNO + 1} (40%)</span>
+            <span className="text-amber-500">- {formatCurrency(primoAccontoAnnoProssimo)}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Margine sicurezza (3,32%)</span>
+            <span className="text-amber-500">- {formatCurrency(marginesSicurezza)}</span>
+          </div>
+          <div className="flex justify-between items-center pt-2 border-t">
+            <span className="font-medium">Totale da accantonare</span>
+            <span className="font-semibold text-amber-500">
+              - {formatCurrency(totaleDaAccantonare)}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Box evidenziato per il Netto Prelevabile */}
       <div className={`mx-4 mb-4 p-4 rounded-lg border-2 ${
@@ -104,8 +152,8 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
           nettoSicuro >= 0 ? "text-green-600" : "text-red-600"
         }`}>
           {nettoSicuro >= 0
-            ? `Tasse ${ANNO} coperte`
-            : `Devi ancora accantonare per le tasse`
+            ? `Saldo ${ANNO} e primo acconto ${ANNO + 1} coperti`
+            : `Devi ancora accantonare per saldo e primo acconto`
           }
         </p>
       </div>

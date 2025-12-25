@@ -151,9 +151,9 @@ function App() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold mb-1">Simulatore</h2>
-                <p className="text-muted-foreground">Simula l'impatto di nuove fatture</p>
+                <p className="text-muted-foreground">Calcola il netto di una singola fattura</p>
               </div>
-              <ScenarioSimulator fatture={fatture} />
+              <ScenarioSimulator />
             </div>
           )}
         </div>

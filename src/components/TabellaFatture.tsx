@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Fattura } from "../types/fattura";
-import { calcolaRiepilogoPerFattura } from "../utils/calcoliFisco";
+import { calcolaRiepilogoPerFattura, calcolaTotaleFatture } from "../utils/calcoliFisco";
 import { formatCurrency, formatDate } from "../utils/format";
 import { FormFattura } from "./FormFattura";
+import { YearFilter } from "./YearFilter";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pencil, Trash2 } from "lucide-react";
+import { ANNO } from "../constants/fiscali";
 
 interface Props {
   fatture: Fattura[];
@@ -15,7 +17,22 @@ interface Props {
 
 export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const riepiloghi = calcolaRiepilogoPerFattura(fatture);
+  const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
+
+  // Estrai anni disponibili dalle fatture
+  const anniDisponibili = useMemo(() => {
+    const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
+    return Array.from(anni).sort((a, b) => b - a);
+  }, [fatture]);
+
+  // Filtra fatture per anno selezionato
+  const fattureFiltrate = useMemo(() => {
+    if (annoSelezionato === null) return fatture;
+    return fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
+  }, [fatture, annoSelezionato]);
+
+  const riepiloghi = calcolaRiepilogoPerFattura(fattureFiltrate);
+  const totaleFatturato = calcolaTotaleFatture(fattureFiltrate);
 
   const handleSaveEdit = (id: string, dati: Omit<Fattura, "id">) => {
     onModifica(id, dati);
@@ -31,8 +48,19 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <YearFilter
+          anni={anniDisponibili}
+          annoSelezionato={annoSelezionato}
+          onChange={setAnnoSelezionato}
+        />
+        <div className="text-sm text-muted-foreground">
+          {fattureFiltrate.length} fatture · Totale: <span className="font-semibold text-foreground">{formatCurrency(totaleFatturato)}</span>
+        </div>
+      </div>
+      <div className="rounded-md border">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Data</TableHead>
@@ -45,7 +73,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {fatture.map((fattura) => {
+          {fattureFiltrate.map((fattura) => {
             const riepilogo = riepiloghi.find((r) => r.id === fattura.id);
 
             if (editingId === fattura.id) {
@@ -113,6 +141,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

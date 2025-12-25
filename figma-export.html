@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Partita IVA - Figma Export</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400;6..144,500;6..144,600;6..144,700&display=swap" rel="stylesheet">
+  <style>
+    /* Reset & Base */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      /* Colors - Dark Theme */
+      --background: #0d0d12;
+      --foreground: #fafafa;
+      --card: #16161d;
+      --card-foreground: #fafafa;
+      --primary: #6366f1;
+      --primary-foreground: #0d0d12;
+      --muted: #1f1f28;
+      --muted-foreground: #a1a1aa;
+      --border: #27272f;
+      --destructive: #ef4444;
+      --green-500: #22c55e;
+      --green-600: #16a34a;
+      --green-700: #15803d;
+      --green-950: rgba(5, 46, 22, 0.5);
+      --amber-500: #f59e0b;
+      --red-500: #ef4444;
+      --red-600: #dc2626;
+      --red-700: #b91c1c;
+      --red-950: rgba(69, 10, 10, 0.5);
+      --radius: 0.5rem;
+    }
+
+    body {
+      font-family: "Google Sans Flex", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--background);
+      color: var(--foreground);
+      line-height: 1.5;
+      font-feature-settings: "rlig" 1, "calt" 1;
+    }
+
+    /* Layout */
+    .app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 256px;
+      background-color: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100vh;
+    }
+
+    .sidebar-header {
+      padding: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .sidebar-header p {
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-weight: 500;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-item:hover {
+      background-color: var(--muted);
+      color: var(--foreground);
+    }
+
+    .nav-item.active {
+      background-color: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    .nav-item svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      background: transparent;
+      border: none;
+      color: var(--muted-foreground);
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      background-color: var(--muted);
+      color: var(--foreground);
+    }
+
+    /* Main Content */
+    .main {
+      margin-left: 256px;
+      flex: 1;
+      padding: 32px;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .page-header p {
+      color: var(--muted-foreground);
+    }
+
+    /* Cards Grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+
+    /* Card */
+    .card {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 24px 24px 0;
+    }
+
+    .card-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .card-description {
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+    }
+
+    .card-content {
+      padding: 24px;
+    }
+
+    /* Rows */
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+
+    .row-label {
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+    }
+
+    .row-value {
+      font-weight: 500;
+    }
+
+    .row-value.green {
+      color: var(--green-500);
+    }
+
+    .row-value.red {
+      color: var(--destructive);
+    }
+
+    .row-value.amber {
+      color: var(--amber-500);
+    }
+
+    .row-divider {
+      border-top: 1px solid var(--border);
+      margin-top: 12px;
+      padding-top: 12px;
+    }
+
+    .row-divider .row-label,
+    .row-divider .row-value {
+      font-weight: 600;
+    }
+
+    /* Info Box */
+    .info-box {
+      margin: 0 16px 16px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background-color: rgba(31, 31, 40, 0.5);
+      border: 1px solid var(--border);
+    }
+
+    .info-box-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .info-box-header svg {
+      width: 16px;
+      height: 16px;
+      color: var(--muted-foreground);
+    }
+
+    .info-box .row {
+      padding: 4px 0;
+    }
+
+    .info-box .row-label {
+      font-size: 0.875rem;
+    }
+
+    .info-box .row-value {
+      font-size: 0.875rem;
+    }
+
+    /* Highlight Box */
+    .highlight-box {
+      margin: 0 16px 16px;
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 2px solid;
+    }
+
+    .highlight-box.success {
+      background-color: var(--green-950);
+      border-color: var(--green-700);
+    }
+
+    .highlight-box.error {
+      background-color: var(--red-950);
+      border-color: var(--red-700);
+    }
+
+    .highlight-box-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .highlight-box-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .highlight-box-label svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .highlight-box.success .highlight-box-label svg {
+      color: var(--green-500);
+    }
+
+    .highlight-box.error .highlight-box-label svg {
+      color: var(--red-500);
+    }
+
+    .highlight-box-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .highlight-box.success .highlight-box-value {
+      color: var(--green-500);
+    }
+
+    .highlight-box.error .highlight-box-value {
+      color: var(--red-500);
+    }
+
+    .highlight-box-note {
+      font-size: 0.75rem;
+      margin-top: 4px;
+    }
+
+    .highlight-box.success .highlight-box-note {
+      color: var(--green-600);
+    }
+
+    .highlight-box.error .highlight-box-note {
+      color: var(--red-600);
+    }
+
+    /* Riepilogo Card specific */
+    .riepilogo-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .riepilogo-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .riepilogo-label {
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+    }
+
+    .riepilogo-values {
+      text-align: right;
+    }
+
+    .riepilogo-main {
+      font-weight: 600;
+    }
+
+    .riepilogo-sub {
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+    }
+
+    .riepilogo-highlight {
+      background-color: var(--muted);
+      padding: 16px;
+      border-radius: var(--radius);
+      margin-top: 8px;
+    }
+
+    .riepilogo-highlight .riepilogo-row {
+      margin-bottom: 8px;
+    }
+
+    .riepilogo-highlight .riepilogo-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .text-green {
+      color: var(--green-500);
+    }
+
+    .percentage-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background-color: var(--muted);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+      margin-left: 8px;
+    }
+
+    /* Icons (inline SVG) */
+    .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Partita IVA</h1>
+        <p>Regime Forfettario</p>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="7" height="9" x="3" y="3" rx="1"/>
+            <rect width="7" height="5" x="14" y="3" rx="1"/>
+            <rect width="7" height="9" x="14" y="12" rx="1"/>
+            <rect width="7" height="5" x="3" y="16" rx="1"/>
+          </svg>
+          <span>Dashboard</span>
+        </div>
+        <div class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+            <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+            <path d="M10 9H8"/>
+            <path d="M16 13H8"/>
+            <path d="M16 17H8"/>
+          </svg>
+          <span>Fatture</span>
+        </div>
+        <div class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21 16-4 4-4-4"/>
+            <path d="M17 20V4"/>
+            <path d="m3 8 4-4 4 4"/>
+            <path d="M7 4v16"/>
+          </svg>
+          <span>Movimenti</span>
+        </div>
+        <div class="nav-item">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="16" height="20" x="4" y="2" rx="2"/>
+            <line x1="8" x2="16" y1="6" y2="6"/>
+            <line x1="16" x2="16" y1="14" y2="18"/>
+            <path d="M16 10h.01"/>
+            <path d="M12 10h.01"/>
+            <path d="M8 10h.01"/>
+            <path d="M12 14h.01"/>
+            <path d="M8 14h.01"/>
+            <path d="M12 18h.01"/>
+            <path d="M8 18h.01"/>
+          </svg>
+          <span>Simulatore</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="logout-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" x2="9" y1="12" y2="12"/>
+          </svg>
+          Esci
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="page-header">
+        <h2>Dashboard</h2>
+        <p>Panoramica della tua situazione fiscale 2025</p>
+      </div>
+
+      <div class="cards-grid">
+        <!-- Riepilogo Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Riepilogo Fiscale 2025</h3>
+            <p class="card-description">Calcoli basati sul regime forfettario</p>
+          </div>
+          <div class="card-content">
+            <div class="riepilogo-grid">
+              <div class="riepilogo-row">
+                <span class="riepilogo-label">Fatturato lordo</span>
+                <div class="riepilogo-values">
+                  <div class="riepilogo-main text-green">54.796,12</div>
+                  <div class="riepilogo-sub">27 fatture emesse</div>
+                </div>
+              </div>
+              <div class="riepilogo-row">
+                <span class="riepilogo-label">Reddito imponibile (78%)</span>
+                <div class="riepilogo-values">
+                  <div class="riepilogo-main">42.740,97</div>
+                </div>
+              </div>
+              <div class="riepilogo-row">
+                <span class="riepilogo-label">Contributi INPS GS (26,07%)</span>
+                <div class="riepilogo-values">
+                  <div class="riepilogo-main row-value amber">- 11.142,39</div>
+                </div>
+              </div>
+              <div class="riepilogo-row">
+                <span class="riepilogo-label">Imposta sostitutiva (5%)</span>
+                <div class="riepilogo-values">
+                  <div class="riepilogo-main row-value amber">- 1.579,93</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="riepilogo-highlight">
+              <div class="riepilogo-row">
+                <span class="riepilogo-label">Tasse totali</span>
+                <div class="riepilogo-values">
+                  <span class="riepilogo-main row-value amber">- 12.722,32</span>
+                  <span class="percentage-badge">23,22%</span>
+                </div>
+              </div>
+              <div class="riepilogo-row">
+                <span class="riepilogo-label" style="font-weight: 600;">Netto teorico</span>
+                <div class="riepilogo-values">
+                  <span class="riepilogo-main text-green" style="font-size: 1.25rem;">42.073,80</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cash Flow Card -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Situazione Cash Flow</h3>
+            <p class="card-description">Basato su fatturato reale, prelievi e uscite (tasse incluse)</p>
+          </div>
+          <div class="card-content">
+            <div class="row">
+              <span class="row-label">Fatturato totale</span>
+              <span class="row-value green">114.808,09</span>
+            </div>
+            <div class="row">
+              <span class="row-label">Prelievi (stipendi)</span>
+              <span class="row-value red">- 66.800,00</span>
+            </div>
+            <div class="row">
+              <span class="row-label">Uscite (di cui tasse: 27.631,88)</span>
+              <span class="row-value red">- 27.458,19</span>
+            </div>
+            <div class="row row-divider">
+              <span class="row-label">Saldo conto</span>
+              <span class="row-value">20.549,90</span>
+            </div>
+          </div>
+
+          <!-- Info Box: Tasse da accantonare -->
+          <div class="info-box">
+            <div class="info-box-header">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+                <line x1="16" x2="16" y1="2" y2="6"/>
+                <line x1="8" x2="8" y1="2" y2="6"/>
+                <line x1="3" x2="21" y1="10" y2="10"/>
+              </svg>
+              <span>Da accantonare per giugno 2026</span>
+            </div>
+            <div class="row">
+              <span class="row-label">Primo acconto 2026 (40%)</span>
+              <span class="row-value amber">- 5.088,93</span>
+            </div>
+            <div class="row">
+              <span class="row-label">Margine sicurezza (3,32%)</span>
+              <span class="row-value amber">- 168,95</span>
+            </div>
+            <div class="row row-divider">
+              <span class="row-label">Totale da accantonare</span>
+              <span class="row-value amber" style="font-weight: 600;">- 5.257,88</span>
+            </div>
+          </div>
+
+          <!-- Highlight Box: Netto Prelevabile -->
+          <div class="highlight-box success">
+            <div class="highlight-box-content">
+              <div class="highlight-box-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+                <span>Puoi prelevare</span>
+              </div>
+              <span class="highlight-box-value">15.292,02</span>
+            </div>
+            <p class="highlight-box-note">Saldo 2025 e primo acconto 2026 coperti</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
