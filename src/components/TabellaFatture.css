@@ -1,0 +1,172 @@
+.tabella-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.tabella-scroll {
+  overflow-x: auto;
+}
+
+.tabella-empty {
+  background: #fff;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #666;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tabella-fatture {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabella-fatture th,
+.tabella-fatture td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.tabella-fatture th {
+  background: #f8f9fa;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+.tabella-fatture tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.tabella-fatture tbody tr.editing-row {
+  background: #f0f4ff;
+}
+
+.tabella-fatture tbody tr.editing-row td {
+  padding: 16px;
+}
+
+.descrizione-cell {
+  max-width: 200px;
+}
+
+.descrizione-cell .note {
+  display: block;
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 4px;
+}
+
+.netto-cell {
+  font-weight: 600;
+  color: #388e3c;
+}
+
+.stato-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  background: #fff;
+}
+
+.stato-select.stato-incassata {
+  background: #e8f5e9;
+  border-color: #a5d6a7;
+  color: #2e7d32;
+}
+
+.stato-select.stato-parzialmente_incassata {
+  background: #fff3e0;
+  border-color: #ffcc80;
+  color: #e65100;
+}
+
+.stato-select.stato-non_incassata {
+  background: #ffebee;
+  border-color: #ef9a9a;
+  color: #c62828;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.btn-icon {
+  padding: 6px 12px;
+  margin-right: 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-icon.edit {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.btn-icon.edit:hover {
+  background: #bbdefb;
+}
+
+.btn-icon.delete {
+  background: #ffebee;
+  color: #d32f2f;
+}
+
+.btn-icon.delete:hover {
+  background: #ffcdd2;
+}
+
+@media (max-width: 768px) {
+  .tabella-fatture thead {
+    display: none;
+  }
+
+  .tabella-fatture tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .tabella-fatture tbody td {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .tabella-fatture tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .tabella-fatture tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #555;
+    font-size: 0.85rem;
+  }
+
+  .descrizione-cell {
+    max-width: none;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actions-cell {
+    justify-content: flex-end !important;
+  }
+
+  .actions-cell::before {
+    display: none;
+  }
+}
