@@ -2,16 +2,16 @@ import { useState } from "react";
 import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
 import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { AuthForm } from "./components/AuthForm";
+import { Sidebar, type SidebarSection } from "./components/Sidebar";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
-import { Grafici } from "./components/Grafici";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
-import { Plus, X, LogOut, BarChart3 } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 function App() {
   const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
@@ -30,7 +30,10 @@ function App() {
     eliminaUscita,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
-  const [showGrafici, setShowGrafici] = useState(true);
+  const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
+
+  // Filtra fatture per anno corrente (per il riepilogo)
+  const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(ANNO)));
 
   // Mostra schermata di caricamento durante verifica auth
   if (authLoading) {
@@ -57,106 +60,101 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Gestione Fatture {ANNO}</h1>
-              <p className="text-muted-foreground">Regime Forfettario - Partita IVA</p>
+      <Sidebar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        onLogout={signOut}
+      />
+
+      <main className="ml-64 min-h-screen">
+        <div className="p-8">
+          {error && (
+            <div className="bg-red-950 border border-red-800 text-red-200 px-4 py-3 rounded mb-6">
+              <p className="text-sm">{error}</p>
             </div>
-            <Button variant="outline" onClick={signOut} className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Esci
-            </Button>
-          </div>
-        </div>
-      </header>
+          )}
 
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-            <p className="text-sm">{error}</p>
-          </div>
-        )}
+          {activeSection === "dashboard" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
+                <p className="text-muted-foreground">Panoramica della tua situazione fiscale {ANNO}</p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <RiepilogoCard fatture={fattureAnnoCorrente} />
+                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} />
+              </div>
+            </div>
+          )}
 
-        <section>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <RiepilogoCard fatture={fatture} />
-            <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} />
-          </div>
-        </section>
+          {activeSection === "fatture" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">Fatture</h2>
+                  <p className="text-muted-foreground">Gestisci le tue fatture emesse</p>
+                </div>
+                <Button onClick={() => setShowForm(!showForm)}>
+                  {showForm ? (
+                    <>
+                      <X className="h-4 w-4" /> Chiudi
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" /> Nuova fattura
+                    </>
+                  )}
+                </Button>
+              </div>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Grafici & Proiezioni</h2>
-            <Button variant="outline" onClick={() => setShowGrafici(!showGrafici)}>
-              <BarChart3 className="h-4 w-4" />
-              {showGrafici ? "Nascondi" : "Mostra"}
-            </Button>
-          </div>
-
-          {showGrafici && <Grafici fatture={fatture} prelievi={prelievi} uscite={uscite} />}
-        </section>
-
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Fatture</h2>
-            <Button onClick={() => setShowForm(!showForm)}>
-              {showForm ? (
-                <>
-                  <X className="h-4 w-4" /> Chiudi
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" /> Nuova fattura
-                </>
+              {showForm && (
+                <div className="border rounded-lg p-6 bg-card">
+                  <FormFattura
+                    onSubmit={(dati) => {
+                      aggiungiFattura(dati);
+                      setShowForm(false);
+                    }}
+                    onCancel={() => setShowForm(false)}
+                  />
+                </div>
               )}
-            </Button>
-          </div>
 
-          {showForm && (
-            <div className="border rounded-lg p-6 bg-card">
-              <FormFattura
-                onSubmit={(dati) => {
-                  aggiungiFattura(dati);
-                  setShowForm(false);
-                }}
-                onCancel={() => setShowForm(false)}
+              <TabellaFatture
+                fatture={fatture}
+                onModifica={modificaFattura}
+                onElimina={eliminaFattura}
               />
             </div>
           )}
 
-          <TabellaFatture
-            fatture={fatture}
-            onModifica={modificaFattura}
-            onElimina={eliminaFattura}
-          />
-        </section>
+          {activeSection === "movimenti" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Movimenti</h2>
+                <p className="text-muted-foreground">Prelievi e uscite dal conto</p>
+              </div>
+              <GestioneMovimenti
+                prelievi={prelievi}
+                uscite={uscite}
+                onAggiungiPrelievo={aggiungiPrelievo}
+                onEliminaPrelievo={eliminaPrelievo}
+                onAggiungiUscita={aggiungiUscita}
+                onEliminaUscita={eliminaUscita}
+              />
+            </div>
+          )}
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-semibold">Prelievi & Uscite</h2>
-          <GestioneMovimenti
-            prelievi={prelievi}
-            uscite={uscite}
-            onAggiungiPrelievo={aggiungiPrelievo}
-            onEliminaPrelievo={eliminaPrelievo}
-            onAggiungiUscita={aggiungiUscita}
-            onEliminaUscita={eliminaUscita}
-          />
-        </section>
-
-        <section>
-          <ScenarioSimulator fatture={fatture} />
-        </section>
-      </main>
-
-      <footer className="border-t mt-12">
-        <div className="container mx-auto px-4 py-6">
-          <p className="text-sm text-muted-foreground text-center">
-            Regime forfettario: coefficiente 78%, imposta sostitutiva 5%, contributi INPS GS 26,07%
-          </p>
+          {activeSection === "simulatore" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Simulatore</h2>
+                <p className="text-muted-foreground">Simula l'impatto di nuove fatture</p>
+              </div>
+              <ScenarioSimulator fatture={fatture} />
+            </div>
+          )}
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
