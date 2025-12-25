@@ -171,17 +171,19 @@ describe("calcolaSituazioneCashFlow", () => {
 
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, prelievi, uscite);
 
-    expect(cashFlow.nettoFatture).toBeCloseTo(2687.37455, 2);
+    // nettoFatture ora è il fatturato lordo (le tasse sono nelle uscite)
+    expect(cashFlow.nettoFatture).toBe(3500);
     expect(cashFlow.totalePrelievi).toBe(1000);
     expect(cashFlow.totaleUscite).toBe(500);
-    // Netto disponibile = 2687.37455 - 1000 - 500 = 1187.37455
-    expect(cashFlow.nettoDisponibile).toBeCloseTo(1187.37455, 2);
+    // Netto disponibile = 3500 - 1000 - 500 = 2000
+    expect(cashFlow.nettoDisponibile).toBe(2000);
   });
 
   it("gestisce correttamente il caso senza prelievi e uscite", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, [], []);
 
-    expect(cashFlow.nettoDisponibile).toBeCloseTo(cashFlow.nettoFatture, 2);
+    // Senza prelievi e uscite, netto disponibile = fatturato lordo
+    expect(cashFlow.nettoDisponibile).toBe(cashFlow.nettoFatture);
   });
 });
 
