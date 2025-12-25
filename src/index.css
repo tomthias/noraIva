@@ -3,33 +3,43 @@
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --color-background: oklch(100% 0 0);
-  --color-foreground: oklch(9% 0 0);
+  /* Dark mode colors */
+  --color-background: oklch(11% 0.01 264);
+  --color-foreground: oklch(98% 0 0);
 
-  --color-primary: oklch(9% 0 0);
-  --color-primary-foreground: oklch(98% 0 0);
+  --color-primary: oklch(70% 0.19 250);
+  --color-primary-foreground: oklch(11% 0.01 264);
 
-  --color-secondary: oklch(96.5% 0 0);
-  --color-secondary-foreground: oklch(9% 0 0);
+  --color-secondary: oklch(20% 0.01 264);
+  --color-secondary-foreground: oklch(98% 0 0);
 
-  --color-muted: oklch(96.5% 0 0);
-  --color-muted-foreground: oklch(45% 0 0);
+  --color-muted: oklch(20% 0.01 264);
+  --color-muted-foreground: oklch(65% 0.015 264);
 
-  --color-accent: oklch(96.5% 0 0);
-  --color-accent-foreground: oklch(9% 0 0);
+  --color-accent: oklch(25% 0.02 264);
+  --color-accent-foreground: oklch(98% 0 0);
 
   --color-destructive: oklch(57.6% 0.24 29.2);
   --color-destructive-foreground: oklch(98% 0 0);
 
-  --color-card: oklch(100% 0 0);
-  --color-card-foreground: oklch(9% 0 0);
+  --color-card: oklch(15% 0.01 264);
+  --color-card-foreground: oklch(98% 0 0);
 
-  --color-popover: oklch(100% 0 0);
-  --color-popover-foreground: oklch(9% 0 0);
+  --color-popover: oklch(15% 0.01 264);
+  --color-popover-foreground: oklch(98% 0 0);
 
-  --color-border: oklch(89.8% 0 0);
-  --color-input: oklch(89.8% 0 0);
-  --color-ring: oklch(9% 0 0);
+  --color-border: oklch(25% 0.02 264);
+  --color-input: oklch(25% 0.02 264);
+  --color-ring: oklch(70% 0.19 250);
 
   --radius: 0.5rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
