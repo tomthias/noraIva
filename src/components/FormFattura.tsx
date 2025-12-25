@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import type { Fattura, StatoIncasso } from "../types/fattura";
-import "./FormFattura.css";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   fattura?: Fattura;
@@ -41,11 +43,11 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
   };
 
   return (
-    <form className="form-fattura" onSubmit={handleSubmit}>
-      <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="data">Data</label>
-          <input
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="data">Data</Label>
+          <Input
             type="date"
             id="data"
             value={data}
@@ -53,9 +55,9 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
             required
           />
         </div>
-        <div className="form-group">
-          <label htmlFor="cliente">Cliente</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="cliente">Cliente</Label>
+          <Input
             type="text"
             id="cliente"
             value={cliente}
@@ -65,9 +67,9 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="descrizione">Descrizione</label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="descrizione">Descrizione</Label>
+        <Input
           type="text"
           id="descrizione"
           value={descrizione}
@@ -77,10 +79,10 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <label htmlFor="importoLordo">Importo lordo (€)</label>
-          <input
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="importoLordo">Importo lordo (€)</Label>
+          <Input
             type="number"
             id="importoLordo"
             value={importoLordo}
@@ -91,9 +93,9 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
             required
           />
         </div>
-        <div className="form-group">
-          <label htmlFor="incassato">Incassato (€)</label>
-          <input
+        <div className="space-y-2">
+          <Label htmlFor="incassato">Incassato (€)</Label>
+          <Input
             type="number"
             id="incassato"
             value={incassato}
@@ -105,9 +107,9 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="form-group">
-        <label htmlFor="note">Note (opzionale)</label>
-        <input
+      <div className="space-y-2">
+        <Label htmlFor="note">Note (opzionale)</Label>
+        <Input
           type="text"
           id="note"
           value={note}
@@ -116,14 +118,14 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
         />
       </div>
 
-      <div className="form-actions">
-        <button type="submit" className="btn-primary">
+      <div className="flex gap-2">
+        <Button type="submit">
           {fattura ? "Salva modifiche" : "Aggiungi fattura"}
-        </button>
+        </Button>
         {onCancel && (
-          <button type="button" className="btn-secondary" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel}>
             Annulla
-          </button>
+          </Button>
         )}
       </div>
     </form>

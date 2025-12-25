@@ -3,7 +3,10 @@ import type { Fattura, StatoIncasso } from "../types/fattura";
 import { calcolaRiepilogoPerFattura } from "../utils/calcoliFisco";
 import { formatCurrency, formatDate } from "../utils/format";
 import { FormFattura } from "./FormFattura";
-import "./TabellaFatture.css";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Pencil, Trash2 } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
@@ -32,98 +35,113 @@ export function TabellaFatture({ fatture, onModifica, onElimina, onAggiornaStato
 
   if (fatture.length === 0) {
     return (
-      <div className="tabella-empty">
+      <div className="text-center py-8 text-muted-foreground">
         <p>Nessuna fattura registrata. Aggiungi la tua prima fattura!</p>
       </div>
     );
   }
 
   return (
-    <div className="tabella-container">
-      <div className="tabella-scroll">
-        <table className="tabella-fatture">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Descrizione</th>
-              <th>Cliente</th>
-              <th>Importo lordo</th>
-              <th>Incassato</th>
-              <th>Stato</th>
-              <th>Netto stimato</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fatture.map((fattura) => {
-              const riepilogo = riepiloghi.find((r) => r.id === fattura.id);
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Data</TableHead>
+            <TableHead>Descrizione</TableHead>
+            <TableHead>Cliente</TableHead>
+            <TableHead className="text-right">Importo lordo</TableHead>
+            <TableHead className="text-right">Incassato</TableHead>
+            <TableHead>Stato</TableHead>
+            <TableHead className="text-right">Netto stimato</TableHead>
+            <TableHead className="text-center">Azioni</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {fatture.map((fattura) => {
+            const riepilogo = riepiloghi.find((r) => r.id === fattura.id);
 
-              if (editingId === fattura.id) {
-                return (
-                  <tr key={fattura.id} className="editing-row">
-                    <td colSpan={8}>
-                      <FormFattura
-                        fattura={fattura}
-                        onSubmit={(dati) => handleSaveEdit(fattura.id, dati)}
-                        onCancel={() => setEditingId(null)}
-                      />
-                    </td>
-                  </tr>
-                );
-              }
-
+            if (editingId === fattura.id) {
               return (
-                <tr key={fattura.id}>
-                  <td data-label="Data">{formatDate(fattura.data)}</td>
-                  <td data-label="Descrizione" className="descrizione-cell">
-                    {fattura.descrizione}
-                    {fattura.note && <span className="note">{fattura.note}</span>}
-                  </td>
-                  <td data-label="Cliente">{fattura.cliente || "-"}</td>
-                  <td data-label="Importo lordo">{formatCurrency(fattura.importoLordo)}</td>
-                  <td data-label="Incassato">{formatCurrency(fattura.incassato)}</td>
-                  <td data-label="Stato">
-                    <select
-                      value={fattura.stato}
-                      onChange={(e) => onAggiornaStato(fattura.id, e.target.value as StatoIncasso)}
-                      className={`stato-select stato-${fattura.stato}`}
-                    >
-                      <option value="non_incassata">{STATO_LABELS.non_incassata}</option>
-                      <option value="parzialmente_incassata">
+                <TableRow key={fattura.id}>
+                  <TableCell colSpan={8} className="p-4">
+                    <FormFattura
+                      fattura={fattura}
+                      onSubmit={(dati) => handleSaveEdit(fattura.id, dati)}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            }
+
+            return (
+              <TableRow key={fattura.id}>
+                <TableCell className="whitespace-nowrap">{formatDate(fattura.data)}</TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span>{fattura.descrizione}</span>
+                    {fattura.note && (
+                      <span className="text-xs text-muted-foreground">{fattura.note}</span>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>{fattura.cliente || "-"}</TableCell>
+                <TableCell className="text-right font-medium">
+                  {formatCurrency(fattura.importoLordo)}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {formatCurrency(fattura.incassato)}
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={fattura.stato}
+                    onValueChange={(value) => onAggiornaStato(fattura.id, value as StatoIncasso)}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="non_incassata">{STATO_LABELS.non_incassata}</SelectItem>
+                      <SelectItem value="parzialmente_incassata">
                         {STATO_LABELS.parzialmente_incassata}
-                      </option>
-                      <option value="incassata">{STATO_LABELS.incassata}</option>
-                    </select>
-                  </td>
-                  <td data-label="Netto stimato" className="netto-cell">
-                    {riepilogo ? formatCurrency(riepilogo.nettoStimato) : "-"}
-                  </td>
-                  <td className="actions-cell">
-                    <button
-                      className="btn-icon edit"
+                      </SelectItem>
+                      <SelectItem value="incassata">{STATO_LABELS.incassata}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {riepilogo ? formatCurrency(riepilogo.nettoStimato) : "-"}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2 justify-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setEditingId(fattura.id)}
                       title="Modifica"
                     >
-                      Modifica
-                    </button>
-                    <button
-                      className="btn-icon delete"
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => {
                         if (confirm("Sei sicuro di voler eliminare questa fattura?")) {
                           onElimina(fattura.id);
                         }
                       }}
                       title="Elimina"
+                      className="text-destructive hover:text-destructive"
                     >
-                      Elimina
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }
