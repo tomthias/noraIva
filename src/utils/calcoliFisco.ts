@@ -2,17 +2,17 @@
  * Funzioni di calcolo fiscale per il Regime Forfettario 2025
  *
  * REGOLE DI CALCOLO:
- * 1. Reddito Imponibile Lordo = Fatturato Incassato × Coefficiente Redditività (78%)
+ * 1. Reddito Imponibile Lordo = Fatturato Totale × Coefficiente Redditività (78%)
  * 2. Contributi INPS = Reddito Imponibile Lordo × Aliquota Gestione Separata (26,07%)
  * 3. Reddito Imponibile Netto = Reddito Imponibile Lordo - Contributi INPS
  * 4. Imposta Sostitutiva = Reddito Imponibile Netto × Aliquota Imposta (5%)
  * 5. Totale Tasse = Contributi INPS + Imposta Sostitutiva
- * 6. Netto Annuo = Fatturato Incassato - Totale Tasse
+ * 6. Netto Fatture = Fatturato Totale - Totale Tasse
+ * 7. Netto Disponibile = Netto Fatture - Prelievi - Uscite
  *
- * Per singola fattura (pro-quota):
- * - quota = incassatoFattura / fatturatoIncassatoTotale
- * - tasseProQuota = tasseTotali × quota
- * - nettoStimato = incassato - tasseProQuota
+ * Per singola fattura:
+ * - tasseContributi = (importoLordo × 78% × 26.07%) + (importoLordo × 78% × (1 - 26.07%) × 5%)
+ * - netto = importoLordo - tasseContributi
  */
 
 import {
@@ -20,17 +20,17 @@ import {
   ALIQUOTA_CONTRIBUTI_GS,
   COEFFICIENTE_REDDITIVITA,
 } from "../constants/fiscali";
-import type { Fattura, RiepilogoFattura, RiepilogoAnnuale } from "../types/fattura";
+import type {
+  Fattura,
+  Prelievo,
+  Uscita,
+  RiepilogoFattura,
+  RiepilogoAnnuale,
+  SituazioneCashFlow,
+} from "../types/fattura";
 
 /**
- * Calcola il totale fatturato incassato (somma di tutti gli importi incassati)
- */
-export function calcolaFatturatoIncassato(fatture: Fattura[]): number {
-  return fatture.reduce((sum, f) => sum + f.incassato, 0);
-}
-
-/**
- * Calcola il totale importi lordi (somma di tutti gli importi fatturati)
+ * Calcola il totale fatturato (somma di tutti gli importi lordi)
  */
 export function calcolaTotaleFatture(fatture: Fattura[]): number {
   return fatture.reduce((sum, f) => sum + f.importoLordo, 0);
@@ -38,11 +38,11 @@ export function calcolaTotaleFatture(fatture: Fattura[]): number {
 
 /**
  * Calcola il reddito imponibile lordo
- * Formula: Fatturato Incassato × Coefficiente Redditività (78%)
+ * Formula: Fatturato Totale × Coefficiente Redditività (78%)
  */
 export function calcolaRedditoImponibileLordo(fatture: Fattura[]): number {
-  const fatturatoIncassato = calcolaFatturatoIncassato(fatture);
-  return fatturatoIncassato * COEFFICIENTE_REDDITIVITA;
+  const fatturatoTotale = calcolaTotaleFatture(fatture);
+  return fatturatoTotale * COEFFICIENTE_REDDITIVITA;
 }
 
 /**
@@ -84,39 +84,33 @@ export function calcolaTasseTotali(fatture: Fattura[]): number {
 }
 
 /**
- * Calcola il netto annuo effettivo
- * Formula: Fatturato Incassato - Totale Tasse
+ * Calcola il netto derivante dalle fatture (prima di prelievi e uscite)
+ * Formula: Fatturato Totale - Totale Tasse
  */
-export function calcolaNettoAnnuo(fatture: Fattura[]): number {
-  const fatturatoIncassato = calcolaFatturatoIncassato(fatture);
+export function calcolaNettoFatture(fatture: Fattura[]): number {
+  const fatturatoTotale = calcolaTotaleFatture(fatture);
   const tasseTotali = calcolaTasseTotali(fatture);
-  return fatturatoIncassato - tasseTotali;
+  return fatturatoTotale - tasseTotali;
 }
 
 /**
- * Calcola il riepilogo pro-quota per ogni fattura
- *
- * Per ripartire tasse e contributi proporzionalmente:
- * - quota = incassatoFattura / fatturatoIncassatoTotale
- * - tasseProQuota = tasseTotali × quota
- * - nettoStimato = incassato - tasseProQuota
+ * Calcola il riepilogo per ogni fattura
+ * Mostra tasse e netto per singola fattura
  */
 export function calcolaRiepilogoPerFattura(fatture: Fattura[]): RiepilogoFattura[] {
-  const fatturatoIncassatoTotale = calcolaFatturatoIncassato(fatture);
-  const tasseTotali = calcolaTasseTotali(fatture);
-
   return fatture.map((f) => {
-    // Evita divisione per zero
-    const quota = fatturatoIncassatoTotale > 0 ? f.incassato / fatturatoIncassatoTotale : 0;
-    const tasseProQuota = tasseTotali * quota;
-    const nettoStimato = f.incassato - tasseProQuota;
+    const redditoImponibile = f.importoLordo * COEFFICIENTE_REDDITIVITA;
+    const inps = redditoImponibile * ALIQUOTA_CONTRIBUTI_GS;
+    const imponibileNetto = redditoImponibile - inps;
+    const imposta = imponibileNetto * ALIQUOTA_IMPOSTA_SOSTITUTIVA;
+    const tasseContributi = inps + imposta;
+    const netto = f.importoLordo - tasseContributi;
 
     return {
       id: f.id,
       importoLordo: f.importoLordo,
-      incassato: f.incassato,
-      tasseProQuota,
-      nettoStimato,
+      tasseContributi,
+      netto,
     };
   });
 }
@@ -127,12 +121,33 @@ export function calcolaRiepilogoPerFattura(fatture: Fattura[]): RiepilogoFattura
 export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
   return {
     totaleFatture: calcolaTotaleFatture(fatture),
-    totaleIncassato: calcolaFatturatoIncassato(fatture),
     redditoImponibileLordo: calcolaRedditoImponibileLordo(fatture),
     contributiINPS: calcolaContributi(fatture),
     impostaSostitutiva: calcolaImposta(fatture),
     tasseTotali: calcolaTasseTotali(fatture),
-    nettoAnnuo: calcolaNettoAnnuo(fatture),
+    nettoFatture: calcolaNettoFatture(fatture),
+  };
+}
+
+/**
+ * Calcola la situazione del cash flow
+ * Mostra quanto è disponibile da ritirare
+ */
+export function calcolaSituazioneCashFlow(
+  fatture: Fattura[],
+  prelievi: Prelievo[],
+  uscite: Uscita[]
+): SituazioneCashFlow {
+  const nettoFatture = calcolaNettoFatture(fatture);
+  const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
+  const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
+  const nettoDisponibile = nettoFatture - totalePrelievi - totaleUscite;
+
+  return {
+    nettoFatture,
+    totalePrelievi,
+    totaleUscite,
+    nettoDisponibile,
   };
 }
 
@@ -144,26 +159,23 @@ export function simulaNuovaFattura(
   fatture: Fattura[],
   importoNuovaFattura: number
 ): RiepilogoAnnuale {
-  // Crea una fattura simulata (considerata già incassata)
-  const fatturaSiumlata: Fattura = {
+  const fatturaSimulata: Fattura = {
     id: "simulata",
     data: new Date().toISOString().split("T")[0],
     descrizione: "Fattura simulata",
     cliente: "",
     importoLordo: importoNuovaFattura,
-    incassato: importoNuovaFattura,
-    stato: "incassata",
   };
 
-  return calcolaRiepilogoAnnuale([...fatture, fatturaSiumlata]);
+  return calcolaRiepilogoAnnuale([...fatture, fatturaSimulata]);
 }
 
 /**
- * Calcola la percentuale di tasse sul fatturato incassato
+ * Calcola la percentuale di tasse sul fatturato totale
  */
 export function calcolaPercentualeTasse(fatture: Fattura[]): number {
-  const fatturatoIncassato = calcolaFatturatoIncassato(fatture);
-  if (fatturatoIncassato === 0) return 0;
+  const fatturatoTotale = calcolaTotaleFatture(fatture);
+  if (fatturatoTotale === 0) return 0;
   const tasseTotali = calcolaTasseTotali(fatture);
-  return (tasseTotali / fatturatoIncassato) * 100;
+  return (tasseTotali / fatturatoTotale) * 100;
 }

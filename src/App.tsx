@@ -1,17 +1,29 @@
 import { useState } from "react";
-import { useFatture } from "./hooks/useFatture";
+import { useCashFlow } from "./hooks/useCashFlow";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
+import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 
 function App() {
-  const { fatture, isLoading, aggiungiFattura, modificaFattura, eliminaFattura, aggiornaStato } =
-    useFatture();
+  const {
+    fatture,
+    prelievi,
+    uscite,
+    isLoading,
+    aggiungiFattura,
+    modificaFattura,
+    eliminaFattura,
+    aggiungiPrelievo,
+    eliminaPrelievo,
+    aggiungiUscita,
+    eliminaUscita,
+  } = useCashFlow();
   const [showForm, setShowForm] = useState(false);
 
   if (isLoading) {
@@ -35,7 +47,7 @@ function App() {
         <section>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <RiepilogoCard fatture={fatture} />
-            <NettoDisponibile fatture={fatture} />
+            <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} />
           </div>
         </section>
 
@@ -71,7 +83,18 @@ function App() {
             fatture={fatture}
             onModifica={modificaFattura}
             onElimina={eliminaFattura}
-            onAggiornaStato={aggiornaStato}
+          />
+        </section>
+
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold">Prelievi & Uscite</h2>
+          <GestioneMovimenti
+            prelievi={prelievi}
+            uscite={uscite}
+            onAggiungiPrelievo={aggiungiPrelievo}
+            onEliminaPrelievo={eliminaPrelievo}
+            onAggiungiUscita={aggiungiUscita}
+            onEliminaUscita={eliminaUscita}
           />
         </section>
 

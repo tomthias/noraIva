@@ -1,34 +1,23 @@
 import { useState } from "react";
-import type { Fattura, StatoIncasso } from "../types/fattura";
+import type { Fattura } from "../types/fattura";
 import { calcolaRiepilogoPerFattura } from "../utils/calcoliFisco";
 import { formatCurrency, formatDate } from "../utils/format";
 import { FormFattura } from "./FormFattura";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2 } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
   onModifica: (id: string, dati: Partial<Fattura>) => void;
   onElimina: (id: string) => void;
-  onAggiornaStato: (id: string, stato: StatoIncasso) => void;
 }
 
-const STATO_LABELS: Record<StatoIncasso, string> = {
-  non_incassata: "Non incassata",
-  parzialmente_incassata: "Parziale",
-  incassata: "Incassata",
-};
-
-export function TabellaFatture({ fatture, onModifica, onElimina, onAggiornaStato }: Props) {
+export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const riepiloghi = calcolaRiepilogoPerFattura(fatture);
 
-  const handleSaveEdit = (
-    id: string,
-    dati: Omit<Fattura, "id" | "stato"> & { stato?: StatoIncasso }
-  ) => {
+  const handleSaveEdit = (id: string, dati: Omit<Fattura, "id">) => {
     onModifica(id, dati);
     setEditingId(null);
   };
@@ -50,9 +39,8 @@ export function TabellaFatture({ fatture, onModifica, onElimina, onAggiornaStato
             <TableHead>Descrizione</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead className="text-right">Importo lordo</TableHead>
-            <TableHead className="text-right">Incassato</TableHead>
-            <TableHead>Stato</TableHead>
-            <TableHead className="text-right">Netto stimato</TableHead>
+            <TableHead className="text-right">Tasse & Contributi</TableHead>
+            <TableHead className="text-right">Netto</TableHead>
             <TableHead className="text-center">Azioni</TableHead>
           </TableRow>
         </TableHeader>
@@ -63,7 +51,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina, onAggiornaStato
             if (editingId === fattura.id) {
               return (
                 <TableRow key={fattura.id}>
-                  <TableCell colSpan={8} className="p-4">
+                  <TableCell colSpan={7} className="p-4">
                     <FormFattura
                       fattura={fattura}
                       onSubmit={(dati) => handleSaveEdit(fattura.id, dati)}
@@ -89,28 +77,11 @@ export function TabellaFatture({ fatture, onModifica, onElimina, onAggiornaStato
                 <TableCell className="text-right font-medium">
                   {formatCurrency(fattura.importoLordo)}
                 </TableCell>
-                <TableCell className="text-right font-medium">
-                  {formatCurrency(fattura.incassato)}
+                <TableCell className="text-right font-medium text-destructive">
+                  {riepilogo ? formatCurrency(riepilogo.tasseContributi) : "-"}
                 </TableCell>
-                <TableCell>
-                  <Select
-                    value={fattura.stato}
-                    onValueChange={(value) => onAggiornaStato(fattura.id, value as StatoIncasso)}
-                  >
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="non_incassata">{STATO_LABELS.non_incassata}</SelectItem>
-                      <SelectItem value="parzialmente_incassata">
-                        {STATO_LABELS.parzialmente_incassata}
-                      </SelectItem>
-                      <SelectItem value="incassata">{STATO_LABELS.incassata}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell className="text-right font-medium">
-                  {riepilogo ? formatCurrency(riepilogo.nettoStimato) : "-"}
+                <TableCell className="text-right font-semibold text-green-600">
+                  {riepilogo ? formatCurrency(riepilogo.netto) : "-"}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2 justify-center">

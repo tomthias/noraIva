@@ -1,34 +1,52 @@
 /**
- * Tipi per la gestione delle fatture nel regime forfettario
+ * Tipi per la gestione del cash flow nel regime forfettario
  */
-
-export type StatoIncasso = "non_incassata" | "parzialmente_incassata" | "incassata";
 
 export interface Fattura {
   id: string;
   data: string; // ISO date format (YYYY-MM-DD)
   descrizione: string;
   cliente: string;
-  importoLordo: number; // Importo totale della fattura
-  incassato: number; // Quanto effettivamente incassato (0 - importoLordo)
-  stato: StatoIncasso;
+  importoLordo: number; // Importo totale della fattura (sempre incassato)
+  note?: string;
+}
+
+export interface Prelievo {
+  id: string;
+  data: string; // ISO date format (YYYY-MM-DD)
+  descrizione: string; // es. "Stipendio Gennaio", "Prelievo emergenza"
+  importo: number;
+  note?: string;
+}
+
+export interface Uscita {
+  id: string;
+  data: string; // ISO date format (YYYY-MM-DD)
+  descrizione: string; // es. "Affitto", "Commercialista"
+  categoria?: string; // es. "Affitto", "Servizi", "Attrezzature"
+  importo: number;
   note?: string;
 }
 
 export interface RiepilogoFattura {
   id: string;
   importoLordo: number;
-  incassato: number;
-  tasseProQuota: number;
-  nettoStimato: number;
+  tasseContributi: number; // INPS + Imposta sostitutiva
+  netto: number; // Quanto rimane netto dalla fattura
 }
 
 export interface RiepilogoAnnuale {
   totaleFatture: number; // Somma importi lordi
-  totaleIncassato: number;
-  redditoImponibileLordo: number;
+  redditoImponibileLordo: number; // 78% del totale fatture
   contributiINPS: number;
   impostaSostitutiva: number;
-  tasseTotali: number;
-  nettoAnnuo: number;
+  tasseTotali: number; // INPS + Imposta
+  nettoFatture: number; // Totale lordo - tasse
+}
+
+export interface SituazioneCashFlow {
+  nettoFatture: number; // Dal riepilogo annuale
+  totalePrelievi: number;
+  totaleUscite: number;
+  nettoDisponibile: number; // nettoFatture - prelievi - uscite
 }
