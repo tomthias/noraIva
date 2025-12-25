@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, X, LogOut, BarChart3 } from "lucide-react";
 
 function App() {
-  const { user, loading: authLoading, signIn, signUp, signOut } = useSupabaseAuth();
+  const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
   const {
     fatture,
     prelievi,
@@ -43,7 +43,7 @@ function App() {
 
   // Mostra schermata login se non autenticato
   if (!user) {
-    return <AuthForm onSignIn={signIn} onSignUp={signUp} />;
+    return <AuthForm onSignIn={signIn} />;
   }
 
   // Mostra schermata di caricamento dati
