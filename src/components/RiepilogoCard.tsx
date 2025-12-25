@@ -23,12 +23,6 @@ export function RiepilogoCard({ fatture }: Props) {
             <span className="font-medium">{formatCurrency(riepilogo.totaleFatture)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Totale incassato</span>
-            <span className="font-semibold text-lg text-primary">
-              {formatCurrency(riepilogo.totaleIncassato)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Reddito imponibile lordo (78%)</span>
             <span className="font-medium">{formatCurrency(riepilogo.redditoImponibileLordo)}</span>
           </div>
@@ -51,9 +45,9 @@ export function RiepilogoCard({ fatture }: Props) {
             </span>
           </div>
           <div className="flex justify-between items-center pt-4 border-t">
-            <span className="font-semibold">Netto annuo stimato</span>
+            <span className="font-semibold">Netto totale fatture</span>
             <span className="font-bold text-lg text-green-600">
-              {formatCurrency(riepilogo.nettoAnnuo)}
+              {formatCurrency(riepilogo.nettoFatture)}
             </span>
           </div>
         </div>

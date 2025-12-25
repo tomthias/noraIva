@@ -21,7 +21,7 @@ export function ScenarioSimulator({ fatture }: Props) {
     ? riepilogoSimulato.tasseTotali - riepilogoAttuale.tasseTotali
     : 0;
   const differenzaNetto = riepilogoSimulato
-    ? riepilogoSimulato.nettoAnnuo - riepilogoAttuale.nettoAnnuo
+    ? riepilogoSimulato.nettoFatture - riepilogoAttuale.nettoFatture
     : 0;
 
   return (
@@ -56,9 +56,9 @@ export function ScenarioSimulator({ fatture }: Props) {
         {riepilogoSimulato && importoNum > 0 && (
           <div className="grid gap-3 pt-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Nuovo totale incassato</span>
+              <span className="text-sm text-muted-foreground">Nuovo totale fatture</span>
               <span className="font-medium">
-                {formatCurrency(riepilogoSimulato.totaleIncassato)}
+                {formatCurrency(riepilogoSimulato.totaleFatture)}
               </span>
             </div>
             <div className="flex justify-between items-center">
@@ -78,8 +78,8 @@ export function ScenarioSimulator({ fatture }: Props) {
               </span>
             </div>
             <div className="flex justify-between items-center pt-2 border-t">
-              <span className="font-semibold">Nuovo netto annuo</span>
-              <span className="font-bold text-lg">{formatCurrency(riepilogoSimulato.nettoAnnuo)}</span>
+              <span className="font-semibold">Nuovo netto fatture</span>
+              <span className="font-bold text-lg">{formatCurrency(riepilogoSimulato.nettoFatture)}</span>
             </div>
           </div>
         )}

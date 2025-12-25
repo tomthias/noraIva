@@ -1,9 +1,12 @@
 /**
- * Gestione localStorage per le fatture
+ * Gestione localStorage per fatture, prelievi e uscite
  */
 
-import { STORAGE_KEY } from "../constants/fiscali";
-import type { Fattura } from "../types/fattura";
+import { STORAGE_KEY, ANNO } from "../constants/fiscali";
+import type { Fattura, Prelievo, Uscita } from "../types/fattura";
+
+const PRELIEVI_KEY = `prelievi-${ANNO}`;
+const USCITE_KEY = `uscite-${ANNO}`;
 
 /**
  * Carica le fatture da localStorage
@@ -31,7 +34,57 @@ export function salvaFatture(fatture: Fattura[]): void {
 }
 
 /**
- * Genera un UUID v4 per le nuove fatture
+ * Carica i prelievi da localStorage
+ */
+export function caricaPrelievi(): Prelievo[] {
+  try {
+    const data = localStorage.getItem(PRELIEVI_KEY);
+    if (!data) return [];
+    return JSON.parse(data) as Prelievo[];
+  } catch (error) {
+    console.error("Errore nel caricamento dei prelievi:", error);
+    return [];
+  }
+}
+
+/**
+ * Salva i prelievi in localStorage
+ */
+export function salvaPrelievi(prelievi: Prelievo[]): void {
+  try {
+    localStorage.setItem(PRELIEVI_KEY, JSON.stringify(prelievi));
+  } catch (error) {
+    console.error("Errore nel salvataggio dei prelievi:", error);
+  }
+}
+
+/**
+ * Carica le uscite da localStorage
+ */
+export function caricaUscite(): Uscita[] {
+  try {
+    const data = localStorage.getItem(USCITE_KEY);
+    if (!data) return [];
+    return JSON.parse(data) as Uscita[];
+  } catch (error) {
+    console.error("Errore nel caricamento delle uscite:", error);
+    return [];
+  }
+}
+
+/**
+ * Salva le uscite in localStorage
+ */
+export function salvaUscite(uscite: Uscita[]): void {
+  try {
+    localStorage.setItem(USCITE_KEY, JSON.stringify(uscite));
+  } catch (error) {
+    console.error("Errore nel salvataggio delle uscite:", error);
+  }
+}
+
+/**
+ * Genera un UUID v4
  */
 export function generaId(): string {
   return crypto.randomUUID();

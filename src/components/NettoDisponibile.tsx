@@ -1,42 +1,49 @@
-import type { Fattura } from "../types/fattura";
-import { calcolaRiepilogoAnnuale } from "../utils/calcoliFisco";
+import type { Fattura, Prelievo, Uscita } from "../types/fattura";
+import { calcolaSituazioneCashFlow } from "../utils/calcoliFisco";
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Props {
   fatture: Fattura[];
+  prelievi: Prelievo[];
+  uscite: Uscita[];
 }
 
-export function NettoDisponibile({ fatture }: Props) {
-  // Considera solo le fatture incassate (anche parzialmente)
-  const fattureIncassate = fatture.filter((f) => f.incassato > 0);
-  const riepilogo = calcolaRiepilogoAnnuale(fattureIncassate);
+export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
+  const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Quanto posso ritirare adesso</CardTitle>
         <CardDescription>
-          Questo importo tiene conto delle tasse e contributi da accantonare sugli incassi
-          effettivi.
+          Netto delle fatture meno i prelievi già effettuati e le uscite sostenute.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Incassi cumulati</span>
-            <span className="font-medium">{formatCurrency(riepilogo.totaleIncassato)}</span>
+            <span className="text-sm text-muted-foreground">Netto fatture</span>
+            <span className="font-medium text-green-600">
+              {formatCurrency(cashFlow.nettoFatture)}
+            </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Tasse & contributi maturati</span>
+            <span className="text-sm text-muted-foreground">Prelievi effettuati</span>
             <span className="font-medium text-destructive">
-              - {formatCurrency(riepilogo.tasseTotali)}
+              - {formatCurrency(cashFlow.totalePrelievi)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Uscite sostenute</span>
+            <span className="font-medium text-destructive">
+              - {formatCurrency(cashFlow.totaleUscite)}
             </span>
           </div>
           <div className="flex justify-between items-center pt-4 border-t">
             <span className="font-semibold">Netto disponibile</span>
             <span className="font-bold text-lg text-green-600">
-              {formatCurrency(riepilogo.nettoAnnuo)}
+              {formatCurrency(cashFlow.nettoDisponibile)}
             </span>
           </div>
         </div>
