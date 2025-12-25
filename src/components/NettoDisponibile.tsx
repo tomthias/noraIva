@@ -105,16 +105,22 @@ export function NettoDisponibile({ fatture, prelievi, uscite, annoSelezionato }:
               <span className="text-amber-500">- {formatCurrency(saldoAnnoCorrente)}</span>
             </div>
           )}
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Primo acconto {annoSelezionato + 1} (40%)</span>
-            <span className="text-amber-500">- {formatCurrency(primoAccontoAnnoProssimo)}</span>
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t">
-            <span className="font-medium">Totale da accantonare</span>
-            <span className="font-semibold text-amber-500">
-              - {formatCurrency(totaleDaAccantonare)}
+          <div className={`flex justify-between items-center ${saldoAnnoCorrente === 0 ? "pt-0" : ""}`}>
+            <span className={saldoAnnoCorrente > 0 ? "text-muted-foreground" : "font-medium"}>
+              {saldoAnnoCorrente > 0 ? `Primo acconto ${annoSelezionato + 1} (40%)` : "Primo acconto (40%)"}
+            </span>
+            <span className={saldoAnnoCorrente > 0 ? "text-amber-500" : "font-semibold text-amber-500"}>
+              - {formatCurrency(primoAccontoAnnoProssimo)}
             </span>
           </div>
+          {saldoAnnoCorrente > 0 && (
+            <div className="flex justify-between items-center pt-2 border-t">
+              <span className="font-medium">Totale da accantonare</span>
+              <span className="font-semibold text-amber-500">
+                - {formatCurrency(totaleDaAccantonare)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

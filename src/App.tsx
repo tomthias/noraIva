@@ -10,6 +10,7 @@ import { GraficoFatturato } from "./components/GraficoFatturato";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
+import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { YearFilter } from "./components/YearFilter";
 import { ANNO } from "./constants/fiscali";
@@ -28,8 +29,10 @@ function App() {
     modificaFattura,
     eliminaFattura,
     aggiungiPrelievo,
+    modificaPrelievo,
     eliminaPrelievo,
     aggiungiUscita,
+    modificaUscita,
     eliminaUscita,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
@@ -150,6 +153,8 @@ function App() {
                 </div>
               )}
 
+              <GraficoClienti fatture={fatture} />
+
               <TabellaFatture
                 fatture={fatture}
                 onModifica={modificaFattura}
@@ -168,8 +173,10 @@ function App() {
                 prelievi={prelievi}
                 uscite={uscite}
                 onAggiungiPrelievo={aggiungiPrelievo}
+                onModificaPrelievo={modificaPrelievo}
                 onEliminaPrelievo={eliminaPrelievo}
                 onAggiungiUscita={aggiungiUscita}
+                onModificaUscita={modificaUscita}
                 onEliminaUscita={eliminaUscita}
               />
             </div>
