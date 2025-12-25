@@ -31,6 +31,7 @@ function App() {
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Filtra fatture per anno corrente (per il riepilogo)
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(ANNO)));
@@ -64,10 +65,12 @@ function App() {
         activeSection={activeSection}
         onSectionChange={setActiveSection}
         onLogout={signOut}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      <main className="ml-64 min-h-screen">
-        <div className="p-8">
+      <main className="md:ml-64 min-h-screen">
+        <div className="p-4 pt-16 md:p-8 md:pt-8">
           {error && (
             <div className="bg-red-950 border border-red-800 text-red-200 px-4 py-3 rounded mb-6">
               <p className="text-sm">{error}</p>

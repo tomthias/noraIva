@@ -2,14 +2,14 @@
  * Componente per gestire Prelievi e Uscite insieme
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Prelievo, Uscita } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, TrendingDown, Receipt } from "lucide-react";
 
 interface Props {
   prelievi: Prelievo[];
@@ -42,6 +42,18 @@ export function GestioneMovimenti({
   const [categoriaUscita, setCategoriaUscita] = useState("");
   const [importoUscita, setImportoUscita] = useState("");
 
+  // Calcoli totali
+  const totali = useMemo(() => {
+    const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
+    const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
+    const tassePagate = uscite
+      .filter((u) => u.categoria === "Tasse")
+      .reduce((sum, u) => sum + u.importo, 0);
+    const altreSpese = totaleUscite - tassePagate;
+
+    return { totalePrelievi, totaleUscite, tassePagate, altreSpese };
+  }, [prelievi, uscite]);
+
   const handleSubmitPrelievo = (e: React.FormEvent) => {
     e.preventDefault();
     onAggiungiPrelievo({
@@ -69,7 +81,46 @@ export function GestioneMovimenti({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="space-y-6">
+      {/* Card Riepilogo Totali */}
+      <Card className="bg-muted/30">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <TrendingDown className="h-4 w-4" />
+                Prelievi
+              </div>
+              <div className="text-xl font-bold text-destructive">
+                {formatCurrency(totali.totalePrelievi)}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Receipt className="h-4 w-4" />
+                Uscite totali
+              </div>
+              <div className="text-xl font-bold text-destructive">
+                {formatCurrency(totali.totaleUscite)}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">di cui Tasse</div>
+              <div className="text-lg font-semibold text-amber-500">
+                {formatCurrency(totali.tassePagate)}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm text-muted-foreground">di cui Altre spese</div>
+              <div className="text-lg font-semibold">
+                {formatCurrency(totali.altreSpese)}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {/* Sezione Prelievi */}
       <Card>
         <CardHeader>
@@ -285,6 +336,7 @@ export function GestioneMovimenti({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliF
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ANNO } from "../constants/fiscali";
+import { CheckCircle, AlertCircle } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
@@ -75,14 +76,39 @@ export function NettoDisponibile({ fatture, prelievi, uscite }: Props) {
               </span>
             </div>
           )}
-          <div className="flex justify-between items-center pt-3 border-t bg-muted/50 -mx-6 px-6 py-3 -mb-6 rounded-b-lg">
-            <span className="font-bold">Netto prelevabile</span>
-            <span className={`font-bold text-xl ${nettoSicuro >= 0 ? "text-green-600" : "text-destructive"}`}>
-              {formatCurrency(nettoSicuro)}
-            </span>
-          </div>
         </div>
       </CardContent>
+
+      {/* Box evidenziato per il Netto Prelevabile */}
+      <div className={`mx-4 mb-4 p-4 rounded-lg border-2 ${
+        nettoSicuro >= 0
+          ? "bg-green-950/50 border-green-700"
+          : "bg-red-950/50 border-red-700"
+      }`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {nettoSicuro >= 0 ? (
+              <CheckCircle className="h-5 w-5 text-green-500" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-red-500" />
+            )}
+            <span className="font-semibold">Puoi prelevare</span>
+          </div>
+          <span className={`font-bold text-2xl ${
+            nettoSicuro >= 0 ? "text-green-500" : "text-red-500"
+          }`}>
+            {formatCurrency(nettoSicuro)}
+          </span>
+        </div>
+        <p className={`text-xs mt-1 ${
+          nettoSicuro >= 0 ? "text-green-600" : "text-red-600"
+        }`}>
+          {nettoSicuro >= 0
+            ? `Tasse ${ANNO} coperte`
+            : `Devi ancora accantonare per le tasse`
+          }
+        </p>
+      </div>
     </Card>
   );
 }
