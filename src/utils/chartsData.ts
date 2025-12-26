@@ -110,7 +110,23 @@ export function aggregaPerMese(
 
       const data = monthlyMap.get(meseKey)!;
       data.uscite += uscita.importo;
+      // Il netto mensile è: Netto Fatture (stimato) - Uscite
+      // Nota: i prelievi non dovrebbero ridurre il "netto operativo", ma riducono la disponibilità.
+      // Tuttavia, per coerenza con il concetto di "disponibile rimanente", spesso si sottaggono anche i prelievi.
+      // Qui calcoliamo il "Cash Flow Netto" = Entrate Nette - Uscite Operative.
+      // Se vogliamo il "Profitto", non dovremmo togliere i prelievi personali.
+      // Modifichiamo la logica: Netto = (Fatturato - Tasse Stimate) - Uscite.
     });
+
+  // Ricalcola il netto per ogni mese
+  for (const data of monthlyMap.values()) {
+    // Netto stimato delle fatture del mese
+    // (Per semplificazione, qui non abbiamo il dettaglio fattura per fattura nel loop finale,
+    // ma l'abbiamo accumulato nel loop delle fatture sopra.
+    // data.netto contiene già (Fatturato - Tasse).
+    // Sottraiamo le uscite operative.
+    data.netto -= data.uscite;
+  }
 
   // Converti in array e ordina per data
   return Array.from(monthlyMap.entries())
