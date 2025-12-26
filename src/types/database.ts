@@ -111,6 +111,41 @@ export interface Database {
           updated_at?: string
         }
       }
+      entrate: {
+        Row: {
+          id: string
+          user_id: string
+          data: string
+          descrizione: string
+          categoria: string | null
+          importo: number
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          data: string
+          descrizione: string
+          categoria?: string | null
+          importo: number
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          data?: string
+          descrizione?: string
+          categoria?: string | null
+          importo?: number
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

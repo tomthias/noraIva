@@ -6,15 +6,14 @@ import { AuthForm } from "./components/AuthForm";
 import { Sidebar, type SidebarSection } from "./components/Sidebar";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
-import { GraficoFlussoCassa } from "./components/GraficoFlussoCassa";
-import { GraficoEvoluzioneNetto } from "./components/GraficoEvoluzioneNetto";
+
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { YearFilter } from "./components/YearFilter";
-import { aggregaPerMese } from "./utils/chartsData";
+
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
@@ -25,6 +24,7 @@ function App() {
     fatture,
     prelievi,
     uscite,
+    entrate,
     isLoading: dataLoading,
     error,
     aggiungiFattura,
@@ -36,6 +36,9 @@ function App() {
     aggiungiUscita,
     modificaUscita,
     eliminaUscita,
+    aggiungiEntrata,
+    modificaEntrata,
+    eliminaEntrata,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
@@ -51,13 +54,7 @@ function App() {
   // Filtra fatture per anno selezionato (per il riepilogo)
   const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
 
-  // Calcola dati mensili per i grafici
-  const datiMensili = useMemo(() => {
-    const fattureAnno = fatture.filter(f => f.data.startsWith(String(annoDashboard)));
-    const prelieviAnno = prelievi.filter(p => p.data.startsWith(String(annoDashboard)));
-    const usciteAnno = uscite.filter(u => u.data.startsWith(String(annoDashboard)));
-    return aggregaPerMese(fattureAnno, prelieviAnno, usciteAnno);
-  }, [fatture, prelievi, uscite, annoDashboard]);
+
 
   // Mostra schermata di caricamento durante verifica auth
   if (authLoading) {
@@ -125,12 +122,9 @@ function App() {
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} />
-                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} annoSelezionato={annoDashboard} />
+                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} entrate={entrate} annoSelezionato={annoDashboard} />
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <GraficoFlussoCassa data={datiMensili} anno={annoDashboard} />
-                <GraficoEvoluzioneNetto data={datiMensili} anno={annoDashboard} />
-              </div>
+
             </div>
           )}
 
@@ -185,12 +179,16 @@ function App() {
               <GestioneMovimenti
                 prelievi={prelievi}
                 uscite={uscite}
+                entrate={entrate}
                 onAggiungiPrelievo={aggiungiPrelievo}
                 onModificaPrelievo={modificaPrelievo}
                 onEliminaPrelievo={eliminaPrelievo}
                 onAggiungiUscita={aggiungiUscita}
                 onModificaUscita={modificaUscita}
                 onEliminaUscita={eliminaUscita}
+                onAggiungiEntrata={aggiungiEntrata}
+                onModificaEntrata={modificaEntrata}
+                onEliminaEntrata={eliminaEntrata}
               />
             </div>
           )}

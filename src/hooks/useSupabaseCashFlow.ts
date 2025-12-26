@@ -4,12 +4,13 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import type { Fattura, Prelievo, Uscita } from "../types/fattura";
+import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
 import type { Database } from "../types/database";
 
 type FatturaRow = Database['public']['Tables']['fatture']['Row'];
 type PrelievoRow = Database['public']['Tables']['prelievi']['Row'];
 type UscitaRow = Database['public']['Tables']['uscite']['Row'];
+type EntrataRow = Database['public']['Tables']['entrate']['Row'];
 
 // Funzioni per convertire tra tipi DB e tipi app
 const dbToFattura = (row: FatturaRow): Fattura => ({
@@ -64,10 +65,29 @@ const uscitaToDb = (uscita: Omit<Uscita, "id">, userId: string) => ({
   note: uscita.note || null,
 });
 
+const dbToEntrata = (row: EntrataRow): Entrata => ({
+  id: row.id,
+  data: row.data,
+  descrizione: row.descrizione,
+  categoria: row.categoria || undefined,
+  importo: Number(row.importo),
+  note: row.note || undefined,
+});
+
+const entrataToDb = (entrata: Omit<Entrata, "id">, userId: string) => ({
+  user_id: userId,
+  data: entrata.data,
+  descrizione: entrata.descrizione,
+  categoria: entrata.categoria || null,
+  importo: entrata.importo,
+  note: entrata.note || null,
+});
+
 export function useSupabaseCashFlow() {
   const [fatture, setFatture] = useState<Fattura[]>([]);
   const [prelievi, setPrelievi] = useState<Prelievo[]>([]);
   const [uscite, setUscite] = useState<Uscita[]>([]);
+  const [entrate, setEntrate] = useState<Entrata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,6 +133,15 @@ export function useSupabaseCashFlow() {
 
       if (usciteError) throw usciteError;
       setUscite(usciteData?.map(dbToUscita) || []);
+
+      // Carica entrate
+      const { data: entrateData, error: entrateError } = await supabase
+        .from('entrate')
+        .select('*')
+        .order('data', { ascending: false });
+
+      if (entrateError) throw entrateError;
+      setEntrate(entrateData?.map(dbToEntrata) || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Errore nel caricamento dei dati');
@@ -315,10 +344,76 @@ export function useSupabaseCashFlow() {
     }
   };
 
+  // ===== GESTIONE ENTRATE =====
+
+  const aggiungiEntrata = async (dati: Omit<Entrata, "id">) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('entrate')
+        .insert(entrataToDb(dati, user.id))
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        const nuovaEntrata = dbToEntrata(data);
+        setEntrate(prev => [nuovaEntrata, ...prev].sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+        ));
+      }
+    } catch (err) {
+      console.error('Error adding entrata:', err);
+      setError(err instanceof Error ? err.message : 'Errore nell\'aggiunta dell\'entrata');
+    }
+  };
+
+  const modificaEntrata = async (id: string, dati: Partial<Entrata>) => {
+    try {
+      const updateData: any = {};
+      if (dati.data !== undefined) updateData.data = dati.data;
+      if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
+      if (dati.categoria !== undefined) updateData.categoria = dati.categoria || null;
+      if (dati.importo !== undefined) updateData.importo = dati.importo;
+      if (dati.note !== undefined) updateData.note = dati.note || null;
+
+      const { error } = await supabase
+        .from('entrate')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEntrate(prev => prev.map(e => e.id === id ? { ...e, ...dati } : e));
+    } catch (err) {
+      console.error('Error updating entrata:', err);
+      setError(err instanceof Error ? err.message : 'Errore nella modifica dell\'entrata');
+    }
+  };
+
+  const eliminaEntrata = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('entrate')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setEntrate(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      console.error('Error deleting entrata:', err);
+      setError(err instanceof Error ? err.message : 'Errore nell\'eliminazione dell\'entrata');
+    }
+  };
+
   return {
     fatture,
     prelievi,
     uscite,
+    entrate,
     isLoading,
     error,
     aggiungiFattura,
@@ -330,6 +425,9 @@ export function useSupabaseCashFlow() {
     aggiungiUscita,
     modificaUscita,
     eliminaUscita,
+    aggiungiEntrata,
+    modificaEntrata,
+    eliminaEntrata,
     refresh: loadData,
   };
 }

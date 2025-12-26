@@ -1,4 +1,4 @@
-import type { Fattura, Prelievo, Uscita } from "../types/fattura";
+import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
 import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliFisco";
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,11 +8,12 @@ interface Props {
   fatture: Fattura[];
   prelievi: Prelievo[];
   uscite: Uscita[];
+  entrate?: Entrata[];
   annoSelezionato: number;
 }
 
-export function NettoDisponibile({ fatture, prelievi, uscite, annoSelezionato }: Props) {
-  const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite);
+export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], annoSelezionato }: Props) {
+  const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite, entrate);
 
   // Calcola tasse già pagate totali (dalle uscite con categoria Tasse)
   const tassePagate = uscite
@@ -83,6 +84,14 @@ export function NettoDisponibile({ fatture, prelievi, uscite, annoSelezionato }:
               - {formatCurrency(cashFlow.totaleUscite)}
             </span>
           </div>
+          {cashFlow.totaleEntrate > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-muted-foreground">Entrate extra</span>
+              <span className="font-medium text-green-600">
+                + {formatCurrency(cashFlow.totaleEntrate)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between items-center pt-3 border-t">
             <span className="font-medium">Saldo conto</span>
             <span className="font-semibold">

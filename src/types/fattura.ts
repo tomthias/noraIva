@@ -29,6 +29,16 @@ export interface Uscita {
   escludiDaGrafico?: boolean; // Se true, esclude l'uscita dai grafici (ma non dai totali)
 }
 
+export interface Entrata {
+  id: string;
+  data: string; // ISO date format (YYYY-MM-DD)
+  descrizione: string; // es. "Rimborso", "Bonus"
+  categoria?: string; // es. "Rimborso", "Bonus", "Altro"
+  importo: number;
+  note?: string;
+  escludiDaGrafico?: boolean; // Se true, esclude l'entrata dai grafici (ma non dai totali)
+}
+
 export interface RiepilogoFattura {
   id: string;
   importoLordo: number;
@@ -49,5 +59,6 @@ export interface SituazioneCashFlow {
   nettoFatture: number; // Dal riepilogo annuale
   totalePrelievi: number;
   totaleUscite: number;
-  nettoDisponibile: number; // nettoFatture - prelievi - uscite
+  totaleEntrate: number; // Entrate extra (non fatture)
+  nettoDisponibile: number; // nettoFatture + entrate - prelievi - uscite
 }

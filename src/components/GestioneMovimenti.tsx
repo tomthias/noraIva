@@ -3,27 +3,31 @@
  */
 
 import { useState, useMemo } from "react";
-import type { Prelievo, Uscita } from "../types/fattura";
+import type { Prelievo, Uscita, Entrata } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
 import { YearFilter } from "./YearFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff, Search } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff, Search, TrendingUp } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { ANNO } from "../constants/fiscali";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 interface Props {
   prelievi: Prelievo[];
   uscite: Uscita[];
+  entrate: Entrata[];
   onAggiungiPrelievo: (dati: Omit<Prelievo, "id">) => void;
   onModificaPrelievo: (id: string, dati: Partial<Prelievo>) => void;
   onEliminaPrelievo: (id: string) => void;
   onAggiungiUscita: (dati: Omit<Uscita, "id">) => void;
   onModificaUscita: (id: string, dati: Partial<Uscita>) => void;
   onEliminaUscita: (id: string) => void;
+  onAggiungiEntrata: (dati: Omit<Entrata, "id">) => void;
+  onModificaEntrata: (id: string, dati: Partial<Entrata>) => void;
+  onEliminaEntrata: (id: string) => void;
 }
 
 const COLORS = [
@@ -40,18 +44,24 @@ const COLORS = [
 export function GestioneMovimenti({
   prelievi,
   uscite,
+  entrate,
   onAggiungiPrelievo,
   onModificaPrelievo,
   onEliminaPrelievo,
   onAggiungiUscita,
   onModificaUscita,
   onEliminaUscita,
+  onAggiungiEntrata,
+  onModificaEntrata,
+  onEliminaEntrata,
 }: Props) {
   const [showFormPrelievo, setShowFormPrelievo] = useState(false);
   const [showFormUscita, setShowFormUscita] = useState(false);
+  const [showFormEntrata, setShowFormEntrata] = useState(false);
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
   const [prelieviExpanded, setPrelieviExpanded] = useState(false);
   const [usciteExpanded, setUsciteExpanded] = useState(false);
+  const [entrateExpanded, setEntrateExpanded] = useState(false);
 
   // Search e filtri
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,9 +70,12 @@ export function GestioneMovimenti({
   // Editing state
   const [editingPrelievoId, setEditingPrelievoId] = useState<string | null>(null);
   const [editingUscitaId, setEditingUscitaId] = useState<string | null>(null);
+  const [editingEntrataId, setEditingEntrataId] = useState<string | null>(null);
   const [editDescrizionePrelievo, setEditDescrizionePrelievo] = useState("");
   const [editDescrizioneUscita, setEditDescrizioneUscita] = useState("");
   const [editCategoriaUscita, setEditCategoriaUscita] = useState("");
+  const [editDescrizioneEntrata, setEditDescrizioneEntrata] = useState("");
+  const [editCategoriaEntrata, setEditCategoriaEntrata] = useState("");
 
   // Form Prelievo
   const [dataPrelievo, setDataPrelievo] = useState(new Date().toISOString().split("T")[0]);
@@ -75,13 +88,20 @@ export function GestioneMovimenti({
   const [categoriaUscita, setCategoriaUscita] = useState("");
   const [importoUscita, setImportoUscita] = useState("");
 
-  // Estrai anni disponibili da prelievi e uscite
+  // Form Entrata
+  const [dataEntrata, setDataEntrata] = useState(new Date().toISOString().split("T")[0]);
+  const [descrizioneEntrata, setDescrizioneEntrata] = useState("");
+  const [categoriaEntrata, setCategoriaEntrata] = useState("");
+  const [importoEntrata, setImportoEntrata] = useState("");
+
+  // Estrai anni disponibili da prelievi, uscite e entrate
   const anniDisponibili = useMemo(() => {
     const anniPrelievi = prelievi.map((p) => parseInt(p.data.substring(0, 4)));
     const anniUscite = uscite.map((u) => parseInt(u.data.substring(0, 4)));
-    const anni = new Set([...anniPrelievi, ...anniUscite]);
+    const anniEntrate = entrate.map((e) => parseInt(e.data.substring(0, 4)));
+    const anni = new Set([...anniPrelievi, ...anniUscite, ...anniEntrate]);
     return Array.from(anni).sort((a, b) => b - a);
-  }, [prelievi, uscite]);
+  }, [prelievi, uscite, entrate]);
 
   // Estrai categorie disponibili dalle uscite
   const categorieDisponibili = useMemo(() => {
@@ -120,17 +140,33 @@ export function GestioneMovimenti({
     return filtered;
   }, [uscite, annoSelezionato, categoriaFiltro, searchQuery]);
 
+  // Filtra entrate per anno e search
+  const entrateFiltrate = useMemo(() => {
+    let filtered = annoSelezionato === null ? entrate : entrate.filter((e) => e.data.startsWith(String(annoSelezionato)));
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((e) =>
+        e.descrizione.toLowerCase().includes(query) ||
+        (e.categoria || "").toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [entrate, annoSelezionato, searchQuery]);
+
   // Calcoli totali (sui dati filtrati)
   const totali = useMemo(() => {
     const totalePrelievi = prelieviFiltrati.reduce((sum, p) => sum + p.importo, 0);
     const totaleUscite = usciteFiltrate.reduce((sum, u) => sum + u.importo, 0);
+    const totaleEntrate = entrateFiltrate.reduce((sum, e) => sum + e.importo, 0);
     const tassePagate = usciteFiltrate
       .filter((u) => u.categoria === "Tasse")
       .reduce((sum, u) => sum + u.importo, 0);
     const altreSpese = totaleUscite - tassePagate;
 
-    return { totalePrelievi, totaleUscite, tassePagate, altreSpese };
-  }, [prelieviFiltrati, usciteFiltrate]);
+    return { totalePrelievi, totaleUscite, totaleEntrate, tassePagate, altreSpese };
+  }, [prelieviFiltrati, usciteFiltrate, entrateFiltrate]);
 
   // Dati per il grafico a torta delle uscite per categoria (escluse quelle con flag escludiDaGrafico e quelle negative)
   const uscitePerCategoria = useMemo(() => {
@@ -196,6 +232,34 @@ export function GestioneMovimenti({
     setEditingUscitaId(null);
   };
 
+  const handleSubmitEntrata = (e: React.FormEvent) => {
+    e.preventDefault();
+    onAggiungiEntrata({
+      data: dataEntrata,
+      descrizione: descrizioneEntrata,
+      categoria: categoriaEntrata || undefined,
+      importo: parseFloat(importoEntrata) || 0,
+    });
+    setDescrizioneEntrata("");
+    setCategoriaEntrata("");
+    setImportoEntrata("");
+    setShowFormEntrata(false);
+  };
+
+  const startEditEntrata = (entrata: Entrata) => {
+    setEditingEntrataId(entrata.id);
+    setEditDescrizioneEntrata(entrata.descrizione);
+    setEditCategoriaEntrata(entrata.categoria || "");
+  };
+
+  const saveEditEntrata = (id: string) => {
+    onModificaEntrata(id, {
+      descrizione: editDescrizioneEntrata,
+      categoria: editCategoriaEntrata || undefined,
+    });
+    setEditingEntrataId(null);
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -212,7 +276,7 @@ export function GestioneMovimenti({
 
   return (
     <div className="space-y-6">
-      {/* Filtri: Anno, Search, Categoria */}
+      {/* Filtri: Anno e Search */}
       <div className="flex flex-col sm:flex-row gap-4">
         <YearFilter
           anni={anniDisponibili}
@@ -228,18 +292,30 @@ export function GestioneMovimenti({
             className="pl-9"
           />
         </div>
-        <Select value={categoriaFiltro ?? "all"} onValueChange={(v) => setCategoriaFiltro(v === "all" ? null : v)}>
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Tutte le categorie" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutte le categorie</SelectItem>
-            {categorieDisponibili.map((cat) => (
-              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
+
+      {/* Filtro Categorie con Chip */}
+      {categorieDisponibili.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={categoriaFiltro === null ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setCategoriaFiltro(null)}
+          >
+            Tutte
+          </Badge>
+          {categorieDisponibili.map((cat) => (
+            <Badge
+              key={cat}
+              variant={categoriaFiltro === cat ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setCategoriaFiltro(categoriaFiltro === cat ? null : cat)}
+            >
+              {cat}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       {/* Grafico Uscite per Categoria */}
       {usciteFiltrate.length > 0 && (
@@ -512,12 +588,35 @@ export function GestioneMovimenti({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cat-uscita">Categoria (opzionale)</Label>
-                    <Input
-                      id="cat-uscita"
-                      value={categoriaUscita}
-                      onChange={(e) => setCategoriaUscita(e.target.value)}
-                      placeholder="es. Affitto, Commercialista"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="cat-uscita"
+                        value={categoriaUscita}
+                        onChange={(e) => setCategoriaUscita(e.target.value)}
+                        placeholder="es. Affitto, Commercialista"
+                        list="categorie-suggerite"
+                        autoComplete="off"
+                      />
+                      <datalist id="categorie-suggerite">
+                        {categorieDisponibili.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
+                    </div>
+                    {categorieDisponibili.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {categorieDisponibili.slice(0, 5).map((cat) => (
+                          <Badge
+                            key={cat}
+                            variant={categoriaUscita === cat ? "default" : "secondary"}
+                            className="cursor-pointer text-xs"
+                            onClick={() => setCategoriaUscita(cat)}
+                          >
+                            {cat}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="importo-uscita">Importo (€)</Label>
@@ -623,6 +722,194 @@ export function GestioneMovimenti({
                               onClick={() => {
                                 if (confirm("Eliminare questa uscita?")) {
                                   onEliminaUscita(uscita.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          )}
+        </Card>
+
+        {/* Sezione Entrate */}
+        <Card>
+          <CardHeader
+            className="cursor-pointer select-none"
+            onClick={() => setEntrateExpanded(!entrateExpanded)}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <CardTitle className="text-base">Entrate Extra</CardTitle>
+                  <CardDescription>
+                    {entrateFiltrate.length} {entrateFiltrate.length === 1 ? "entrata" : "entrate"}
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-bold text-green-500">
+                  {formatCurrency(totali.totaleEntrate)}
+                </span>
+                {entrateExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          {entrateExpanded && (
+            <CardContent className="space-y-4 pt-0">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={(e) => { e.stopPropagation(); setShowFormEntrata(!showFormEntrata); }}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {showFormEntrata && (
+                <form onSubmit={handleSubmitEntrata} className="space-y-3 p-4 border rounded-lg">
+                  <div className="space-y-2">
+                    <Label htmlFor="data-entrata">Data</Label>
+                    <Input
+                      type="date"
+                      id="data-entrata"
+                      value={dataEntrata}
+                      onChange={(e) => setDataEntrata(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="desc-entrata">Descrizione</Label>
+                    <Input
+                      id="desc-entrata"
+                      value={descrizioneEntrata}
+                      onChange={(e) => setDescrizioneEntrata(e.target.value)}
+                      placeholder="es. Rimborso spese, Bonus"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cat-entrata">Categoria (opzionale)</Label>
+                    <Input
+                      id="cat-entrata"
+                      value={categoriaEntrata}
+                      onChange={(e) => setCategoriaEntrata(e.target.value)}
+                      placeholder="es. Rimborso, Bonus, Altro"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="importo-entrata">Importo (€)</Label>
+                    <Input
+                      type="number"
+                      id="importo-entrata"
+                      value={importoEntrata}
+                      onChange={(e) => setImportoEntrata(e.target.value)}
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm">
+                      Aggiungi
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowFormEntrata(false)}
+                    >
+                      Annulla
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {entrateFiltrate.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Nessuna entrata extra registrata</p>
+              ) : (
+                <div className="space-y-2">
+                  {entrateFiltrate.map((entrata) => (
+                    <div
+                      key={entrata.id}
+                      className={`flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 ${entrata.escludiDaGrafico ? 'opacity-50' : ''}`}
+                    >
+                      {editingEntrataId === entrata.id ? (
+                        <div className="flex-1 space-y-2">
+                          <Input
+                            value={editDescrizioneEntrata}
+                            onChange={(e) => setEditDescrizioneEntrata(e.target.value)}
+                            placeholder="Descrizione"
+                            autoFocus
+                          />
+                          <Input
+                            value={editCategoriaEntrata}
+                            onChange={(e) => setEditCategoriaEntrata(e.target.value)}
+                            placeholder="Categoria"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => saveEditEntrata(entrata.id)}
+                            >
+                              <Check className="h-4 w-4 mr-1" /> Salva
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingEntrataId(null)}
+                            >
+                              <X className="h-4 w-4 mr-1" /> Annulla
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <div className="font-medium">{entrata.descrizione}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(entrata.data)}
+                              {entrata.categoria && ` • ${entrata.categoria}`}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-green-500">
+                              +{formatCurrency(entrata.importo)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onModificaEntrata(entrata.id, {
+                                escludiDaGrafico: !entrata.escludiDaGrafico
+                              })}
+                              title={entrata.escludiDaGrafico ? "Includi nel grafico" : "Escludi dal grafico"}
+                            >
+                              {entrata.escludiDaGrafico ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => startEditEntrata(entrata)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm("Eliminare questa entrata?")) {
+                                  onEliminaEntrata(entrata.id);
                                 }
                               }}
                             >
