@@ -101,11 +101,11 @@ export function GestioneMovimenti({
     return { totalePrelievi, totaleUscite, tassePagate, altreSpese };
   }, [prelieviFiltrati, usciteFiltrate]);
 
-  // Dati per il grafico a torta delle uscite per categoria (escluse quelle con flag escludiDaGrafico)
+  // Dati per il grafico a torta delle uscite per categoria (escluse quelle con flag escludiDaGrafico e quelle negative)
   const uscitePerCategoria = useMemo(() => {
     const categorieMap = new Map<string, number>();
     usciteFiltrate
-      .filter((u) => !u.escludiDaGrafico)
+      .filter((u) => !u.escludiDaGrafico && u.importo > 0)
       .forEach((u) => {
         const cat = u.categoria || "Altro";
         categorieMap.set(cat, (categorieMap.get(cat) || 0) + u.importo);
@@ -217,15 +217,15 @@ export function GestioneMovimenti({
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex flex-col justify-center space-y-2 w-full md:w-1/2">
+              <div className="flex flex-col space-y-2 w-full md:w-1/2 h-full overflow-y-auto pr-2 custom-scrollbar">
                 {uscitePerCategoria.map((entry, index) => (
-                  <div key={entry.name} className="flex items-center gap-2">
+                  <div key={entry.name} className="flex items-center gap-2 text-sm p-1 hover:bg-muted/50 rounded">
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 rounded-full flex-shrink-0"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     />
-                    <span className="text-sm font-medium">{entry.name}</span>
-                    <span className="text-sm text-muted-foreground ml-auto">
+                    <span className="font-medium truncate" title={entry.name}>{entry.name}</span>
+                    <span className="text-muted-foreground ml-auto whitespace-nowrap">
                       {formatCurrency(entry.value)}
                     </span>
                   </div>
