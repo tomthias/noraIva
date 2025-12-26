@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff } from "lucide-react";
+import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff, Search } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ANNO } from "../constants/fiscali";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -52,6 +53,10 @@ export function GestioneMovimenti({
   const [prelieviExpanded, setPrelieviExpanded] = useState(false);
   const [usciteExpanded, setUsciteExpanded] = useState(false);
 
+  // Search e filtri
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoriaFiltro, setCategoriaFiltro] = useState<string | null>(null);
+
   // Editing state
   const [editingPrelievoId, setEditingPrelievoId] = useState<string | null>(null);
   const [editingUscitaId, setEditingUscitaId] = useState<string | null>(null);
@@ -78,16 +83,42 @@ export function GestioneMovimenti({
     return Array.from(anni).sort((a, b) => b - a);
   }, [prelievi, uscite]);
 
-  // Filtra per anno selezionato
-  const prelieviFiltrati = useMemo(() => {
-    if (annoSelezionato === null) return prelievi;
-    return prelievi.filter((p) => p.data.startsWith(String(annoSelezionato)));
-  }, [prelievi, annoSelezionato]);
+  // Estrai categorie disponibili dalle uscite
+  const categorieDisponibili = useMemo(() => {
+    const cats = new Set(uscite.map((u) => u.categoria || "Altro"));
+    return Array.from(cats).sort();
+  }, [uscite]);
 
+  // Filtra prelievi per anno e search
+  const prelieviFiltrati = useMemo(() => {
+    let filtered = annoSelezionato === null ? prelievi : prelievi.filter((p) => p.data.startsWith(String(annoSelezionato)));
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((p) => p.descrizione.toLowerCase().includes(query));
+    }
+
+    return filtered;
+  }, [prelievi, annoSelezionato, searchQuery]);
+
+  // Filtra uscite per anno, categoria e search
   const usciteFiltrate = useMemo(() => {
-    if (annoSelezionato === null) return uscite;
-    return uscite.filter((u) => u.data.startsWith(String(annoSelezionato)));
-  }, [uscite, annoSelezionato]);
+    let filtered = annoSelezionato === null ? uscite : uscite.filter((u) => u.data.startsWith(String(annoSelezionato)));
+
+    if (categoriaFiltro) {
+      filtered = filtered.filter((u) => (u.categoria || "Altro") === categoriaFiltro);
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((u) =>
+        u.descrizione.toLowerCase().includes(query) ||
+        (u.categoria || "").toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [uscite, annoSelezionato, categoriaFiltro, searchQuery]);
 
   // Calcoli totali (sui dati filtrati)
   const totali = useMemo(() => {
@@ -181,12 +212,34 @@ export function GestioneMovimenti({
 
   return (
     <div className="space-y-6">
-      {/* Filtro Anno */}
-      <YearFilter
-        anni={anniDisponibili}
-        annoSelezionato={annoSelezionato}
-        onChange={setAnnoSelezionato}
-      />
+      {/* Filtri: Anno, Search, Categoria */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <YearFilter
+          anni={anniDisponibili}
+          annoSelezionato={annoSelezionato}
+          onChange={setAnnoSelezionato}
+        />
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca movimenti..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <Select value={categoriaFiltro ?? "all"} onValueChange={(v) => setCategoriaFiltro(v === "all" ? null : v)}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Tutte le categorie" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tutte le categorie</SelectItem>
+            {categorieDisponibili.map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Grafico Uscite per Categoria */}
       {usciteFiltrate.length > 0 && (

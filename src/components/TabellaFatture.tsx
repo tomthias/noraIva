@@ -6,7 +6,8 @@ import { FormFattura } from "./FormFattura";
 import { YearFilter } from "./YearFilter";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { ANNO } from "../constants/fiscali";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Estrai anni disponibili dalle fatture
   const anniDisponibili = useMemo(() => {
@@ -25,11 +27,21 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
     return Array.from(anni).sort((a, b) => b - a);
   }, [fatture]);
 
-  // Filtra fatture per anno selezionato
+  // Filtra fatture per anno e search
   const fattureFiltrate = useMemo(() => {
-    if (annoSelezionato === null) return fatture;
-    return fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
-  }, [fatture, annoSelezionato]);
+    let filtered = annoSelezionato === null ? fatture : fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((f) =>
+        f.descrizione.toLowerCase().includes(query) ||
+        (f.cliente || "").toLowerCase().includes(query) ||
+        (f.note || "").toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [fatture, annoSelezionato, searchQuery]);
 
   const riepiloghi = calcolaRiepilogoPerFattura(fattureFiltrate);
   const totaleFatturato = calcolaTotaleFatture(fattureFiltrate);
@@ -49,12 +61,23 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <YearFilter
-          anni={anniDisponibili}
-          annoSelezionato={annoSelezionato}
-          onChange={setAnnoSelezionato}
-        />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 flex-1">
+          <YearFilter
+            anni={anniDisponibili}
+            annoSelezionato={annoSelezionato}
+            onChange={setAnnoSelezionato}
+          />
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Cerca fatture..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
         <div className="text-sm text-muted-foreground">
           {fattureFiltrate.length} fatture · Totale: <span className="font-semibold text-foreground">{formatCurrency(totaleFatturato)}</span>
         </div>
