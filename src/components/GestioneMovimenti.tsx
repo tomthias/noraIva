@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X } from "lucide-react";
+import { Trash2, Plus, TrendingDown, Receipt, ChevronDown, ChevronUp, Pencil, Check, X, Eye, EyeOff } from "lucide-react";
 import { ANNO } from "../constants/fiscali";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
@@ -101,13 +101,15 @@ export function GestioneMovimenti({
     return { totalePrelievi, totaleUscite, tassePagate, altreSpese };
   }, [prelieviFiltrati, usciteFiltrate]);
 
-  // Dati per il grafico a torta delle uscite per categoria
+  // Dati per il grafico a torta delle uscite per categoria (escluse quelle con flag escludiDaGrafico)
   const uscitePerCategoria = useMemo(() => {
     const categorieMap = new Map<string, number>();
-    usciteFiltrate.forEach((u) => {
-      const cat = u.categoria || "Altro";
-      categorieMap.set(cat, (categorieMap.get(cat) || 0) + u.importo);
-    });
+    usciteFiltrate
+      .filter((u) => !u.escludiDaGrafico)
+      .forEach((u) => {
+        const cat = u.categoria || "Altro";
+        categorieMap.set(cat, (categorieMap.get(cat) || 0) + u.importo);
+      });
     return Array.from(categorieMap.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
@@ -487,7 +489,7 @@ export function GestioneMovimenti({
                   {usciteFiltrate.map((uscita) => (
                     <div
                       key={uscita.id}
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
+                      className={`flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 ${uscita.escludiDaGrafico ? 'opacity-50' : ''}`}
                     >
                       {editingUscitaId === uscita.id ? (
                         <div className="flex-1 space-y-2">
@@ -532,6 +534,16 @@ export function GestioneMovimenti({
                             <span className="font-semibold text-destructive">
                               {formatCurrency(uscita.importo)}
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onModificaUscita(uscita.id, {
+                                escludiDaGrafico: !uscita.escludiDaGrafico
+                              })}
+                              title={uscita.escludiDaGrafico ? "Includi nel grafico" : "Escludi dal grafico"}
+                            >
+                              {uscita.escludiDaGrafico ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"

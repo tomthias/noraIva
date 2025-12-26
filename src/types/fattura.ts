@@ -26,6 +26,7 @@ export interface Uscita {
   categoria?: string; // es. "Affitto", "Servizi", "Attrezzature"
   importo: number;
   note?: string;
+  escludiDaGrafico?: boolean; // Se true, esclude l'uscita dai grafici (ma non dai totali)
 }
 
 export interface RiepilogoFattura {

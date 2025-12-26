@@ -92,23 +92,25 @@ export function aggregaPerMese(
     data.prelievi += prelievo.importo;
   });
 
-  // Processa uscite
-  uscite.forEach((uscita) => {
-    const meseKey = getMeseKey(uscita.data);
+  // Processa uscite (escluse quelle con flag escludiDaGrafico)
+  uscite
+    .filter((u) => !u.escludiDaGrafico)
+    .forEach((uscita) => {
+      const meseKey = getMeseKey(uscita.data);
 
-    if (!monthlyMap.has(meseKey)) {
-      monthlyMap.set(meseKey, {
-        mese: formatMese(meseKey),
-        fatturato: 0,
-        prelievi: 0,
-        uscite: 0,
-        netto: 0,
-      });
-    }
+      if (!monthlyMap.has(meseKey)) {
+        monthlyMap.set(meseKey, {
+          mese: formatMese(meseKey),
+          fatturato: 0,
+          prelievi: 0,
+          uscite: 0,
+          netto: 0,
+        });
+      }
 
-    const data = monthlyMap.get(meseKey)!;
-    data.uscite += uscita.importo;
-  });
+      const data = monthlyMap.get(meseKey)!;
+      data.uscite += uscita.importo;
+    });
 
   // Converti in array e ordina per data
   return Array.from(monthlyMap.entries())
@@ -117,16 +119,18 @@ export function aggregaPerMese(
 }
 
 /**
- * Raggruppa uscite per categoria
+ * Raggruppa uscite per categoria (escluse quelle con flag escludiDaGrafico)
  */
 export function aggregaUscitePerCategoria(uscite: Uscita[]): CategoryData[] {
   const categoryMap = new Map<string, number>();
 
-  uscite.forEach((uscita) => {
-    const categoria = uscita.categoria || "Altro";
-    const current = categoryMap.get(categoria) || 0;
-    categoryMap.set(categoria, current + uscita.importo);
-  });
+  uscite
+    .filter((u) => !u.escludiDaGrafico)
+    .forEach((uscita) => {
+      const categoria = uscita.categoria || "Altro";
+      const current = categoryMap.get(categoria) || 0;
+      categoryMap.set(categoria, current + uscita.importo);
+    });
 
   return Array.from(categoryMap.entries())
     .map(([categoria, importo]) => ({ categoria, importo }))
