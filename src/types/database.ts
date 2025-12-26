@@ -85,6 +85,7 @@ export interface Database {
           categoria: string | null
           importo: number
           note: string | null
+          esclusa_da_statistiche: boolean
           created_at: string
           updated_at: string
         }
@@ -96,6 +97,7 @@ export interface Database {
           categoria?: string | null
           importo: number
           note?: string | null
+          esclusa_da_statistiche?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -107,6 +109,7 @@ export interface Database {
           categoria?: string | null
           importo?: number
           note?: string | null
+          esclusa_da_statistiche?: boolean
           created_at?: string
           updated_at?: string
         }

@@ -45,46 +45,46 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
   const metriche = calcolaMetriche(fatture, prelievi, uscite);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* Metriche in evidenza */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <Card>
-          <CardHeader>
-            <CardDescription>Proiezione Fatturato Annuale</CardDescription>
-            <CardTitle className="text-3xl">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-xs md:text-sm">Proiezione Fatturato Annuale</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">
               {formatCurrency(metriche.proiezioni.fatturato)}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="pb-4">
+            <p className="text-xs md:text-sm text-muted-foreground">
               Media mensile: {formatCurrency(metriche.medie.fatturato)}
             </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardDescription>Netto Disponibile</CardDescription>
-            <CardTitle className="text-3xl">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-xs md:text-sm">Netto Disponibile</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">
               {formatCurrency(metriche.totali.nettoDisponibile)}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="pb-4">
+            <p className="text-xs md:text-sm text-muted-foreground">
               Netto fatture: {formatCurrency(metriche.totali.nettoFatture)}
             </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardDescription>Totale Prelievi</CardDescription>
-            <CardTitle className="text-3xl">
+        <Card className="sm:col-span-2 lg:col-span-1">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-xs md:text-sm">Totale Prelievi</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">
               {formatCurrency(metriche.totali.prelievi)}
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="pb-4">
+            <p className="text-xs md:text-sm text-muted-foreground">
               Media mensile: {formatCurrency(metriche.medie.prelievi)}
             </p>
           </CardContent>
@@ -92,15 +92,15 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
       </div>
 
       {/* Grafici */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Andamento mensile */}
         <Card>
-          <CardHeader>
-            <CardTitle>Andamento Mensile</CardTitle>
-            <CardDescription>Fatturato vs Prelievi vs Uscite</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg md:text-xl">Andamento Mensile</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Fatturato vs Prelievi vs Uscite</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pb-4">
+            <ResponsiveContainer width="100%" height={250} className="md:h-[300px]">
               <BarChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
@@ -132,12 +132,12 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
 
         {/* Trend netto */}
         <Card>
-          <CardHeader>
-            <CardTitle>Trend Netto</CardTitle>
-            <CardDescription>Evoluzione netto mensile</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg md:text-xl">Trend Netto</CardTitle>
+            <CardDescription className="text-xs md:text-sm">Evoluzione netto mensile</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pb-4">
+            <ResponsiveContainer width="100%" height={250} className="md:h-[300px]">
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
@@ -175,13 +175,14 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
         {/* Uscite per categoria */}
         {categoryData.length > 0 && (
           <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Uscite per Categoria</CardTitle>
-              <CardDescription>Distribuzione delle spese</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg md:text-xl">Uscite per Categoria</CardTitle>
+              <CardDescription className="text-xs md:text-sm">Distribuzione delle spese (escl. spese nascoste)</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <ResponsiveContainer width="100%" height={300}>
+            <CardContent className="pb-4">
+              <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+                <div className="w-full md:w-1/2">
+                  <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -206,18 +207,19 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
                       formatter={(value) => value ? formatCurrency(Number(value)) : ""}
                     />
                   </PieChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
 
-                <div className="flex-1 space-y-2">
+                <div className="w-full md:w-1/2 space-y-1.5 md:space-y-2">
                   {categoryData.map((item, index) => (
-                    <div key={item.categoria} className="flex items-center gap-3">
+                    <div key={item.categoria} className="flex items-center gap-2 md:gap-3">
                       <div
-                        className="w-4 h-4 rounded"
+                        className="w-3 h-3 md:w-4 md:h-4 rounded flex-shrink-0"
                         style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
                       />
-                      <div className="flex-1 flex justify-between items-center">
-                        <span className="text-sm font-medium">{item.categoria}</span>
-                        <span className="text-sm text-muted-foreground">
+                      <div className="flex-1 flex justify-between items-center gap-2 min-w-0">
+                        <span className="text-xs md:text-sm font-medium truncate">{item.categoria}</span>
+                        <span className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">
                           {formatCurrency(item.importo)}
                         </span>
                       </div>

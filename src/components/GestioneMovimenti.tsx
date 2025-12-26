@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, BarChartBig } from "lucide-react";
 
 interface Props {
   prelievi: Prelievo[];
@@ -17,6 +17,7 @@ interface Props {
   onAggiungiPrelievo: (dati: Omit<Prelievo, "id">) => void;
   onEliminaPrelievo: (id: string) => void;
   onAggiungiUscita: (dati: Omit<Uscita, "id">) => void;
+  onModificaUscita: (id: string, dati: Partial<Uscita>) => void;
   onEliminaUscita: (id: string) => void;
 }
 
@@ -26,6 +27,7 @@ export function GestioneMovimenti({
   onAggiungiPrelievo,
   onEliminaPrelievo,
   onAggiungiUscita,
+  onModificaUscita,
   onEliminaUscita,
 }: Props) {
   const [showFormPrelievo, setShowFormPrelievo] = useState(false);
@@ -66,6 +68,12 @@ export function GestioneMovimenti({
     setCategoriaUscita("");
     setImportoUscita("");
     setShowFormUscita(false);
+  };
+
+  const toggleEscludiStatistiche = (uscita: Uscita) => {
+    onModificaUscita(uscita.id, {
+      esclusa_da_statistiche: !uscita.esclusa_da_statistiche,
+    });
   };
 
   return (
@@ -254,10 +262,19 @@ export function GestioneMovimenti({
               {uscite.map((uscita) => (
                 <div
                   key={uscita.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50"
+                  className={`flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 ${
+                    uscita.esclusa_da_statistiche ? "opacity-60" : ""
+                  }`}
                 >
                   <div className="flex-1">
-                    <div className="font-medium">{uscita.descrizione}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{uscita.descrizione}</span>
+                      {uscita.esclusa_da_statistiche && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          Esclusa da grafici
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {formatDate(uscita.data)}
                       {uscita.categoria && ` • ${uscita.categoria}`}
@@ -267,6 +284,22 @@ export function GestioneMovimenti({
                     <span className="font-semibold text-destructive">
                       {formatCurrency(uscita.importo)}
                     </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => toggleEscludiStatistiche(uscita)}
+                      title={
+                        uscita.esclusa_da_statistiche
+                          ? "Includi nei grafici"
+                          : "Escludi dai grafici"
+                      }
+                    >
+                      <BarChartBig
+                        className={`h-4 w-4 ${
+                          uscita.esclusa_da_statistiche ? "text-muted-foreground" : "text-primary"
+                        }`}
+                      />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

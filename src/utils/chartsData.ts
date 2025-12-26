@@ -33,6 +33,7 @@ export interface CategoryData {
 
 /**
  * Raggruppa dati per mese e calcola totali
+ * Le uscite escluse dalle statistiche NON compaiono nei grafici
  */
 export function aggregaPerMese(
   fatture: Fattura[],
@@ -92,8 +93,11 @@ export function aggregaPerMese(
     data.prelievi += prelievo.importo;
   });
 
-  // Processa uscite
+  // Processa uscite (esclude quelle con esclusa_da_statistiche = true)
   uscite.forEach((uscita) => {
+    // Salta le uscite escluse dalle statistiche
+    if (uscita.esclusa_da_statistiche) return;
+
     const meseKey = getMeseKey(uscita.data);
 
     if (!monthlyMap.has(meseKey)) {
@@ -118,11 +122,15 @@ export function aggregaPerMese(
 
 /**
  * Raggruppa uscite per categoria
+ * Esclude le uscite con esclusa_da_statistiche = true
  */
 export function aggregaUscitePerCategoria(uscite: Uscita[]): CategoryData[] {
   const categoryMap = new Map<string, number>();
 
   uscite.forEach((uscita) => {
+    // Salta le uscite escluse dalle statistiche
+    if (uscita.esclusa_da_statistiche) return;
+
     const categoria = uscita.categoria || "Altro";
     const current = categoryMap.get(categoria) || 0;
     categoryMap.set(categoria, current + uscita.importo);

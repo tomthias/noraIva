@@ -53,6 +53,7 @@ const dbToUscita = (row: UscitaRow): Uscita => ({
   categoria: row.categoria || undefined,
   importo: Number(row.importo),
   note: row.note || undefined,
+  esclusa_da_statistiche: row.esclusa_da_statistiche || false,
 });
 
 const uscitaToDb = (uscita: Omit<Uscita, "id">, userId: string) => ({
@@ -62,6 +63,7 @@ const uscitaToDb = (uscita: Omit<Uscita, "id">, userId: string) => ({
   categoria: uscita.categoria || null,
   importo: uscita.importo,
   note: uscita.note || null,
+  esclusa_da_statistiche: uscita.esclusa_da_statistiche || false,
 });
 
 export function useSupabaseCashFlow() {
@@ -284,6 +286,7 @@ export function useSupabaseCashFlow() {
       if (dati.categoria !== undefined) updateData.categoria = dati.categoria || null;
       if (dati.importo !== undefined) updateData.importo = dati.importo;
       if (dati.note !== undefined) updateData.note = dati.note || null;
+      if (dati.esclusa_da_statistiche !== undefined) updateData.esclusa_da_statistiche = dati.esclusa_da_statistiche;
 
       const { error } = await supabase
         .from('uscite')

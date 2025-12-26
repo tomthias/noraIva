@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.uscite (
   categoria TEXT,
   importo DECIMAL(10, 2) NOT NULL,
   note TEXT,
+  esclusa_da_statistiche BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -27,6 +27,7 @@ function App() {
     aggiungiPrelievo,
     eliminaPrelievo,
     aggiungiUscita,
+    modificaUscita,
     eliminaUscita,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
@@ -141,6 +142,7 @@ function App() {
             onAggiungiPrelievo={aggiungiPrelievo}
             onEliminaPrelievo={eliminaPrelievo}
             onAggiungiUscita={aggiungiUscita}
+            onModificaUscita={modificaUscita}
             onEliminaUscita={eliminaUscita}
           />
         </section>
