@@ -78,6 +78,26 @@ const entrate = [
   { data: '2024-04-24', descrizione: 'Bonus passaparola BBVA', categoria: 'Bonus', importo: 20.00 },
 ];
 
+// ===== USCITE (TASSE) =====
+const uscite = [
+  // TASSE PRINCIPALI
+  { data: '2024-12-02', descrizione: 'Tasse dicembre 2024', categoria: 'Tasse', importo: 1000.00 },
+  { data: '2024-12-02', descrizione: 'Tasse dicembre 2024 (2)', categoria: 'Tasse', importo: 1000.00 },
+  { data: '2024-12-02', descrizione: 'Tasse dicembre 2024 (3)', categoria: 'Tasse', importo: 1000.00 },
+  { data: '2025-01-07', descrizione: 'Tasse gennaio 2025', categoria: 'Tasse', importo: 803.50 },
+  { data: '2025-07-10', descrizione: 'Tasse luglio 2025', categoria: 'Tasse', importo: 6357.54 },
+  { data: '2025-12-01', descrizione: 'Tasse dicembre 2025', categoria: 'Tasse', importo: 4794.54 },
+
+  // IMPOSTA DI BOLLO
+  { data: '2024-03-28', descrizione: 'Imposta di bollo trim 01-01/31-03', categoria: 'Tasse', importo: 7.40 },
+  { data: '2024-06-28', descrizione: 'Imposta di bollo trim 01-04/30-06', categoria: 'Tasse', importo: 8.55 },
+  { data: '2024-09-30', descrizione: 'Imposta di bollo trim 01-07/30-09', categoria: 'Tasse', importo: 8.55 },
+  { data: '2025-01-03', descrizione: 'Imposta di bollo trim 01-10/31-12', categoria: 'Tasse', importo: 8.55 },
+  { data: '2025-04-03', descrizione: 'Imposta di bollo trim 01-01/31-03', categoria: 'Tasse', importo: 8.55 },
+  { data: '2025-07-02', descrizione: 'Imposta di bollo trim 01-04/30-06', categoria: 'Tasse', importo: 8.55 },
+  { data: '2025-10-02', descrizione: 'Imposta di bollo trim 01-07/30-09', categoria: 'Tasse', importo: 8.55 },
+];
+
 // ===== PRELIEVI (Stipendi) =====
 const prelievi = [
   // 2024
@@ -176,6 +196,32 @@ async function importMovimenti() {
     }
   }
 
+  // Import Uscite (Tasse)
+  console.log('\n=== USCITE (TASSE) ===');
+  let usciteSuccessi = 0;
+  let usciteErrori = 0;
+
+  for (const uscita of uscite) {
+    const { error } = await supabase
+      .from('uscite')
+      .insert({
+        user_id: USER_ID,
+        data: uscita.data,
+        descrizione: uscita.descrizione,
+        categoria: uscita.categoria,
+        importo: uscita.importo,
+        note: 'Importato da estratto conto BBVA',
+      });
+
+    if (error) {
+      console.error(`❌ ${uscita.data} ${uscita.descrizione}: ${error.message}`);
+      usciteErrori++;
+    } else {
+      console.log(`✅ ${uscita.data} ${uscita.descrizione} €${uscita.importo}`);
+      usciteSuccessi++;
+    }
+  }
+
   // Import Prelievi
   console.log('\n=== PRELIEVI ===');
   let prelieviSuccessi = 0;
@@ -204,11 +250,14 @@ async function importMovimenti() {
   // Riepilogo
   console.log('\n========== RIEPILOGO ==========');
   console.log(`Entrate:  ${entrateSuccessi} importate, ${entrateErrori} errori`);
+  console.log(`Uscite:   ${usciteSuccessi} importate, ${usciteErrori} errori`);
   console.log(`Prelievi: ${prelieviSuccessi} importati, ${prelieviErrori} errori`);
 
   const totaleEntrate = entrate.reduce((sum, e) => sum + e.importo, 0);
+  const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
   const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
   console.log(`\nTotale entrate:  €${totaleEntrate.toFixed(2)}`);
+  console.log(`Totale uscite:   €${totaleUscite.toFixed(2)}`);
   console.log(`Totale prelievi: €${totalePrelievi.toFixed(2)}`);
 }
 
