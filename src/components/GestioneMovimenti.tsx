@@ -13,6 +13,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Trash2, Plus, Pencil, Check, X, Search, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ANNO } from "../constants/fiscali";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+
+const COLORS = ["#f87171", "#fb923c", "#fbbf24", "#a3e635", "#34d399", "#22d3ee", "#818cf8", "#e879f9"];
 
 // Tipo unificato per i movimenti
 type TipoMovimento = "stipendio" | "uscita" | "entrata";
@@ -183,6 +196,42 @@ export function GestioneMovimenti({
     return { totaleStipendi, totaleUscite, totaleEntrate };
   }, [movimentiFiltrati]);
 
+  // Dati per i grafici (basati sull'anno selezionato, indipendentemente dai filtri di ricerca)
+  const { datiMensili, datiCategorie } = useMemo(() => {
+    const movimentiAnno = movimentiUnificati.filter((m) => {
+      if (m.tipo !== "uscita") return false;
+      if (annoSelezionato !== null) {
+        return m.data.startsWith(String(annoSelezionato));
+      }
+      return true;
+    });
+
+    // Raggruppa per mese
+    const perMese = new Array(12).fill(0);
+    movimentiAnno.forEach((m) => {
+      const mese = new Date(m.data).getMonth();
+      perMese[mese] += m.importo;
+    });
+
+    const datiMensili = perMese.map((importo, i) => ({
+      mese: new Date(2024, i, 1).toLocaleString("it-IT", { month: "short" }),
+      importo: importo,
+    }));
+
+    // Raggruppa per categoria
+    const perCategoria: Record<string, number> = {};
+    movimentiAnno.forEach((m) => {
+      const cat = m.categoria || "Altro";
+      perCategoria[cat] = (perCategoria[cat] || 0) + m.importo;
+    });
+
+    const datiCategorie = Object.entries(perCategoria)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { datiMensili, datiCategorie };
+  }, [movimentiUnificati, annoSelezionato]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const importo = parseFloat(formImporto) || 0;
@@ -304,20 +353,96 @@ export function GestioneMovimenti({
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Stipendi</div>
           <div className="text-xl font-bold text-purple-400">
-            -{formatCurrency(totali.totaleStipendi)}
+            {formatCurrency(totali.totaleStipendi)}
           </div>
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Uscite</div>
           <div className="text-xl font-bold text-red-400">
-            -{formatCurrency(totali.totaleUscite)}
+            {formatCurrency(totali.totaleUscite)}
           </div>
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Entrate</div>
           <div className="text-xl font-bold text-green-400">
-            +{formatCurrency(totali.totaleEntrate)}
+            {formatCurrency(totali.totaleEntrate)}
           </div>
+        </Card>
+      </div>
+
+      {/* Grafici Uscite */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-4 text-muted-foreground">Andamento Uscite Mensili</h3>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={datiMensili}>
+                <XAxis
+                  dataKey="mese"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <YAxis
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}€`}
+                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                  labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
+                  formatter={(value: any) => [`${formatCurrency(value)}`, "Uscite"]}
+                />
+                <Bar dataKey="importo" fill="#f87171" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <h3 className="text-sm font-medium mb-4 text-muted-foreground">Ripartizione per Categoria</h3>
+          <div className="h-[250px] w-full flex items-center justify-center">
+            {datiCategorie.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={datiCategorie}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {datiCategorie.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                    formatter={(value: any) => [`${formatCurrency(value)}`, "Importo"]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-sm text-muted-foreground">Nessun dato disponibile</div>
+            )}
+          </div>
+          {datiCategorie.length > 0 && (
+            <div className="flex flex-wrap gap-2 justify-center mt-2 max-h-[100px] overflow-y-auto">
+              {datiCategorie.map((entry, index) => (
+                <div key={index} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                  <span>{entry.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -501,12 +626,6 @@ export function GestioneMovimenti({
                     <>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={`text-xs ${TIPO_CONFIG[movimento.tipo].bgColor} ${TIPO_CONFIG[movimento.tipo].color}`}
-                          >
-                            {TIPO_CONFIG[movimento.tipo].label}
-                          </Badge>
                           <span className="font-medium">{movimento.descrizione}</span>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
@@ -515,16 +634,20 @@ export function GestioneMovimenti({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${TIPO_CONFIG[movimento.tipo].bgColor} ${TIPO_CONFIG[movimento.tipo].color}`}
+                        >
+                          {TIPO_CONFIG[movimento.tipo].label}
+                        </Badge>
                         <span
-                          className={`font-semibold ${
-                            movimento.tipo === "entrata"
-                              ? "text-green-400"
-                              : movimento.tipo === "stipendio"
+                          className={`font-semibold ${movimento.tipo === "entrata"
+                            ? "text-green-400"
+                            : movimento.tipo === "stipendio"
                               ? "text-purple-400"
                               : "text-red-400"
-                          }`}
+                            }`}
                         >
-                          {movimento.tipo === "entrata" ? "+" : "-"}
                           {formatCurrency(movimento.importo)}
                         </span>
                         <Button

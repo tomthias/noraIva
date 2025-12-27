@@ -75,20 +75,20 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Prelievi (stipendi)</span>
             <span className="font-medium text-destructive">
-              - {formatCurrency(cashFlow.totalePrelievi)}
+              {formatCurrency(cashFlow.totalePrelievi)}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Uscite (di cui tasse: {formatCurrency(tassePagate)})</span>
             <span className="font-medium text-destructive">
-              - {formatCurrency(cashFlow.totaleUscite)}
+              {formatCurrency(cashFlow.totaleUscite)}
             </span>
           </div>
           {cashFlow.totaleEntrate > 0 && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Entrate extra</span>
               <span className="font-medium text-green-600">
-                + {formatCurrency(cashFlow.totaleEntrate)}
+                {formatCurrency(cashFlow.totaleEntrate)}
               </span>
             </div>
           )}
