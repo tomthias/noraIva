@@ -182,6 +182,19 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
           }
         </p>
       </div>
+
+      {/* DEBUG - rimuovere dopo */}
+      <div className="mx-4 mb-4 p-3 rounded bg-gray-800 text-xs font-mono">
+        <div className="text-yellow-400 mb-2">🔧 DEBUG VALUES:</div>
+        <div>Saldo conto: {formatCurrency(cashFlow.nettoDisponibile)}</div>
+        <div>Tasse teoriche {annoSelezionato}: {formatCurrency(tasseTeoricheAnnoCorrente)}</div>
+        <div>Tasse pagate {annoSelezionato - 1}: {formatCurrency(tassePagateAnnoPrecedente)}</div>
+        <div>Acconti versati: {formatCurrency(accontiAnnoCorrenteVersati)}</div>
+        <div>Saldo tasse: {formatCurrency(saldoAnnoCorrente)}</div>
+        <div>Primo acconto {annoSelezionato + 1}: {formatCurrency(primoAccontoAnnoProssimo)}</div>
+        <div>Tot. da accantonare: {formatCurrency(totaleDaAccantonare)}</div>
+        <div className="mt-2 text-green-400">= Puoi prelevare: {formatCurrency(nettoSicuro)}</div>
+      </div>
     </Card>
   );
 }
