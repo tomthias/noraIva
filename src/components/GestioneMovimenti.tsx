@@ -221,17 +221,21 @@ export function GestioneMovimenti({
 
   // Calcoli totali
   const totali = useMemo(() => {
-    const totaleStipendi = movimentiFiltrati
-      .filter((m) => m.tipo === "stipendio")
-      .reduce((sum, m) => sum + m.importo, 0);
-    const totaleUscite = movimentiFiltrati
-      .filter((m) => m.tipo === "uscita")
-      .reduce((sum, m) => sum + m.importo, 0);
-    const totaleEntrate = movimentiFiltrati
-      .filter((m) => m.tipo === "entrata")
-      .reduce((sum, m) => sum + m.importo, 0);
+    const stipendi = movimentiFiltrati.filter((m) => m.tipo === "stipendio");
+    const uscite = movimentiFiltrati.filter((m) => m.tipo === "uscita");
+    const entrate = movimentiFiltrati.filter((m) => m.tipo === "entrata");
 
-    return { totaleStipendi, totaleUscite, totaleEntrate };
+    const totaleStipendi = stipendi.reduce((sum, m) => sum + m.importo, 0);
+    const totaleUscite = uscite.reduce((sum, m) => sum + m.importo, 0);
+    const totaleEntrate = entrate.reduce((sum, m) => sum + m.importo, 0);
+
+    // Dettagli aggiuntivi
+    const totaleTasse = uscite
+      .filter((m) => m.categoria?.toLowerCase().startsWith("tasse"))
+      .reduce((sum, m) => sum + m.importo, 0);
+    const numStipendi = stipendi.length;
+
+    return { totaleStipendi, totaleUscite, totaleEntrate, totaleTasse, numStipendi };
   }, [movimentiFiltrati]);
 
   // Dati per i grafici (basati sull'anno selezionato, indipendentemente dai filtri di ricerca)
@@ -419,12 +423,20 @@ export function GestioneMovimenti({
           <div className="text-xl font-bold text-purple-400">
             {formatCurrency(totali.totaleStipendi)}
           </div>
+          <div className="text-xs text-muted-foreground/70 mt-1">
+            {totali.numStipendi} prelievi
+          </div>
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Uscite</div>
           <div className="text-xl font-bold text-red-400">
             {formatCurrency(totali.totaleUscite)}
           </div>
+          {totali.totaleTasse > 0 && (
+            <div className="text-xs text-muted-foreground/70 mt-1">
+              di cui tasse: {formatCurrency(totali.totaleTasse)}
+            </div>
+          )}
         </Card>
         <Card className="p-4">
           <div className="text-sm text-muted-foreground">Entrate</div>
@@ -709,7 +721,7 @@ export function GestioneMovimenti({
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           {formatDate(movimento.data)}
-                          {movimento.categoria && ` • ${movimento.categoria}`}
+                          {movimento.categoria && ` • ${normalizzaCategoria(movimento.categoria)}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
