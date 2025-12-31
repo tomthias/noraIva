@@ -1,5 +1,6 @@
 /**
  * Container principale sezione Analisi
+ * Hub finanziario con statistiche, grafici e consigli personalizzati
  */
 
 import { useMemo, useState } from "react";
@@ -9,9 +10,12 @@ import { YearFilter } from "../YearFilter";
 import { KPICards } from "./KPICards";
 import { StatsCards } from "./StatsCards";
 import { TimelineMovimenti } from "./TimelineMovimenti";
-import { PieChartCanvas } from "./PieChartCanvas";
-import { BarChartCanvas } from "./BarChartCanvas";
-import { LineChartCanvas } from "./LineChartCanvas";
+import { RechartsBarChart } from "./RechartsBarChart";
+import { RechartsPieChart } from "./RechartsPieChart";
+import { RechartsLineChart } from "./RechartsLineChart";
+import { StipendioPrevisto } from "./StipendioPrevisto";
+import { BudgetRule } from "./BudgetRule";
+import { ConsigliFinanziari } from "./ConsigliFinanziari";
 import {
   calcolaKPI,
   aggregaPerCategoria,
@@ -20,7 +24,8 @@ import {
   calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import { ANNO } from "../../constants/fiscali";
+import { calcolaTasseTotali } from "../../utils/calcoliFisco";
+import { ANNO, CATEGORIE_TASSE } from "../../constants/fiscali";
 
 interface Props {
   fatture: Fattura[];
@@ -80,7 +85,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
           importo: f.importoLordo,
           escludiDaGrafico: false
         })),
-        ...entrateAnno // Già filtrate da aggregaPerCategoria internamente
+        ...entrateAnno
       ]).map((a) => ({
         label: a.categoria,
         value: a.totale,
@@ -91,7 +96,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
   const uscitePerCategoria = useMemo(
     () =>
       aggregaPerCategoria([
-        ...usciteAnno, // Già filtrate da aggregaPerCategoria internamente
+        ...usciteAnno,
         ...prelieviAnno.map(p => ({
           ...p,
           categoria: 'Stipendi',
@@ -131,26 +136,15 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       annoSelezionato
     );
 
-    // Raggruppa per mese per semplificare il grafico
     const perMese: Record<string, number> = {};
     saldi.forEach((s) => {
-      const mese = s.data.substring(0, 7); // "2025-01"
-      perMese[mese] = s.saldo; // Prendi l'ultimo saldo del mese
+      const mese = s.data.substring(0, 7);
+      perMese[mese] = s.saldo;
     });
 
     const mesiNomi = [
-      "Gen",
-      "Feb",
-      "Mar",
-      "Apr",
-      "Mag",
-      "Giu",
-      "Lug",
-      "Ago",
-      "Set",
-      "Ott",
-      "Nov",
-      "Dic",
+      "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
+      "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
     ];
 
     return Object.entries(perMese)
@@ -169,13 +163,77 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [fatture, uscite, entrate, prelievi]
   );
 
+  // Calcoli per consigli finanziari
+  const calcoliFinanziari = useMemo(() => {
+    // Netto disponibile (fatture - uscite - prelievi + entrate extra)
+    const totaleFatture = fattureAnno.reduce((sum, f) => sum + f.importoLordo, 0);
+    const totaleUscite = usciteAnno.reduce((sum, u) => sum + u.importo, 0);
+    const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
+    const totaleEntrate = entrateAnno
+      .filter(e => {
+        const cat = e.categoria?.toLowerCase() || '';
+        return cat !== 'saldo iniziale' && cat !== 'fatture' && !e.escludiDaGrafico;
+      })
+      .reduce((sum, e) => sum + e.importo, 0);
+
+    const nettoDisponibile = totaleFatture + totaleEntrate - totaleUscite - totalePrelievi;
+
+    // Tasse teoriche dell'anno corrente
+    const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
+
+    // Acconti già versati nell'anno
+    const accontiVersati = usciteAnno
+      .filter(u => {
+        const cat = u.categoria?.toLowerCase() || '';
+        return cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() || cat === 'tasse - acconto';
+      })
+      .reduce((sum, u) => sum + u.importo, 0);
+
+    // Saldo da pagare + primo acconto anno prossimo (40%)
+    const saldoAnno = Math.max(0, tasseTeoricheAnno - accontiVersati);
+    const primoAccontoProssimo = tasseTeoricheAnno * 0.4;
+    const tasseDaAccantonare = saldoAnno + primoAccontoProssimo;
+
+    // Media stipendio mensile
+    const mesiConPrelievi = new Set(prelieviAnno.map(p => p.data.substring(0, 7))).size || 1;
+    const mediaStipendioMensile = totalePrelievi / mesiConPrelievi;
+
+    // Media uscite mensili (escluse tasse)
+    const usciteNonTasse = usciteAnno
+      .filter(u => !u.categoria?.toLowerCase().startsWith('tasse'))
+      .reduce((sum, u) => sum + u.importo, 0);
+    const mediaUsciteMensili = usciteNonTasse / 12;
+
+    // Percentuale risparmiata
+    const risparmio = totaleFatture - totalePrelievi - usciteNonTasse;
+    const percentualeRisparmiata = totaleFatture > 0 ? (risparmio / totaleFatture) * 100 : 0;
+
+    // Nome mese prossimo
+    const mesiNomi = [
+      "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+      "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
+    ];
+    const meseProssimo = mesiNomi[(new Date().getMonth() + 1) % 12];
+
+    return {
+      nettoDisponibile,
+      tasseDaAccantonare,
+      mediaStipendioMensile,
+      mediaUsciteMensili,
+      percentualeRisparmiata,
+      meseProssimo,
+      mediaFatturatoMensile: kpi.mediaFatturatoMensile,
+      numeroClienti: kpi.numeroClienti,
+    };
+  }, [fattureAnno, usciteAnno, entrateAnno, prelieviAnno, kpi]);
+
   return (
     <div className="space-y-6">
       {/* Header con filtro anno */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Analisi</h2>
-          <p className="text-muted-foreground">Statistiche e KPI completi</p>
+          <h2 className="text-2xl font-bold">Analisi & Consigli</h2>
+          <p className="text-muted-foreground">Il tuo hub finanziario personale</p>
         </div>
         <YearFilter
           anni={anniDisponibili}
@@ -183,6 +241,27 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
           onChange={(anno) => setAnnoSelezionato(anno ?? ANNO)}
         />
       </div>
+
+      {/* Sezione Consigli Finanziari */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <StipendioPrevisto
+          nettoDisponibile={calcoliFinanziari.nettoDisponibile}
+          tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
+          mediaStipendioMensile={calcoliFinanziari.mediaStipendioMensile}
+          mese={calcoliFinanziari.meseProssimo}
+        />
+        <BudgetRule stipendioMensile={calcoliFinanziari.mediaStipendioMensile} />
+      </div>
+
+      {/* Consigli personalizzati */}
+      <ConsigliFinanziari
+        nettoDisponibile={calcoliFinanziari.nettoDisponibile}
+        tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
+        mediaFatturatoMensile={calcoliFinanziari.mediaFatturatoMensile}
+        mediaUsciteMensili={calcoliFinanziari.mediaUsciteMensili}
+        percentualeRisparmiata={calcoliFinanziari.percentualeRisparmiata}
+        numeroClienti={calcoliFinanziari.numeroClienti}
+      />
 
       {/* KPI Cards - 3 colonne */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -197,19 +276,19 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Entrate per Categoria</CardTitle>
+            <CardTitle className="text-base">Entrate per Categoria</CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChartCanvas data={entratePerCategoria} />
+            <RechartsPieChart data={entratePerCategoria} />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Uscite per Categoria</CardTitle>
+            <CardTitle className="text-base">Uscite per Categoria</CardTitle>
           </CardHeader>
           <CardContent>
-            <PieChartCanvas
+            <RechartsPieChart
               data={uscitePerCategoria}
               colors={[
                 "#ef4444",
@@ -239,7 +318,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       {/* Timeline */}
       <Card>
         <CardHeader>
-          <CardTitle>Ultimi Movimenti</CardTitle>
+          <CardTitle className="text-base">Ultimi Movimenti</CardTitle>
         </CardHeader>
         <CardContent>
           <TimelineMovimenti movimenti={ultimiMovimenti} />
@@ -250,26 +329,26 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Fatturato Mensile</CardTitle>
+            <CardTitle className="text-base">Fatturato Mensile</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChartCanvas
+            <RechartsBarChart
               data={fatturatoMensile}
-              orientation="vertical"
               color="#22c55e"
+              gradientId="barGradientFatturato"
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Top 5 Clienti</CardTitle>
+            <CardTitle className="text-base">Top 5 Clienti</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarChartCanvas
+            <RechartsBarChart
               data={topClienti}
-              orientation="horizontal"
               color="#3b82f6"
+              gradientId="barGradientClienti"
             />
           </CardContent>
         </Card>
@@ -278,10 +357,14 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       {/* Line Chart - Full width */}
       <Card>
         <CardHeader>
-          <CardTitle>Saldo Cumulativo</CardTitle>
+          <CardTitle className="text-base">Saldo Cumulativo</CardTitle>
         </CardHeader>
         <CardContent>
-          <LineChartCanvas data={saldoCumulativo} color="#8b5cf6" />
+          <RechartsLineChart
+            data={saldoCumulativo}
+            color="#8b5cf6"
+            gradientId="lineGradientSaldo"
+          />
         </CardContent>
       </Card>
     </div>

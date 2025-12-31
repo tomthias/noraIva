@@ -2,7 +2,7 @@ import type { Fattura } from "../types/fattura";
 import { calcolaRiepilogoAnnuale, calcolaPercentualeTasse } from "../utils/calcoliFisco";
 import { formatCurrency, formatPercentage } from "../utils/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, Building2, Landmark, ReceiptEuro, Wallet } from "lucide-react";
+import { TrendingUp, Building2, Landmark, ReceiptEuro } from "lucide-react";
 
 interface Props {
   fatture: Fattura[];
@@ -83,28 +83,6 @@ export function RiepilogoCard({ fatture, anno }: Props) {
               <div className="text-xs text-rose-500/80">Incidenza: {formatPercentage(percentualeTasse)}</div>
             </div>
           </div>
-        </div>
-
-        <div className="h-px bg-border" />
-
-        {/* Risultato Netto */}
-        <div className="pt-2">
-          <div className="flex items-center justify-between p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-sm">
-                <Wallet className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Netto Totale</p>
-                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-                  {formatCurrency(riepilogo.nettoFatture)}
-                </p>
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-center text-muted-foreground mt-2">
-            Escluse spese e altri movimenti extra
-          </p>
         </div>
 
       </CardContent>
