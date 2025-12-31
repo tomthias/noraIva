@@ -13,6 +13,7 @@ import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { YearFilter } from "./components/YearFilter";
+import { Analisi } from "./components/analisi/Analisi";
 
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
@@ -191,6 +192,15 @@ function App() {
                 onEliminaEntrata={eliminaEntrata}
               />
             </div>
+          )}
+
+          {activeSection === "analisi" && (
+            <Analisi
+              fatture={fatture}
+              uscite={uscite}
+              entrate={entrate}
+              prelievi={prelievi}
+            />
           )}
 
           {activeSection === "simulatore" && (

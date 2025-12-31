@@ -4,13 +4,14 @@ import {
   FileText,
   ArrowDownUp,
   Calculator,
+  BarChart2,
   LogOut,
   Menu,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export type SidebarSection = "dashboard" | "fatture" | "movimenti" | "simulatore";
+export type SidebarSection = "dashboard" | "fatture" | "movimenti" | "simulatore" | "analisi";
 
 interface SidebarProps {
   activeSection: SidebarSection;
@@ -24,6 +25,7 @@ const menuItems: { id: SidebarSection; label: string; icon: React.ReactNode }[] 
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
   { id: "fatture", label: "Fatture", icon: <FileText className="h-5 w-5" /> },
   { id: "movimenti", label: "Movimenti", icon: <ArrowDownUp className="h-5 w-5" /> },
+  { id: "analisi", label: "Analisi", icon: <BarChart2 className="h-5 w-5" /> },
   { id: "simulatore", label: "Simulatore", icon: <Calculator className="h-5 w-5" /> },
 ];
 
