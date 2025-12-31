@@ -63,7 +63,7 @@ export function RechartsLineChart({
             fontSize={12}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
             dy={10}
           />
           <YAxis
@@ -71,7 +71,7 @@ export function RechartsLineChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
           />
           <Tooltip
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "3 3" }}

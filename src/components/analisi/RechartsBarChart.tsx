@@ -64,7 +64,7 @@ export function RechartsBarChart({
             fontSize={12}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
             dy={10}
           />
           <YAxis
@@ -72,7 +72,7 @@ export function RechartsBarChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
           />
           <Tooltip
             cursor={{ fill: "rgba(255,255,255,0.1)" }}
