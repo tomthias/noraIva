@@ -31,9 +31,19 @@ import {
   PieChart,
   Pie,
   Cell,
+  CartesianGrid,
 } from "recharts";
 
-const COLORS = ["#f87171", "#fb923c", "#fbbf24", "#a3e635", "#34d399", "#22d3ee", "#818cf8", "#e879f9"];
+const COLORS = [
+  "#ef4444", // red-500
+  "#f97316", // orange-500
+  "#eab308", // yellow-500
+  "#84cc16", // lime-500
+  "#10b981", // emerald-500
+  "#06b6d4", // cyan-500
+  "#6366f1", // indigo-500
+  "#d946ef", // fuchsia-500
+];
 
 // Tipo unificato per i movimenti
 type TipoMovimento = "stipendio" | "uscita" | "entrata";
@@ -413,33 +423,46 @@ export function GestioneMovimenti({
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={datiMensili}>
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f87171" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
                 <XAxis
                   dataKey="mese"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: "#9ca3af" }}
+                  dy={10}
                 />
                 <YAxis
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}€`}
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: "#9ca3af" }}
                 />
                 <Tooltip
+                  cursor={{ fill: "hsl(var(--muted)/0.2)" }}
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 'var(--radius)',
-                    padding: '12px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+                    backgroundColor: "hsl(var(--popover))",
+                    borderColor: "hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                    color: "hsl(var(--popover-foreground))",
                   }}
-                  itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                  labelStyle={{ color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}
+                  itemStyle={{ color: "hsl(var(--foreground))" }}
+                  labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                   formatter={(value: any) => [`${formatCurrency(value)}`, "Uscite"]}
                 />
-                <Bar dataKey="importo" fill="#f87171" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="importo"
+                  fill="url(#barGradient)"
+                  radius={[4, 4, 0, 0]}
+                  barSize={32}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -459,6 +482,7 @@ export function GestioneMovimenti({
                     outerRadius={80}
                     paddingAngle={5}
                     dataKey="value"
+                    stroke="none"
                   >
                     {datiCategorie.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -466,14 +490,13 @@ export function GestioneMovimenti({
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'hsl(var(--popover))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 'var(--radius)',
-                      padding: '12px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+                      backgroundColor: "hsl(var(--popover))",
+                      borderColor: "hsl(var(--border))",
+                      borderRadius: "var(--radius)",
+                      color: "hsl(var(--popover-foreground))",
                     }}
-                    itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                    labelStyle={{ color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}
+                    itemStyle={{ color: "hsl(var(--foreground))" }}
+                    labelStyle={{ color: "hsl(var(--muted-foreground))" }}
                     formatter={(value: any) => [`${formatCurrency(value)}`, "Importo"]}
                   />
                 </PieChart>
@@ -483,10 +506,13 @@ export function GestioneMovimenti({
             )}
           </div>
           {datiCategorie.length > 0 && (
-            <div className="flex flex-wrap gap-2 justify-center mt-2 max-h-[100px] overflow-y-auto">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 justify-center mt-2 max-h-[100px] overflow-y-auto px-2">
               {datiCategorie.map((entry, index) => (
-                <div key={index} className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                <div key={index} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.3)]"
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
                   <span>{entry.name}</span>
                 </div>
               ))}
