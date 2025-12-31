@@ -105,18 +105,71 @@ function parseData(dataStr) {
 function getCategoria(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
 
+  // TASSE - F24, imposte, contributi INPS, etc.
+  if (text.includes('tasse') || text.includes('tass') ||
+      text.includes('f24') || text.includes('irpef') ||
+      text.includes('inps') || text.includes('contribut') ||
+      text.includes('imposta') || text.includes('pagamento imposte')) {
+    return 'TASSE';
+  }
+
+  // PSICOLOGA
+  if (text.includes('psicologo') || text.includes('psicologa') ||
+      text.includes('consulenza psicologica') || text.includes('psico')) {
+    return 'PSICOLOGA';
+  }
+
+  // AFFITTO
+  if (text.includes('dovevivo') || text.includes('affitto') || text.includes('canone locazione')) {
+    return 'AFFITTO';
+  }
+
+  // VIAGGI
+  if (text.includes('viaggio') || text.includes('volo') || text.includes('skitour') ||
+      text.includes('albania') || text.includes('georgia') || text.includes('norvegia') ||
+      text.includes('flydubai') || text.includes('ryanair') || text.includes('booking')) {
+    return 'VIAGGI';
+  }
+
+  // SHOPPING
+  if (text.includes('vinted') || text.includes('north face') || text.includes('northface') ||
+      text.includes('maxi sport') || text.includes('smartwool')) {
+    return 'SHOPPING';
+  }
+
+  // ABBONAMENTI/SERVIZI
+  if (text.includes('preply') || text.includes('claude code') || text.includes('moneyfarm') ||
+      text.includes('ticketmaster') || text.includes('impact hub')) {
+    return 'ABBONAMENTI';
+  }
+
+  // INTERESSI
   if (text.includes('liquidazione interessi') || text.includes('interessi-commissioni')) {
     return 'INTERESSI';
   }
+
+  // RIMBORSI
   if (text.includes('rimborso')) {
     return 'RIMBORSI';
   }
-  if (text.includes('imposta di bollo')) {
-    return 'TASSE';
-  }
+
+  // FATTURE
   if (text.includes('fattur') || text.includes('saldo fat') || text.includes('pagamento fattura')) {
     return 'FATTURE';
   }
+
+  // BENZINA/AUTO
+  if (text.includes('q8') || text.includes('benzina') || text.includes('carburante') ||
+      text.includes('autostrad') || text.includes('pedaggio') || text.includes('petrolvilla')) {
+    return 'AUTO';
+  }
+
+  // PRELIEVI CONTANTI
+  if (text.includes('rit. contanti') || text.includes('prelievo contanti') ||
+      text.includes('comm. rit. cont')) {
+    return 'CONTANTI';
+  }
+
   return 'ALTRO';
 }
 
@@ -127,8 +180,9 @@ function getCategoria(concetto, movimento, descrizione) {
 function shouldSkipEntrata(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
 
-  // Giroconti e trasferimenti interni
-  if (text.includes('giroconto') || text.includes('bonifico giroconto')) {
+  // Giroconti e trasferimenti interni (ma NON quelli relativi a tasse - quelli sono uscite legittime)
+  if ((text.includes('giroconto') || text.includes('bonifico giroconto')) &&
+      !text.includes('tasse') && !text.includes('tass')) {
     return true;
   }
 
@@ -145,6 +199,22 @@ function shouldSkipEntrata(concetto, movimento, descrizione) {
   // Prelievi contanti (non sono entrate reali, sono movimenti di cassa)
   if (text.includes('rit. contanti') || text.includes('prelievo contanti')) {
     return true;
+  }
+
+  return false;
+}
+
+/**
+ * Determina se un'uscita deve essere ESCLUSA (trasferimenti interni non fiscali)
+ */
+function shouldSkipUscita(concetto, movimento, descrizione) {
+  const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
+
+  // Giroconti interni che NON sono per tasse (solo spostamenti tra conti)
+  if ((text.includes('giroconto') && !text.includes('tasse') && !text.includes('tass'))) {
+    // Se è un giroconto generico senza scopo fiscale, potrebbe essere skip
+    // Ma per ora li teniamo tutti per sicurezza
+    return false;
   }
 
   return false;
