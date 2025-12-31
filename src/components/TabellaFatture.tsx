@@ -27,6 +27,17 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
     return Array.from(anni).sort((a, b) => b - a);
   }, [fatture]);
 
+  // Estrai clienti e descrizioni uniche per autocomplete
+  const clientiSuggeriti = useMemo(() => {
+    const clienti = new Set(fatture.map((f) => f.cliente).filter(Boolean));
+    return Array.from(clienti).sort();
+  }, [fatture]);
+
+  const descrizioniSuggerite = useMemo(() => {
+    const descrizioni = new Set(fatture.map((f) => f.descrizione).filter(Boolean));
+    return Array.from(descrizioni).sort();
+  }, [fatture]);
+
   // Filtra fatture per anno e search
   const fattureFiltrate = useMemo(() => {
     let filtered = annoSelezionato === null ? fatture : fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
@@ -107,6 +118,8 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
                       fattura={fattura}
                       onSubmit={(dati) => handleSaveEdit(fattura.id, dati)}
                       onCancel={() => setEditingId(null)}
+                      clientiSuggeriti={clientiSuggeriti}
+                      descrizioniSuggerite={descrizioniSuggerite}
                     />
                   </TableCell>
                 </TableRow>
