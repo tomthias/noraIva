@@ -66,8 +66,8 @@ export function GraficoFatturato({ fatture, anno }: Props) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-popover border rounded-lg p-3 shadow-lg">
-          <p className="font-medium">{label} {anno}</p>
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-medium text-popover-foreground">{label} {anno}</p>
           <p className="text-green-500 font-semibold">
             {formatCurrency(data.fatturato)}
           </p>

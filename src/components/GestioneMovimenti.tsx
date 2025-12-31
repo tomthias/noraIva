@@ -428,9 +428,15 @@ export function GestioneMovimenti({
                   tick={{ fill: 'hsl(var(--muted-foreground))' }}
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--popover))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: 'var(--radius)',
+                    padding: '12px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+                  }}
                   itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
-                  labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
+                  labelStyle={{ color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}
                   formatter={(value: any) => [`${formatCurrency(value)}`, "Uscite"]}
                 />
                 <Bar dataKey="importo" fill="#f87171" radius={[4, 4, 0, 0]} />
@@ -459,8 +465,15 @@ export function GestioneMovimenti({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ backgroundColor: 'hsl(var(--popover))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)' }}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--popover))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: 'var(--radius)',
+                      padding: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+                    }}
                     itemStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                    labelStyle={{ color: 'hsl(var(--muted-foreground))', fontWeight: 500 }}
                     formatter={(value: any) => [`${formatCurrency(value)}`, "Importo"]}
                   />
                 </PieChart>

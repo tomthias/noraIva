@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Sector,
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import type { Fattura, Prelievo, Uscita } from "../types/fattura";
@@ -38,6 +39,44 @@ const PIE_COLORS = [
   "hsl(30, 70%, 50%)",
   "hsl(160, 70%, 50%)",
 ];
+
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    backgroundColor: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 'var(--radius)',
+    padding: '12px',
+    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
+  },
+  itemStyle: {
+    color: 'hsl(var(--popover-foreground))'
+  },
+  labelStyle: {
+    color: 'hsl(var(--muted-foreground))',
+    fontWeight: 500,
+  },
+  cursor: { fill: 'hsl(var(--muted) / 0.2)' },
+};
+
+const renderActiveShape = (props: any) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 8}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        stroke="hsl(var(--border))"
+        strokeWidth={2}
+      />
+    </g>
+  );
+};
 
 export function Grafici({ fatture, prelievi, uscite }: Props) {
   const monthlyData = aggregaPerMese(fatture, prelievi, uscite);
@@ -114,17 +153,19 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
                   tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                  }}
+                  {...TOOLTIP_STYLE}
                   formatter={(value) => value ? formatCurrency(Number(value)) : ""}
                 />
-                <Legend />
-                <Bar dataKey="fatturato" fill={COLORS.fatturato} name="Fatturato" />
-                <Bar dataKey="prelievi" fill={COLORS.prelievi} name="Prelievi" />
-                <Bar dataKey="uscite" fill={COLORS.uscite} name="Uscite" />
+                <Legend
+                  wrapperStyle={{
+                    paddingTop: '20px',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  iconType="circle"
+                />
+                <Bar dataKey="fatturato" fill={COLORS.fatturato} name="Fatturato" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="prelievi" fill={COLORS.prelievi} name="Prelievi" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="uscite" fill={COLORS.uscite} name="Uscite" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -151,21 +192,24 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
                   tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                  }}
+                  {...TOOLTIP_STYLE}
                   formatter={(value) => value ? formatCurrency(Number(value)) : ""}
                 />
-                <Legend />
+                <Legend
+                  wrapperStyle={{
+                    paddingTop: '20px',
+                    color: 'hsl(var(--foreground))'
+                  }}
+                  iconType="circle"
+                />
                 <Line
                   type="monotone"
                   dataKey="netto"
                   stroke={COLORS.netto}
                   strokeWidth={2}
                   name="Netto"
-                  dot={{ fill: COLORS.netto }}
+                  dot={{ fill: COLORS.netto, r: 3 }}
+                  activeDot={{ r: 6, fill: COLORS.netto, stroke: "#fff", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -192,17 +236,14 @@ export function Grafici({ fatture, prelievi, uscite }: Props) {
                       outerRadius={100}
                       fill="#8884d8"
                       dataKey="importo"
+                      activeShape={renderActiveShape}
                     >
                       {categoryData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "var(--radius)",
-                      }}
+                      {...TOOLTIP_STYLE}
                       formatter={(value) => value ? formatCurrency(Number(value)) : ""}
                     />
                   </PieChart>

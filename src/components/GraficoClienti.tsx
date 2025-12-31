@@ -68,8 +68,8 @@ export function GraficoClienti({ fatture, anno }: Props) {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
-        <div className="bg-popover border rounded-lg p-3 shadow-lg">
-          <p className="font-medium">{data.nomeCompleto}</p>
+        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-medium text-popover-foreground">{data.nomeCompleto}</p>
           <p className="text-green-500 font-semibold">{formatCurrency(data.totale)}</p>
           <p className="text-xs text-muted-foreground">
             {data.count} {data.count === 1 ? "fattura" : "fatture"}
