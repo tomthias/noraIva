@@ -175,7 +175,7 @@ function getCategoria(concetto, movimento, descrizione) {
 
 /**
  * Determina se un movimento positivo deve essere ESCLUSO dalle entrate
- * (giroconti, trasferimenti interni, etc.)
+ * (giroconti, trasferimenti interni, storni, etc.)
  */
 function shouldSkipEntrata(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
@@ -198,6 +198,14 @@ function shouldSkipEntrata(concetto, movimento, descrizione) {
 
   // Prelievi contanti (non sono entrate reali, sono movimenti di cassa)
   if (text.includes('rit. contanti') || text.includes('prelievo contanti')) {
+    return true;
+  }
+
+  // Storni e rimborsi da acquisti (non sono guadagni, sono soldi tuoi che tornano)
+  // Ma NON escludere i rimborsi da clienti (quelli sono parte del business)
+  if (concetto.toLowerCase().includes('pagamento con carta') &&
+    !text.includes('fattur') && !text.includes('cliente')) {
+    // Pagamento con carta positivo = storno di un acquisto
     return true;
   }
 
@@ -265,9 +273,10 @@ async function importFatture() {
       continue;
     }
 
-    // Skip fatture 2023
-    if (dataISO.startsWith('2023-')) {
-      console.log(`   ⏭️  Skip fattura 2023: ${cliente} - €${importo}`);
+    // Skip fatture before 2024 (no matching movements data)
+    const annoFattura = parseInt(anno);
+    if (annoFattura < 2024) {
+      console.log(`   ⏭️  Skip fattura ${anno}: ${cliente} - €${importo}`);
       stats.fatture.skipped++;
       continue;
     }
