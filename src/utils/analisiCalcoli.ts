@@ -6,12 +6,12 @@ import type { Fattura, Uscita, Entrata, Prelievo } from "../types/fattura";
 
 /**
  * Filtra entrate valide escludendo categorie speciali
- * - Esclude Saldo Iniziale (non è denaro fresco)
+ * - Esclude Saldo Iniziale (non è denaro fresco) - case insensitive
  * - Esclude items con escludiDaGrafico = true
  */
 export function filtraEntrateValide(entrate: Entrata[]): Entrata[] {
   return entrate.filter(e =>
-    e.categoria !== 'Saldo Iniziale' &&
+    e.categoria?.toLowerCase() !== 'saldo iniziale' &&
     !e.escludiDaGrafico
   );
 }
@@ -106,10 +106,10 @@ export function normalizzaCategoria(categoria: string | undefined): string {
 export function aggregaPerCategoria(
   items: (Uscita | Entrata)[]
 ): AggregatoCategoria[] {
-  // ✅ Filtra items validi prima di aggregare
+  // ✅ Filtra items validi prima di aggregare (case insensitive)
   const itemsValidi = items.filter(item => {
-    // Escludi Saldo Iniziale
-    if (item.categoria === 'Saldo Iniziale') return false;
+    // Escludi Saldo Iniziale (case insensitive)
+    if (item.categoria?.toLowerCase() === 'saldo iniziale') return false;
     // Escludi se marcato escludiDaGrafico
     if (item.escludiDaGrafico) return false;
     return true;

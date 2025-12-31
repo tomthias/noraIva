@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import type { Fattura } from "../types/fattura";
 import { calcolaRiepilogoPerFattura, calcolaTotaleFatture } from "../utils/calcoliFisco";
 import { formatCurrency, formatDate } from "../utils/format";
@@ -60,6 +61,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
   const handleSaveEdit = (id: string, dati: Omit<Fattura, "id">) => {
     onModifica(id, dati);
     setEditingId(null);
+    toast.success("Fattura modificata");
   };
 
   if (fatture.length === 0) {
@@ -163,6 +165,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
                       onClick={() => {
                         if (confirm("Sei sicuro di voler eliminare questa fattura?")) {
                           onElimina(fattura.id);
+                          toast.success("Fattura eliminata");
                         }
                       }}
                       title="Elimina"

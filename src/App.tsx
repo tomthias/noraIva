@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { toast } from "sonner";
 import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
 import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { AuthForm } from "./components/AuthForm";
@@ -14,6 +15,7 @@ import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { YearFilter } from "./components/YearFilter";
 import { Analisi } from "./components/analisi/Analisi";
+import { Toaster } from "./components/ui/sonner";
 
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
@@ -104,6 +106,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Toaster />
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
@@ -167,6 +170,7 @@ function App() {
                     onSubmit={(dati) => {
                       aggiungiFattura(dati);
                       setShowForm(false);
+                      toast.success("Fattura aggiunta");
                     }}
                     onCancel={() => setShowForm(false)}
                     clientiSuggeriti={clientiSuggeriti}
