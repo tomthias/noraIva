@@ -114,10 +114,40 @@ function getCategoria(concetto, movimento, descrizione) {
   if (text.includes('imposta di bollo')) {
     return 'TASSE';
   }
-  if (text.includes('fattur') || text.includes('saldo fat')) {
+  if (text.includes('fattur') || text.includes('saldo fat') || text.includes('pagamento fattura')) {
     return 'FATTURE';
   }
   return 'ALTRO';
+}
+
+/**
+ * Determina se un movimento positivo deve essere ESCLUSO dalle entrate
+ * (giroconti, trasferimenti interni, etc.)
+ */
+function shouldSkipEntrata(concetto, movimento, descrizione) {
+  const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
+
+  // Giroconti e trasferimenti interni
+  if (text.includes('giroconto') || text.includes('bonifico giroconto')) {
+    return true;
+  }
+
+  // Trasferimenti da altri conti personali
+  if (text.includes('inviato da n26') || text.includes('inviato da revolut')) {
+    return true;
+  }
+
+  // Accrediti con carta generici (spesso sono rimborsi interni o storno)
+  if (concetto.toLowerCase() === 'accredito con carta' && movimento.toLowerCase() === 'altro') {
+    return true;
+  }
+
+  // Prelievi contanti (non sono entrate reali, sono movimenti di cassa)
+  if (text.includes('rit. contanti') || text.includes('prelievo contanti')) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -230,7 +260,22 @@ async function importMovimenti() {
     let table, statsKey, record;
 
     if (importo > 0) {
-      // ENTRATA
+      // ENTRATA - ma prima verifica se deve essere esclusa
+
+      // Skip giroconti e trasferimenti interni
+      if (shouldSkipEntrata(concetto, movimento, osservazioni)) {
+        console.log(`   ⏭️  Skip (trasferimento interno): ${dataISO} - ${descrizione} - €${importoAbs}`);
+        stats.entrate.skipped++;
+        continue;
+      }
+
+      // Skip entrate che sono pagamenti fatture (già contate nella tabella fatture)
+      if (categoria === 'FATTURE') {
+        console.log(`   ⏭️  Skip (già in fatture): ${dataISO} - ${descrizione} - €${importoAbs}`);
+        stats.entrate.skipped++;
+        continue;
+      }
+
       table = 'entrate';
       statsKey = 'entrate';
       record = {
@@ -299,10 +344,10 @@ function printSummary() {
     console.log('⚠️  MODALITÀ DRY-RUN - Nessun dato scritto\n');
   }
 
-  console.log(`Fatture:   ✅ ${stats.fatture.imported}  ❌ ${stats.fatture.errors}`);
-  console.log(`Entrate:   ✅ ${stats.entrate.imported}  ❌ ${stats.entrate.errors}`);
-  console.log(`Uscite:    ✅ ${stats.uscite.imported}  ❌ ${stats.uscite.errors}`);
-  console.log(`Prelievi:  ✅ ${stats.prelievi.imported}  ❌ ${stats.prelievi.errors}`);
+  console.log(`Fatture:   ✅ ${stats.fatture.imported}  ⏭️ ${stats.fatture.skipped}  ❌ ${stats.fatture.errors}`);
+  console.log(`Entrate:   ✅ ${stats.entrate.imported}  ⏭️ ${stats.entrate.skipped}  ❌ ${stats.entrate.errors}`);
+  console.log(`Uscite:    ✅ ${stats.uscite.imported}  ⏭️ ${stats.uscite.skipped}  ❌ ${stats.uscite.errors}`);
+  console.log(`Prelievi:  ✅ ${stats.prelievi.imported}  ⏭️ ${stats.prelievi.skipped}  ❌ ${stats.prelievi.errors}`);
 
   const total = stats.fatture.imported + stats.entrate.imported + stats.uscite.imported + stats.prelievi.imported;
   const errors = stats.fatture.errors + stats.entrate.errors + stats.uscite.errors + stats.prelievi.errors;
