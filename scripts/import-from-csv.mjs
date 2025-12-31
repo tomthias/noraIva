@@ -273,6 +273,14 @@ async function importFatture() {
       continue;
     }
 
+    // Skip fatture before 2024 (no matching movements data)
+    const annoFattura = parseInt(anno);
+    if (annoFattura < 2024) {
+      console.log(`   ⏭️  Skip fattura ${anno}: ${cliente} - €${importo}`);
+      stats.fatture.skipped++;
+      continue;
+    }
+
     const record = {
       user_id: USER_ID,
       data: dataISO,
