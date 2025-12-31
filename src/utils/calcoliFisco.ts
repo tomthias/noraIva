@@ -137,7 +137,7 @@ export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
  * NOTA: Usa il fatturato lordo meno prelievi e uscite (che includono tasse già pagate)
  * Le tasse sono già incluse nelle uscite con categoria "Tasse"
  * Le entrate extra (rimborsi, bonus) vengono sommate al disponibile
- * ESCLUDI: Saldo Iniziale e movimenti con escludiDaGrafico
+ * Il Saldo Iniziale viene incluso nel nettoDisponibile ma escluso da totaleEntrate per chiarezza
  */
 export function calcolaSituazioneCashFlow(
   fatture: Fattura[],
@@ -154,8 +154,12 @@ export function calcolaSituazioneCashFlow(
   // Uscite totali (include tasse già pagate)
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
 
-  // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi (case insensitive)
-  // Entrate extra (rimborsi, bonus, interessi - NON fatture già conteggiate)
+  // Saldo Iniziale - va incluso nel netto disponibile
+  const saldoIniziale = entrate
+    .filter(e => e.categoria?.toLowerCase() === 'saldo iniziale')
+    .reduce((sum, e) => sum + e.importo, 0);
+
+  // Entrate extra (rimborsi, bonus, interessi - escludi Saldo Iniziale, Fatture e movimenti esclusi)
   const totaleEntrate = entrate
     .filter(e => {
       const cat = e.categoria?.toLowerCase() || '';
@@ -165,16 +169,15 @@ export function calcolaSituazioneCashFlow(
     })
     .reduce((sum, e) => sum + e.importo, 0);
 
-  // Netto disponibile = Fatturato + Entrate Extra - Prelievi - Uscite
-  // Le tasse pagate sono già nelle uscite, quindi non le calcoliamo teoricamente
-  const nettoDisponibile = totaleFatturato + totaleEntrate - totalePrelievi - totaleUscite;
+  // Netto disponibile = Saldo Iniziale + Fatturato + Entrate Extra - Prelievi - Uscite
+  const nettoDisponibile = saldoIniziale + totaleFatturato + totaleEntrate - totalePrelievi - totaleUscite;
 
   return {
-    nettoFatture: totaleFatturato, // Ora mostra il fatturato lordo
+    nettoFatture: totaleFatturato, // Fatturato lordo
     totalePrelievi,
     totaleUscite,
-    totaleEntrate, // Ora è corretto senza SALDO_INIZIALE
-    nettoDisponibile,
+    totaleEntrate, // Entrate extra (senza Saldo Iniziale per chiarezza breakdown)
+    nettoDisponibile, // Include Saldo Iniziale
   };
 }
 
