@@ -54,7 +54,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [fatture, uscite, entrate, prelievi, annoSelezionato]
   );
 
-  // Filtra dati per anno
+  // Filtra dati per anno (per grafici)
   const fattureAnno = useMemo(
     () => fatture.filter((f) => f.data.startsWith(String(annoSelezionato))),
     [fatture, annoSelezionato]
@@ -72,6 +72,24 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
 
   const prelieviAnno = useMemo(
     () => prelievi.filter((p) => p.data.startsWith(String(annoSelezionato))),
+    [prelievi, annoSelezionato]
+  );
+
+  // Filtri CUMULATIVI per cash flow (come Dashboard)
+  const fattureCumulative = useMemo(
+    () => fatture.filter((f) => parseInt(f.data.substring(0, 4)) <= annoSelezionato),
+    [fatture, annoSelezionato]
+  );
+  const usciteCumulative = useMemo(
+    () => uscite.filter((u) => parseInt(u.data.substring(0, 4)) <= annoSelezionato),
+    [uscite, annoSelezionato]
+  );
+  const entrateCumulative = useMemo(
+    () => entrate.filter((e) => parseInt(e.data.substring(0, 4)) <= annoSelezionato),
+    [entrate, annoSelezionato]
+  );
+  const prelieviCumulativi = useMemo(
+    () => prelievi.filter((p) => parseInt(p.data.substring(0, 4)) <= annoSelezionato),
     [prelievi, annoSelezionato]
   );
 
@@ -163,13 +181,18 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [fatture, uscite, entrate, prelievi]
   );
 
-  // Calcoli per consigli finanziari - usa stessa logica della Dashboard
+  // Calcoli per consigli finanziari - usa stessa logica della Dashboard (dati CUMULATIVI)
   const calcoliFinanziari = useMemo(() => {
-    // Usa calcolaSituazioneCashFlow come la Dashboard
-    const cashFlow = calcolaSituazioneCashFlow(fattureAnno, prelieviAnno, usciteAnno, entrateAnno);
+    // Usa calcolaSituazioneCashFlow con dati CUMULATIVI come la Dashboard
+    const cashFlow = calcolaSituazioneCashFlow(
+      fattureCumulative,
+      prelieviCumulativi,
+      usciteCumulative,
+      entrateCumulative
+    );
     const nettoDisponibile = cashFlow.nettoDisponibile;
 
-    // Tasse teoriche + acconti
+    // Tasse teoriche dell'anno corrente + acconti versati nell'anno corrente
     const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
     const accontiVersati = usciteAnno
       .filter(u => u.categoria?.toLowerCase().includes('acconto'))
@@ -177,12 +200,12 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     const saldoAnno = Math.max(0, tasseTeoricheAnno - accontiVersati);
     const tasseDaAccantonare = saldoAnno + (tasseTeoricheAnno * 0.4);
 
-    // Media stipendio mensile
+    // Media stipendio mensile (dell'anno corrente)
     const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
     const mesiConPrelievi = new Set(prelieviAnno.map(p => p.data.substring(0, 7))).size || 1;
     const mediaStipendioMensile = totalePrelievi / mesiConPrelievi;
 
-    // Media uscite mensili (escluse tasse)
+    // Media uscite mensili (escluse tasse, dell'anno corrente)
     const usciteNonTasse = usciteAnno
       .filter(u => !u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
@@ -202,7 +225,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [fattureAnno, usciteAnno, entrateAnno, prelieviAnno, kpi]);
+  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi]);
 
   return (
     <div className="space-y-6">
