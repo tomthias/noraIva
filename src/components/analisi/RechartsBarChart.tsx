@@ -75,15 +75,15 @@ export function RechartsBarChart({
             tick={{ fill: "hsl(var(--muted-foreground))" }}
           />
           <Tooltip
-            cursor={{ fill: "hsl(var(--muted)/0.2)" }}
+            cursor={{ fill: "rgba(255,255,255,0.1)" }}
             contentStyle={{
-              backgroundColor: "hsl(var(--popover))",
-              borderColor: "hsl(var(--border))",
-              borderRadius: "var(--radius)",
-              color: "hsl(var(--popover-foreground))",
+              backgroundColor: "#000000",
+              borderColor: "#333333",
+              borderRadius: "8px",
+              color: "#ffffff",
             }}
-            itemStyle={{ color: "hsl(var(--foreground))" }}
-            labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            itemStyle={{ color: "#ffffff" }}
+            labelStyle={{ color: "#a1a1aa" }}
             formatter={(value) => [formatCurrency(Number(value)), "Importo"]}
           />
           <Bar
