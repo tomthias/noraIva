@@ -24,8 +24,8 @@ import {
   calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import { calcolaTasseTotali } from "../../utils/calcoliFisco";
-import { ANNO, CATEGORIE_TASSE } from "../../constants/fiscali";
+import { calcolaTasseTotali, calcolaSituazioneCashFlow } from "../../utils/calcoliFisco";
+import { ANNO } from "../../constants/fiscali";
 
 interface Props {
   fatture: Fattura[];
@@ -163,38 +163,22 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [fatture, uscite, entrate, prelievi]
   );
 
-  // Calcoli per consigli finanziari
+  // Calcoli per consigli finanziari - usa stessa logica della Dashboard
   const calcoliFinanziari = useMemo(() => {
-    // Netto disponibile (fatture - uscite - prelievi + entrate extra)
-    const totaleFatture = fattureAnno.reduce((sum, f) => sum + f.importoLordo, 0);
-    const totaleUscite = usciteAnno.reduce((sum, u) => sum + u.importo, 0);
-    const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
-    const totaleEntrate = entrateAnno
-      .filter(e => {
-        const cat = e.categoria?.toLowerCase() || '';
-        return cat !== 'saldo iniziale' && cat !== 'fatture' && !e.escludiDaGrafico;
-      })
-      .reduce((sum, e) => sum + e.importo, 0);
+    // Usa calcolaSituazioneCashFlow come la Dashboard
+    const cashFlow = calcolaSituazioneCashFlow(fattureAnno, prelieviAnno, usciteAnno, entrateAnno);
+    const nettoDisponibile = cashFlow.nettoDisponibile;
 
-    const nettoDisponibile = totaleFatture + totaleEntrate - totaleUscite - totalePrelievi;
-
-    // Tasse teoriche dell'anno corrente
+    // Tasse teoriche + acconti
     const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
-
-    // Acconti già versati nell'anno
     const accontiVersati = usciteAnno
-      .filter(u => {
-        const cat = u.categoria?.toLowerCase() || '';
-        return cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() || cat === 'tasse - acconto';
-      })
+      .filter(u => u.categoria?.toLowerCase().includes('acconto'))
       .reduce((sum, u) => sum + u.importo, 0);
-
-    // Saldo da pagare + primo acconto anno prossimo (40%)
     const saldoAnno = Math.max(0, tasseTeoricheAnno - accontiVersati);
-    const primoAccontoProssimo = tasseTeoricheAnno * 0.4;
-    const tasseDaAccantonare = saldoAnno + primoAccontoProssimo;
+    const tasseDaAccantonare = saldoAnno + (tasseTeoricheAnno * 0.4);
 
     // Media stipendio mensile
+    const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
     const mesiConPrelievi = new Set(prelieviAnno.map(p => p.data.substring(0, 7))).size || 1;
     const mediaStipendioMensile = totalePrelievi / mesiConPrelievi;
 
@@ -204,15 +188,9 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       .reduce((sum, u) => sum + u.importo, 0);
     const mediaUsciteMensili = usciteNonTasse / 12;
 
-    // Percentuale risparmiata
-    const risparmio = totaleFatture - totalePrelievi - usciteNonTasse;
-    const percentualeRisparmiata = totaleFatture > 0 ? (risparmio / totaleFatture) * 100 : 0;
-
-    // Nome mese prossimo
-    const mesiNomi = [
-      "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-      "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre",
-    ];
+    // Mese prossimo
+    const mesiNomi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+      "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
     const meseProssimo = mesiNomi[(new Date().getMonth() + 1) % 12];
 
     return {
@@ -220,7 +198,6 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       tasseDaAccantonare,
       mediaStipendioMensile,
       mediaUsciteMensili,
-      percentualeRisparmiata,
       meseProssimo,
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
@@ -259,7 +236,6 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
         tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
         mediaFatturatoMensile={calcoliFinanziari.mediaFatturatoMensile}
         mediaUsciteMensili={calcoliFinanziari.mediaUsciteMensili}
-        percentualeRisparmiata={calcoliFinanziari.percentualeRisparmiata}
         numeroClienti={calcoliFinanziari.numeroClienti}
       />
 
