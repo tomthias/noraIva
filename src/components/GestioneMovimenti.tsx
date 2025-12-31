@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import type { Prelievo, Uscita, Entrata } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
 import { normalizzaCategoria } from "../utils/analisiCalcoli";
@@ -293,6 +294,7 @@ export function GestioneMovimenti({
     setFormCategoria("");
     setFormImporto("");
     setShowForm(false);
+    toast.success("Movimento aggiunto");
   };
 
   const getOriginalId = (id: string) => id.split("-").slice(1).join("-");
@@ -308,6 +310,7 @@ export function GestioneMovimenti({
     } else {
       onEliminaEntrata(originalId);
     }
+    toast.success("Movimento eliminato");
   };
 
   const startEdit = (movimento: MovimentoUnificato) => {
@@ -355,6 +358,7 @@ export function GestioneMovimenti({
       }
     }
     setEditingId(null);
+    toast.success("Movimento modificato");
   };
 
   return (
