@@ -13,11 +13,37 @@ interface Props {
 }
 
 export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], annoSelezionato }: Props) {
-  const cashFlow = calcolaSituazioneCashFlow(fatture, prelievi, uscite, entrate);
+  // ✅ Filtra dati: tutti i movimenti dall'inizio FINO all'anno selezionato (incluso)
+  const fattureFiltrate = fatture.filter(f => {
+    const anno = parseInt(f.data.substring(0, 4));
+    return anno <= annoSelezionato;
+  });
 
-  // Calcola tasse già pagate totali (dalle uscite con categoria Tasse)
-  const tassePagate = uscite
-    .filter((u) => u.categoria === "Tasse")
+  const prelieviFiltrati = prelievi.filter(p => {
+    const anno = parseInt(p.data.substring(0, 4));
+    return anno <= annoSelezionato;
+  });
+
+  const usciteFiltrate = uscite.filter(u => {
+    const anno = parseInt(u.data.substring(0, 4));
+    return anno <= annoSelezionato;
+  });
+
+  const entrateFiltrate = entrate.filter(e => {
+    const anno = parseInt(e.data.substring(0, 4));
+    return anno <= annoSelezionato;
+  });
+
+  const cashFlow = calcolaSituazioneCashFlow(
+    fattureFiltrate,
+    prelieviFiltrati,
+    usciteFiltrate,
+    entrateFiltrate
+  );
+
+  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE normalizzata)
+  const tassePagate = usciteFiltrate
+    .filter((u) => u.categoria === "TASSE")
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Fatture per anno (basato sull'anno selezionato)
