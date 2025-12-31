@@ -3,7 +3,7 @@ import type { Fattura } from "../types/fattura";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Combobox } from "@/components/ui/combobox";
 
 interface Props {
   fattura?: Fattura;
@@ -62,68 +62,25 @@ export function FormFattura({
         </div>
         <div className="space-y-2">
           <Label htmlFor="cliente">Cliente</Label>
-          <Input
-            type="text"
-            id="cliente"
+          <Combobox
+            items={clientiSuggeriti}
             value={cliente}
-            onChange={(e) => setCliente(e.target.value)}
-            placeholder="Nome cliente"
-            list="clienti-suggeriti"
-            autoComplete="off"
+            onChange={setCliente}
+            placeholder="Seleziona o scrivi cliente..."
+            emptyText="Nessun cliente trovato."
           />
-          <datalist id="clienti-suggeriti">
-            {clientiSuggeriti.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
-          {clientiSuggeriti.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {clientiSuggeriti.slice(0, 5).map((c) => (
-                <Badge
-                  key={c}
-                  variant={cliente === c ? "default" : "secondary"}
-                  className="cursor-pointer text-xs"
-                  onClick={() => setCliente(c)}
-                >
-                  {c}
-                </Badge>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="descrizione">Descrizione</Label>
-        <Input
-          type="text"
-          id="descrizione"
+        <Combobox
+          items={descrizioniSuggerite}
           value={descrizione}
-          onChange={(e) => setDescrizione(e.target.value)}
-          placeholder="Descrizione fattura"
-          list="descrizioni-suggerite"
-          autoComplete="off"
-          required
+          onChange={setDescrizione}
+          placeholder="Seleziona o scrivi descrizione..."
+          emptyText="Nessuna descrizione trovata."
         />
-        <datalist id="descrizioni-suggerite">
-          {descrizioniSuggerite.map((d) => (
-            <option key={d} value={d} />
-          ))}
-        </datalist>
-        {descrizioniSuggerite.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {descrizioniSuggerite.slice(0, 4).map((d) => (
-              <Badge
-                key={d}
-                variant={descrizione === d ? "default" : "secondary"}
-                className="cursor-pointer text-xs"
-                onClick={() => setDescrizione(d)}
-              >
-                {d.length > 20 ? d.substring(0, 20) + "..." : d}
-              </Badge>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="space-y-2">

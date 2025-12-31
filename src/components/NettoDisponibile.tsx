@@ -1,9 +1,35 @@
 import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
-import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliFisco";
+import {
+  calcolaSituazioneCashFlow,
+  calcolaTasseTotali,
+} from "../utils/calcoliFisco";
 import { formatCurrency } from "../utils/format";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, AlertCircle, Calendar } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  CheckCircle,
+  AlertCircle,
+  Wallet,
+  TrendingDown,
+  TrendingUp,
+  PiggyBank,
+  Landmark,
+  Info,
+  User,
+} from "lucide-react";
 import { CATEGORIE_TASSE } from "../constants/fiscali";
+import { Progress } from "./ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 interface Props {
   fatture: Fattura[];
@@ -13,24 +39,30 @@ interface Props {
   annoSelezionato: number;
 }
 
-export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], annoSelezionato }: Props) {
-  // ✅ Filtra dati: tutti i movimenti dall'inizio FINO all'anno selezionato (incluso)
-  const fattureFiltrate = fatture.filter(f => {
+export function NettoDisponibile({
+  fatture,
+  prelievi,
+  uscite,
+  entrate = [],
+  annoSelezionato,
+}: Props) {
+  // --- CALCOLI LOGICA ---
+  const fattureFiltrate = fatture.filter((f) => {
     const anno = parseInt(f.data.substring(0, 4));
     return anno <= annoSelezionato;
   });
 
-  const prelieviFiltrati = prelievi.filter(p => {
+  const prelieviFiltrati = prelievi.filter((p) => {
     const anno = parseInt(p.data.substring(0, 4));
     return anno <= annoSelezionato;
   });
 
-  const usciteFiltrate = uscite.filter(u => {
+  const usciteFiltrate = uscite.filter((u) => {
     const anno = parseInt(u.data.substring(0, 4));
     return anno <= annoSelezionato;
   });
 
-  const entrateFiltrate = entrate.filter(e => {
+  const entrateFiltrate = entrate.filter((e) => {
     const anno = parseInt(e.data.substring(0, 4));
     return anno <= annoSelezionato;
   });
@@ -42,175 +74,252 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
     entrateFiltrate
   );
 
-  // Helper per verificare se una categoria è una tassa (case insensitive)
   const isTassaCategoria = (categoria: string | undefined): boolean => {
     if (!categoria) return false;
     const cat = categoria.toLowerCase();
-    return cat.startsWith('tasse');
+    return cat.startsWith("tasse");
   };
 
-  // Calcola tasse già pagate totali (tutte le categorie "Tasse*")
   const tassePagate = usciteFiltrate
     .filter((u) => isTassaCategoria(u.categoria))
     .reduce((sum, u) => sum + u.importo, 0);
 
-  // Fatture per anno (basato sull'anno selezionato)
-  const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
+  const fattureAnnoCorrente = fatture.filter((f) =>
+    f.data.startsWith(String(annoSelezionato))
+  );
 
-  // Calcolo tasse teoriche anno corrente
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
 
-  // ✅ NUOVO: Acconti anno corrente = uscite con categoria "Tasse - Acconto" NELL'ANNO CORRENTE
-  // Gli acconti per il 2025 sono pagati NEL 2025 (luglio + dicembre)
   const accontiAnnoCorrenteVersati = uscite
-    .filter(u => {
+    .filter((u) => {
       const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
-      const cat = u.categoria?.toLowerCase() || '';
-      // Cerca "Tasse - Acconto" o retrocompatibilità con "Tasse" generico nell'anno corrente
-      const isAcconto = cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
-                        cat === 'tasse - acconto';
+      const cat = u.categoria?.toLowerCase() || "";
+      const isAcconto =
+        cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
+        cat === "tasse - acconto";
       return isAnnoCorrente && isAcconto;
     })
     .reduce((sum, u) => sum + u.importo, 0);
 
-  // ✅ Saldo anno corrente basato su tasse teoriche - acconti REALI versati
-  // Se negativo (hai fatturato meno), il saldo è 0 e avrai un credito
-  const saldoAnnoCorrente = Math.max(0, tasseTeoricheAnnoCorrente - accontiAnnoCorrenteVersati);
+  const saldoAnnoCorrente = Math.max(
+    0,
+    tasseTeoricheAnnoCorrente - accontiAnnoCorrenteVersati
+  );
 
-  // Primo acconto anno prossimo (40% a giugno) = 40% delle tasse anno corrente
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
-
-  // Totale da accantonare per giugno = Saldo + Primo acconto (40%)
   const totaleDaAccantonare = saldoAnnoCorrente + primoAccontoAnnoProssimo;
-
-  // Netto sicuro = Saldo conto - Totale da accantonare
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 
+  // Calcolo per la progress bar "Tasse Versate vs Teoriche"
+  const percentualeTasseVersate =
+    tasseTeoricheAnnoCorrente > 0
+      ? Math.min(
+        100,
+        Math.round(
+          (accontiAnnoCorrenteVersati / tasseTeoricheAnnoCorrente) * 100
+        )
+      )
+      : 0;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Situazione Cash Flow</CardTitle>
-        <CardDescription>
-          Basato su fatturato reale, prelievi e uscite (tasse incluse)
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-3">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Fatturato totale</span>
-            <span className="font-medium text-green-600">
-              {formatCurrency(cashFlow.nettoFatture)}
+    <div className="flex flex-col gap-6">
+      {/* 1. HERO CARD: Netto Prelevabile */}
+      <Card
+        className={`relative overflow-hidden border-2 shadow-sm ${nettoSicuro >= 0
+          ? "border-emerald-500/20 bg-emerald-50/50 dark:bg-emerald-950/10"
+          : "border-red-500/20 bg-red-50/50 dark:bg-red-950/10"
+          }`}
+      >
+        <CardContent className="p-6">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Netto Prelevabile Sicuro
+              </p>
+              <h2
+                className={`text-4xl font-bold tracking-tight ${nettoSicuro >= 0 ? "text-emerald-600" : "text-red-600"
+                  }`}
+              >
+                {formatCurrency(nettoSicuro)}
+              </h2>
+            </div>
+            {nettoSicuro >= 0 ? (
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-full">
+                <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+              </div>
+            ) : (
+              <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <span
+              className={`text-sm font-medium px-2 py-0.5 rounded ${nettoSicuro >= 0
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                }`}
+            >
+              {nettoSicuro >= 0 ? "Saldo Positivo" : "Attenzione"}
+            </span>
+            <p className="text-sm text-muted-foreground">
+              {nettoSicuro >= 0
+                ? "Tutte le tasse stimate sono coperte."
+                : "Importo insufficiente per coprire le tasse future."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 2. CASH FLOW GRID - KPI VELOCI */}
+      <div className="grid grid-cols-2 gap-4">
+        <KpiCard
+          title="Saldo Attuale Conto"
+          value={cashFlow.nettoDisponibile}
+          icon={Landmark}
+          colorClass="text-foreground"
+        />
+        <KpiCard
+          title="Prelievi Personali"
+          value={cashFlow.totalePrelievi}
+          icon={User}
+          colorClass="text-blue-600"
+        />
+        <KpiCard
+          title="Spese & Tasse Totali"
+          value={cashFlow.totaleUscite}
+          subtext={`Di cui tasse: ${formatCurrency(tassePagate)}`}
+          icon={TrendingDown}
+          colorClass="text-rose-600"
+        />
+        <KpiCard
+          title="Entrate Extra"
+          value={cashFlow.totaleEntrate}
+          icon={TrendingUp}
+          colorClass="text-emerald-600"
+          hidden={cashFlow.totaleEntrate <= 0}
+        />
+      </div>
+
+      {/* 3. DETTAGLIO FISCALE - PROGRESS & ACCANTONAMENTO */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <PiggyBank className="h-5 w-5 text-amber-500" />
+              Stato Accantonamento Tasse
+            </CardTitle>
+            <span className="text-xs font-medium px-2 py-1 bg-muted rounded-full text-muted-foreground">
+              Anno {annoSelezionato}
             </span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Prelievi (stipendi)</span>
-            <span className="font-medium text-destructive">
-              {formatCurrency(cashFlow.totalePrelievi)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Uscite (di cui tasse: {formatCurrency(tassePagate)})</span>
-            <span className="font-medium text-destructive">
-              {formatCurrency(cashFlow.totaleUscite)}
-            </span>
-          </div>
-          {cashFlow.totaleEntrate > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Entrate extra</span>
-              <span className="font-medium text-green-600">
-                {formatCurrency(cashFlow.totaleEntrate)}
+          <CardDescription>
+            Simulazione basata sul fatturato attuale dell'anno
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-4">
+
+          {/* Progress Bar Tasse Versate */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Acconti versati vs Dovuto</span>
+              <span className="font-medium text-foreground">
+                {percentualeTasseVersate}%
               </span>
             </div>
-          )}
-          <div className="flex justify-between items-center pt-3 border-t">
-            <span className="font-medium">Saldo conto</span>
-            <span className="font-semibold">
-              {formatCurrency(cashFlow.nettoDisponibile)}
-            </span>
+            <Progress value={percentualeTasseVersate} className="h-2" indicatorClassName={percentualeTasseVersate >= 100 ? "bg-green-500" : "bg-amber-500"} />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>Versati: {formatCurrency(accontiAnnoCorrenteVersati)}</span>
+              <span>Totale Stimato: {formatCurrency(tasseTeoricheAnnoCorrente)}</span>
+            </div>
           </div>
+
+          <div className="border-t border-dashed my-2" />
+
+          {/* Dettagli Calcolo */}
+          <div className="space-y-3 bg-muted/40 p-4 rounded-lg">
+
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span>Saldo Tasse {annoSelezionato}</span>
+                <InfoTooltip text="La differenza tra le tasse totali stimate e gli acconti che hai già versato quest'anno." />
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(saldoAnnoCorrente)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span>1° Acconto {annoSelezionato + 1} (40%)</span>
+                <InfoTooltip text={`Calcolato come il 40% delle tasse totali di quest'anno (${formatCurrency(tasseTeoricheAnnoCorrente)}). Da pagare a Giugno.`} />
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(primoAccontoAnnoProssimo)}</span>
+            </div>
+
+            <div className="flex justify-between items-center pt-2 border-t border-muted-foreground/20">
+              <span className="font-semibold text-amber-600">Totale da tenere da parte</span>
+              <span className="font-bold text-lg text-amber-600">
+                {formatCurrency(totaleDaAccantonare)}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// --- SUB-COMPONENTS ---
+
+function KpiCard({
+  title,
+  value,
+  icon: Icon,
+  colorClass,
+  subtext,
+  hidden = false,
+}: {
+  title: string;
+  value: number;
+  icon: any;
+  colorClass: string;
+  subtext?: string;
+  hidden?: boolean;
+}) {
+  if (hidden) return null;
+  return (
+    <Card className="shadow-sm">
+      <CardContent className="p-4 flex flex-col justify-between h-full">
+        <div className="flex justify-between items-start mb-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase">{title}</span>
+          <Icon className={`h-4 w-4 ${colorClass} opacity-80`} />
+        </div>
+        <div>
+          <span className={`text-xl font-bold ${colorClass}`}>
+            {formatCurrency(value)}
+          </span>
+          {subtext && (
+            <p className="text-xs text-muted-foreground mt-1 leading-tight">
+              {subtext}
+            </p>
+          )}
         </div>
       </CardContent>
-
-      {/* Box previsione tasse giugno anno prossimo */}
-      <div className="mx-4 mb-4 p-4 rounded-lg bg-muted/50 border">
-        <div className="flex items-center gap-2 mb-3">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Da accantonare per giugno {annoSelezionato + 1}</span>
-        </div>
-        <div className="grid gap-2 text-sm">
-          {/* Mostra tasse teoriche e acconti versati */}
-          <div className="flex justify-between items-center text-xs text-muted-foreground/70">
-            <span>Tasse teoriche {annoSelezionato}</span>
-            <span>{formatCurrency(tasseTeoricheAnnoCorrente)}</span>
-          </div>
-          {accontiAnnoCorrenteVersati > 0 && (
-            <div className="flex justify-between items-center text-xs text-green-500/70">
-              <span>Acconti {annoSelezionato} già versati</span>
-              <span>- {formatCurrency(accontiAnnoCorrenteVersati)}</span>
-            </div>
-          )}
-          {accontiAnnoCorrenteVersati === 0 && (
-            <div className="flex justify-between items-center text-xs text-amber-500/70">
-              <span>Acconti {annoSelezionato} versati</span>
-              <span>€ 0 (usa categoria "Tasse - Acconto")</span>
-            </div>
-          )}
-          <div className="border-t my-1"></div>
-          {saldoAnnoCorrente > 0 && (
-            <div className="flex justify-between items-center">
-              <span className="text-muted-foreground">Saldo tasse {annoSelezionato}</span>
-              <span className="text-amber-500">- {formatCurrency(saldoAnnoCorrente)}</span>
-            </div>
-          )}
-          <div className={`flex justify-between items-center ${saldoAnnoCorrente === 0 ? "pt-0" : ""}`}>
-            <span className={saldoAnnoCorrente > 0 ? "text-muted-foreground" : "font-medium"}>
-              {saldoAnnoCorrente > 0 ? `Primo acconto ${annoSelezionato + 1} (40%)` : "Primo acconto (40%)"}
-            </span>
-            <span className={saldoAnnoCorrente > 0 ? "text-amber-500" : "font-semibold text-amber-500"}>
-              - {formatCurrency(primoAccontoAnnoProssimo)}
-            </span>
-          </div>
-          {saldoAnnoCorrente > 0 && (
-            <div className="flex justify-between items-center pt-2 border-t">
-              <span className="font-medium">Totale da accantonare</span>
-              <span className="font-semibold text-amber-500">
-                - {formatCurrency(totaleDaAccantonare)}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Box evidenziato per il Netto Prelevabile */}
-      <div className={`mx-4 mb-4 p-4 rounded-lg border-2 ${
-        nettoSicuro >= 0
-          ? "bg-green-950/50 border-green-700"
-          : "bg-red-950/50 border-red-700"
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {nettoSicuro >= 0 ? (
-              <CheckCircle className="h-5 w-5 text-green-500" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-red-500" />
-            )}
-            <span className="font-semibold">Puoi prelevare</span>
-          </div>
-          <span className={`font-bold text-2xl ${
-            nettoSicuro >= 0 ? "text-green-500" : "text-red-500"
-          }`}>
-            {formatCurrency(nettoSicuro)}
-          </span>
-        </div>
-        <p className={`text-xs mt-1 ${
-          nettoSicuro >= 0 ? "text-green-600" : "text-red-600"
-        }`}>
-          {nettoSicuro >= 0
-            ? `Saldo ${annoSelezionato} e primo acconto ${annoSelezionato + 1} coperti`
-            : `Devi ancora accantonare per saldo e primo acconto`
-          }
-        </p>
-      </div>
     </Card>
   );
+}
+
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <TooltipProvider>
+      <Tooltip delayDuration={300}>
+        <TooltipTrigger asChild>
+          <Info className="h-3.5 w-3.5 text-muted-foreground/70 hover:text-foreground transition-colors cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[300px] text-xs">
+          {text}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }

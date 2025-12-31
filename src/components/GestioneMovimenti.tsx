@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, Pencil, Check, X, Search, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Select,
   SelectContent,
@@ -593,32 +594,13 @@ export function GestioneMovimenti({
               {formTipo !== "stipendio" && (
                 <div className="space-y-2">
                   <Label>Categoria (opzionale)</Label>
-                  <Input
+                  <Combobox
+                    items={categorieDisponibili}
                     value={formCategoria}
-                    onChange={(e) => setFormCategoria(e.target.value)}
-                    placeholder="es. Tasse, Affitto, Interessi"
-                    list="categorie-suggerite"
-                    autoComplete="off"
+                    onChange={setFormCategoria}
+                    placeholder="Seleziona o scrivi categoria..."
+                    emptyText="Nessuna categoria trovata."
                   />
-                  <datalist id="categorie-suggerite">
-                    {categorieDisponibili.map((cat) => (
-                      <option key={cat} value={cat} />
-                    ))}
-                  </datalist>
-                  {categorieDisponibili.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {categorieDisponibili.slice(0, 6).map((cat) => (
-                        <Badge
-                          key={cat}
-                          variant={formCategoria === cat ? "default" : "secondary"}
-                          className="cursor-pointer text-xs"
-                          onClick={() => setFormCategoria(cat)}
-                        >
-                          {cat}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
               <div className="flex gap-2">
@@ -691,34 +673,16 @@ export function GestioneMovimenti({
                         autoFocus
                       />
                       {editTipo !== "stipendio" && (
-                        <>
-                          <Input
+                        <div className="relative">
+                          <Combobox
+                            items={categorieDisponibili}
                             value={editCategoria}
-                            onChange={(e) => setEditCategoria(e.target.value)}
+                            onChange={setEditCategoria}
                             placeholder="Categoria"
-                            list="categorie-edit-suggerite"
-                            autoComplete="off"
+                            emptyText="Crea nuova..."
+                            className="h-9"
                           />
-                          <datalist id="categorie-edit-suggerite">
-                            {categorieDisponibili.map((cat) => (
-                              <option key={cat} value={cat} />
-                            ))}
-                          </datalist>
-                          {categorieDisponibili.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {categorieDisponibili.slice(0, 4).map((cat) => (
-                                <Badge
-                                  key={cat}
-                                  variant={editCategoria === cat ? "default" : "secondary"}
-                                  className="cursor-pointer text-xs"
-                                  onClick={() => setEditCategoria(cat)}
-                                >
-                                  {cat}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </>
+                        </div>
                       )}
                       <div className="flex gap-2">
                         <Button
