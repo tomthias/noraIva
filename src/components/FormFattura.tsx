@@ -3,14 +3,23 @@ import type { Fattura } from "../types/fattura";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 interface Props {
   fattura?: Fattura;
   onSubmit: (dati: Omit<Fattura, "id">) => void;
   onCancel?: () => void;
+  clientiSuggeriti?: string[];
+  descrizioniSuggerite?: string[];
 }
 
-export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
+export function FormFattura({
+  fattura,
+  onSubmit,
+  onCancel,
+  clientiSuggeriti = [],
+  descrizioniSuggerite = [],
+}: Props) {
   const [data, setData] = useState(fattura?.data || new Date().toISOString().split("T")[0]);
   const [descrizione, setDescrizione] = useState(fattura?.descrizione || "");
   const [cliente, setCliente] = useState(fattura?.cliente || "");
@@ -59,7 +68,28 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
             value={cliente}
             onChange={(e) => setCliente(e.target.value)}
             placeholder="Nome cliente"
+            list="clienti-suggeriti"
+            autoComplete="off"
           />
+          <datalist id="clienti-suggeriti">
+            {clientiSuggeriti.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+          {clientiSuggeriti.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {clientiSuggeriti.slice(0, 5).map((c) => (
+                <Badge
+                  key={c}
+                  variant={cliente === c ? "default" : "secondary"}
+                  className="cursor-pointer text-xs"
+                  onClick={() => setCliente(c)}
+                >
+                  {c}
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -71,8 +101,29 @@ export function FormFattura({ fattura, onSubmit, onCancel }: Props) {
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
           placeholder="Descrizione fattura"
+          list="descrizioni-suggerite"
+          autoComplete="off"
           required
         />
+        <datalist id="descrizioni-suggerite">
+          {descrizioniSuggerite.map((d) => (
+            <option key={d} value={d} />
+          ))}
+        </datalist>
+        {descrizioniSuggerite.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {descrizioniSuggerite.slice(0, 4).map((d) => (
+              <Badge
+                key={d}
+                variant={descrizione === d ? "default" : "secondary"}
+                className="cursor-pointer text-xs"
+                onClick={() => setDescrizione(d)}
+              >
+                {d.length > 20 ? d.substring(0, 20) + "..." : d}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

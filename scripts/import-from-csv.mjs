@@ -105,72 +105,72 @@ function parseData(dataStr) {
 function getCategoria(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
 
-  // TASSE - F24, imposte, contributi INPS, etc.
+  // Tasse - F24, imposte, contributi INPS, etc.
   if (text.includes('tasse') || text.includes('tass') ||
-      text.includes('f24') || text.includes('irpef') ||
-      text.includes('inps') || text.includes('contribut') ||
-      text.includes('imposta') || text.includes('pagamento imposte')) {
-    return 'TASSE';
+    text.includes('f24') || text.includes('irpef') ||
+    text.includes('inps') || text.includes('contribut') ||
+    text.includes('imposta') || text.includes('pagamento imposte')) {
+    return 'Tasse';
   }
 
-  // PSICOLOGA
+  // Psicologa
   if (text.includes('psicologo') || text.includes('psicologa') ||
-      text.includes('consulenza psicologica') || text.includes('psico')) {
-    return 'PSICOLOGA';
+    text.includes('consulenza psicologica') || text.includes('psico')) {
+    return 'Psicologa';
   }
 
-  // AFFITTO
+  // Affitto
   if (text.includes('dovevivo') || text.includes('affitto') || text.includes('canone locazione')) {
-    return 'AFFITTO';
+    return 'Affitto';
   }
 
-  // VIAGGI
+  // Viaggi
   if (text.includes('viaggio') || text.includes('volo') || text.includes('skitour') ||
-      text.includes('albania') || text.includes('georgia') || text.includes('norvegia') ||
-      text.includes('flydubai') || text.includes('ryanair') || text.includes('booking')) {
-    return 'VIAGGI';
+    text.includes('albania') || text.includes('georgia') || text.includes('norvegia') ||
+    text.includes('flydubai') || text.includes('ryanair') || text.includes('booking')) {
+    return 'Viaggi';
   }
 
-  // SHOPPING
+  // Shopping
   if (text.includes('vinted') || text.includes('north face') || text.includes('northface') ||
-      text.includes('maxi sport') || text.includes('smartwool')) {
-    return 'SHOPPING';
+    text.includes('maxi sport') || text.includes('smartwool')) {
+    return 'Shopping';
   }
 
-  // ABBONAMENTI/SERVIZI
+  // Abbonamenti/Servizi
   if (text.includes('preply') || text.includes('claude code') || text.includes('moneyfarm') ||
-      text.includes('ticketmaster') || text.includes('impact hub')) {
-    return 'ABBONAMENTI';
+    text.includes('ticketmaster') || text.includes('impact hub')) {
+    return 'Abbonamenti';
   }
 
-  // INTERESSI
+  // Interessi
   if (text.includes('liquidazione interessi') || text.includes('interessi-commissioni')) {
-    return 'INTERESSI';
+    return 'Interessi';
   }
 
-  // RIMBORSI
+  // Rimborsi
   if (text.includes('rimborso')) {
-    return 'RIMBORSI';
+    return 'Rimborsi';
   }
 
-  // FATTURE
+  // Fatture
   if (text.includes('fattur') || text.includes('saldo fat') || text.includes('pagamento fattura')) {
-    return 'FATTURE';
+    return 'Fatture';
   }
 
-  // BENZINA/AUTO
+  // Benzina/Auto
   if (text.includes('q8') || text.includes('benzina') || text.includes('carburante') ||
-      text.includes('autostrad') || text.includes('pedaggio') || text.includes('petrolvilla')) {
-    return 'AUTO';
+    text.includes('autostrad') || text.includes('pedaggio') || text.includes('petrolvilla')) {
+    return 'Auto';
   }
 
-  // PRELIEVI CONTANTI
+  // Prelievi Contanti
   if (text.includes('rit. contanti') || text.includes('prelievo contanti') ||
-      text.includes('comm. rit. cont')) {
-    return 'CONTANTI';
+    text.includes('comm. rit. cont')) {
+    return 'Contanti';
   }
 
-  return 'ALTRO';
+  return 'Altro';
 }
 
 /**
@@ -182,7 +182,7 @@ function shouldSkipEntrata(concetto, movimento, descrizione) {
 
   // Giroconti e trasferimenti interni (ma NON quelli relativi a tasse - quelli sono uscite legittime)
   if ((text.includes('giroconto') || text.includes('bonifico giroconto')) &&
-      !text.includes('tasse') && !text.includes('tass')) {
+    !text.includes('tasse') && !text.includes('tass')) {
     return true;
   }
 
@@ -204,7 +204,7 @@ function shouldSkipEntrata(concetto, movimento, descrizione) {
   // Storni e rimborsi da acquisti (non sono guadagni, sono soldi tuoi che tornano)
   // Ma NON escludere i rimborsi da clienti (quelli sono parte del business)
   if (concetto.toLowerCase().includes('pagamento con carta') &&
-      !text.includes('fattur') && !text.includes('cliente')) {
+    !text.includes('fattur') && !text.includes('cliente')) {
     // Pagamento con carta positivo = storno di un acquisto
     return true;
   }
@@ -234,8 +234,8 @@ function shouldSkipUscita(concetto, movimento, descrizione) {
 function isPrelievo(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
   return text.includes('mattia marinangeli') ||
-         text.includes('stipendio') ||
-         (text.includes('bonifico eseguito') && text.includes('mattia'));
+    text.includes('stipendio') ||
+    (text.includes('bonifico eseguito') && text.includes('mattia'));
 }
 
 /**

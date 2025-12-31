@@ -137,7 +137,7 @@ export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
  * NOTA: Usa il fatturato lordo meno prelievi e uscite (che includono tasse già pagate)
  * Le tasse sono già incluse nelle uscite con categoria "Tasse"
  * Le entrate extra (rimborsi, bonus) vengono sommate al disponibile
- * ESCLUDI: SALDO_INIZIALE e movimenti con escludiDaGrafico
+ * ESCLUDI: Saldo Iniziale e movimenti con escludiDaGrafico
  */
 export function calcolaSituazioneCashFlow(
   fatture: Fattura[],
@@ -154,14 +154,15 @@ export function calcolaSituazioneCashFlow(
   // Uscite totali (include tasse già pagate)
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
 
-  // ✅ CORREZIONE: filtrare SALDO_INIZIALE, FATTURE e movimenti esclusi
+  // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi (case insensitive)
   // Entrate extra (rimborsi, bonus, interessi - NON fatture già conteggiate)
   const totaleEntrate = entrate
-    .filter(e =>
-      e.categoria !== 'SALDO_INIZIALE' &&
-      e.categoria !== 'FATTURE' &&
-      !e.escludiDaGrafico
-    )
+    .filter(e => {
+      const cat = e.categoria?.toLowerCase() || '';
+      return cat !== 'saldo iniziale' &&
+        cat !== 'fatture' &&
+        !e.escludiDaGrafico;
+    })
     .reduce((sum, e) => sum + e.importo, 0);
 
   // Netto disponibile = Fatturato + Entrate Extra - Prelievi - Uscite

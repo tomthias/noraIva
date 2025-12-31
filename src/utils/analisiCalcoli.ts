@@ -6,12 +6,12 @@ import type { Fattura, Uscita, Entrata, Prelievo } from "../types/fattura";
 
 /**
  * Filtra entrate valide escludendo categorie speciali
- * - Esclude SALDO_INIZIALE (non è denaro fresco)
+ * - Esclude Saldo Iniziale (non è denaro fresco) - case insensitive
  * - Esclude items con escludiDaGrafico = true
  */
 export function filtraEntrateValide(entrate: Entrata[]): Entrata[] {
   return entrate.filter(e =>
-    e.categoria !== 'SALDO_INIZIALE' &&
+    e.categoria?.toLowerCase() !== 'saldo iniziale' &&
     !e.escludiDaGrafico
   );
 }
@@ -74,33 +74,42 @@ export interface KPI {
 }
 
 /**
- * Normalizza una categoria: uppercase, trim, e mappature speciali
+ * Normalizza una categoria: Title Case, trim, e mappature speciali
  */
 export function normalizzaCategoria(categoria: string | undefined): string {
-  if (!categoria) return 'ALTRO';
-  const normalized = categoria.trim().toUpperCase();
+  if (!categoria) return 'Altro';
+  const trimmed = categoria.trim();
+
+  // Se già in formato Title Case, restituisci così com'è
+  if (trimmed.charAt(0) === trimmed.charAt(0).toUpperCase() &&
+      trimmed.slice(1) === trimmed.slice(1).toLowerCase()) {
+    return trimmed;
+  }
+
+  // Converti in Title Case
+  const titleCase = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
 
   // Mappature speciali per uniformità
-  if (normalized === 'FATTURA') return 'FATTURE';
-  if (normalized === 'RIMBORSO') return 'RIMBORSI';
-  if (normalized === 'STIPENDIO') return 'STIPENDI';
-  if (normalized === 'INTERESSE') return 'INTERESSI';
+  if (titleCase === 'Fattura') return 'Fatture';
+  if (titleCase === 'Rimborso') return 'Rimborsi';
+  if (titleCase === 'Stipendio') return 'Stipendi';
+  if (titleCase === 'Interesse') return 'Interessi';
 
-  return normalized;
+  return titleCase;
 }
 
 /**
  * Aggrega dati per categoria
- * ✅ CORRETTO: filtra SALDO_INIZIALE e items con escludiDaGrafico
- * ✅ NORMALIZZA categorie per evitare duplicati (TASSE vs Tasse)
+ * ✅ CORRETTO: filtra Saldo Iniziale e items con escludiDaGrafico
+ * ✅ NORMALIZZA categorie per evitare duplicati (Tasse vs tasse)
  */
 export function aggregaPerCategoria(
   items: (Uscita | Entrata)[]
 ): AggregatoCategoria[] {
-  // ✅ Filtra items validi prima di aggregare
+  // ✅ Filtra items validi prima di aggregare (case insensitive)
   const itemsValidi = items.filter(item => {
-    // Escludi SALDO_INIZIALE
-    if (item.categoria === 'SALDO_INIZIALE') return false;
+    // Escludi Saldo Iniziale (case insensitive)
+    if (item.categoria?.toLowerCase() === 'saldo iniziale') return false;
     // Escludi se marcato escludiDaGrafico
     if (item.escludiDaGrafico) return false;
     return true;
@@ -215,7 +224,7 @@ export function classificaClienti(
 
 /**
  * Calcola saldo cumulativo nel tempo
- * ✅ CORRETTO: filtra SALDO_INIZIALE e escludiDaGrafico
+ * ✅ CORRETTO: filtra Saldo Iniziale e escludiDaGrafico
  */
 export function calcolaSaldoCumulativo(
   fatture: Fattura[],
@@ -283,7 +292,7 @@ export function calcolaKPI(
     ? prelievi.filter((p) => p.data.startsWith(String(anno)))
     : prelievi;
 
-  // ✅ CORREZIONE: filtrare SALDO_INIZIALE e escludiDaGrafico
+  // ✅ CORREZIONE: filtrare Saldo Iniziale e escludiDaGrafico
   const entrateValide = filtraEntrateValide(entrateAnno);
   const usciteValide = filtraUsciteValide(usciteAnno);
 

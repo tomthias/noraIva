@@ -3,6 +3,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import type { Prelievo, Uscita, Entrata } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
 import { normalizzaCategoria } from "../utils/analisiCalcoli";
@@ -109,6 +110,7 @@ export function GestioneMovimenti({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDescrizione, setEditDescrizione] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
+  const [editImporto, setEditImporto] = useState("");
   const [editTipo, setEditTipo] = useState<TipoMovimento | null>(null);
 
   // Form state
@@ -130,10 +132,10 @@ export function GestioneMovimenti({
   const categorieDisponibili = useMemo(() => {
     const categorieUscite = uscite
       .map((u) => normalizzaCategoria(u.categoria))
-      .filter((cat) => cat !== 'ALTRO');
+      .filter((cat) => cat !== 'Altro');
     const categorieEntrate = entrate
       .map((e) => normalizzaCategoria(e.categoria))
-      .filter((cat) => cat !== 'ALTRO');
+      .filter((cat) => cat !== 'Altro');
     const categorie = new Set([...categorieUscite, ...categorieEntrate]);
     return Array.from(categorie).sort();
   }, [uscite, entrate]);
@@ -292,6 +294,7 @@ export function GestioneMovimenti({
     setFormCategoria("");
     setFormImporto("");
     setShowForm(false);
+    toast.success("Movimento aggiunto");
   };
 
   const getOriginalId = (id: string) => id.split("-").slice(1).join("-");
@@ -307,12 +310,14 @@ export function GestioneMovimenti({
     } else {
       onEliminaEntrata(originalId);
     }
+    toast.success("Movimento eliminato");
   };
 
   const startEdit = (movimento: MovimentoUnificato) => {
     setEditingId(movimento.id);
     setEditDescrizione(movimento.descrizione);
     setEditCategoria(movimento.categoria || "");
+    setEditImporto(String(movimento.importo));
     setEditTipo(movimento.tipo);
   };
 
@@ -324,6 +329,7 @@ export function GestioneMovimenti({
   const saveEdit = (movimento: MovimentoUnificato) => {
     const originalId = getOriginalId(movimento.id);
     const tipoChanged = editTipo !== null && editTipo !== movimento.tipo;
+    const nuovoImporto = parseFloat(editImporto) || movimento.importo;
 
     if (tipoChanged && editTipo) {
       // Conversione di tipo
@@ -333,20 +339,26 @@ export function GestioneMovimenti({
     } else {
       // Modifica normale (stesso tipo)
       if (movimento.tipo === "stipendio") {
-        onModificaPrelievo(originalId, { descrizione: editDescrizione });
+        onModificaPrelievo(originalId, {
+          descrizione: editDescrizione,
+          importo: nuovoImporto,
+        });
       } else if (movimento.tipo === "uscita") {
         onModificaUscita(originalId, {
           descrizione: editDescrizione,
           categoria: editCategoria || undefined,
+          importo: nuovoImporto,
         });
       } else {
         onModificaEntrata(originalId, {
           descrizione: editDescrizione,
           categoria: editCategoria || undefined,
+          importo: nuovoImporto,
         });
       }
     }
     setEditingId(null);
+    toast.success("Movimento modificato");
   };
 
   return (
@@ -644,19 +656,29 @@ export function GestioneMovimenti({
                 >
                   {editingId === movimento.id ? (
                     <div className="flex-1 space-y-2">
-                      <Select
-                        value={editTipo || movimento.tipo}
-                        onValueChange={(value) => setEditTipo(value as TipoMovimento)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="stipendio">Stipendio</SelectItem>
-                          <SelectItem value="uscita">Uscita</SelectItem>
-                          <SelectItem value="entrata">Entrata</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Select
+                          value={editTipo || movimento.tipo}
+                          onValueChange={(value) => setEditTipo(value as TipoMovimento)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="stipendio">Stipendio</SelectItem>
+                            <SelectItem value="uscita">Uscita</SelectItem>
+                            <SelectItem value="entrata">Entrata</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          value={editImporto}
+                          onChange={(e) => setEditImporto(e.target.value)}
+                          placeholder="Importo"
+                          step="0.01"
+                          min="0"
+                        />
+                      </div>
                       <Input
                         value={editDescrizione}
                         onChange={(e) => setEditDescrizione(e.target.value)}

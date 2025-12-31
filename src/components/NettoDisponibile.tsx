@@ -41,17 +41,17 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
     entrateFiltrate
   );
 
-  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE normalizzata)
+  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE - case insensitive)
   const tassePagate = usciteFiltrate
-    .filter((u) => u.categoria === "TASSE")
+    .filter((u) => u.categoria?.toLowerCase() === "tasse")
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Fatture per anno (basato sull'anno selezionato)
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
 
-  // ✅ Tasse realmente pagate nell'anno precedente
+  // ✅ Tasse realmente pagate nell'anno precedente (case insensitive)
   const tassePagateAnnoPrecedente = uscite
-    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria === 'TASSE')
+    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria?.toLowerCase() === 'tasse')
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Calcolo tasse teoriche anno corrente
@@ -181,19 +181,6 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
             : `Devi ancora accantonare per saldo e primo acconto`
           }
         </p>
-      </div>
-
-      {/* DEBUG - rimuovere dopo */}
-      <div className="mx-4 mb-4 p-3 rounded bg-gray-800 text-xs font-mono">
-        <div className="text-yellow-400 mb-2">🔧 DEBUG VALUES:</div>
-        <div>Saldo conto: {formatCurrency(cashFlow.nettoDisponibile)}</div>
-        <div>Tasse teoriche {annoSelezionato}: {formatCurrency(tasseTeoricheAnnoCorrente)}</div>
-        <div>Tasse pagate {annoSelezionato - 1}: {formatCurrency(tassePagateAnnoPrecedente)}</div>
-        <div>Acconti versati: {formatCurrency(accontiAnnoCorrenteVersati)}</div>
-        <div>Saldo tasse: {formatCurrency(saldoAnnoCorrente)}</div>
-        <div>Primo acconto {annoSelezionato + 1}: {formatCurrency(primoAccontoAnnoProssimo)}</div>
-        <div>Tot. da accantonare: {formatCurrency(totaleDaAccantonare)}</div>
-        <div className="mt-2 text-green-400">= Puoi prelevare: {formatCurrency(nettoSicuro)}</div>
       </div>
     </Card>
   );
