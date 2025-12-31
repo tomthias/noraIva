@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ANNO } from "../constants/fiscali";
+import { ANNO, CATEGORIE_TASSE_LISTA } from "../constants/fiscali";
 import {
   BarChart,
   Bar,
@@ -128,7 +128,7 @@ export function GestioneMovimenti({
     return Array.from(anni).sort((a, b) => b - a);
   }, [prelievi, uscite, entrate]);
 
-  // Estrai categorie disponibili per autocomplete
+  // Estrai categorie disponibili per autocomplete (include categorie tasse predefinite)
   const categorieDisponibili = useMemo(() => {
     const categorieUscite = uscite
       .map((u) => normalizzaCategoria(u.categoria))
@@ -136,7 +136,12 @@ export function GestioneMovimenti({
     const categorieEntrate = entrate
       .map((e) => normalizzaCategoria(e.categoria))
       .filter((cat) => cat !== 'Altro');
-    const categorie = new Set([...categorieUscite, ...categorieEntrate]);
+    // Aggiungi le categorie tasse predefinite
+    const categorie = new Set([
+      ...categorieUscite,
+      ...categorieEntrate,
+      ...CATEGORIE_TASSE_LISTA
+    ]);
     return Array.from(categorie).sort();
   }, [uscite, entrate]);
 

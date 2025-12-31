@@ -3,6 +3,7 @@ import { calcolaSituazioneCashFlow, calcolaTasseTotali } from "../utils/calcoliF
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, AlertCircle, Calendar } from "lucide-react";
+import { CATEGORIE_TASSE } from "../constants/fiscali";
 
 interface Props {
   fatture: Fattura[];
@@ -41,26 +42,36 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
     entrateFiltrate
   );
 
-  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE - case insensitive)
+  // Helper per verificare se una categoria è una tassa (case insensitive)
+  const isTassaCategoria = (categoria: string | undefined): boolean => {
+    if (!categoria) return false;
+    const cat = categoria.toLowerCase();
+    return cat.startsWith('tasse');
+  };
+
+  // Calcola tasse già pagate totali (tutte le categorie "Tasse*")
   const tassePagate = usciteFiltrate
-    .filter((u) => u.categoria?.toLowerCase() === "tasse")
+    .filter((u) => isTassaCategoria(u.categoria))
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Fatture per anno (basato sull'anno selezionato)
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
 
-  // ✅ Tasse realmente pagate nell'anno precedente (case insensitive)
-  const tassePagateAnnoPrecedente = uscite
-    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria?.toLowerCase() === 'tasse')
-    .reduce((sum, u) => sum + u.importo, 0);
-
   // Calcolo tasse teoriche anno corrente
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
 
-  // ✅ Acconti: usare le tasse REALMENTE pagate dell'anno precedente
-  // Gli acconti 2025 versati = tasse realmente pagate nel 2024
-  // Gli acconti 2026 versati = tasse realmente pagate nel 2025
-  const accontiAnnoCorrenteVersati = tassePagateAnnoPrecedente;
+  // ✅ NUOVO: Acconti anno corrente = uscite con categoria "Tasse - Acconto" NELL'ANNO CORRENTE
+  // Gli acconti per il 2025 sono pagati NEL 2025 (luglio + dicembre)
+  const accontiAnnoCorrenteVersati = uscite
+    .filter(u => {
+      const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
+      const cat = u.categoria?.toLowerCase() || '';
+      // Cerca "Tasse - Acconto" o retrocompatibilità con "Tasse" generico nell'anno corrente
+      const isAcconto = cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
+                        cat === 'tasse - acconto';
+      return isAnnoCorrente && isAcconto;
+    })
+    .reduce((sum, u) => sum + u.importo, 0);
 
   // ✅ Saldo anno corrente basato su tasse teoriche - acconti REALI versati
   // Se negativo (hai fatturato meno), il saldo è 0 e avrai un credito
@@ -127,6 +138,24 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
           <span className="text-sm font-medium">Da accantonare per giugno {annoSelezionato + 1}</span>
         </div>
         <div className="grid gap-2 text-sm">
+          {/* Mostra tasse teoriche e acconti versati */}
+          <div className="flex justify-between items-center text-xs text-muted-foreground/70">
+            <span>Tasse teoriche {annoSelezionato}</span>
+            <span>{formatCurrency(tasseTeoricheAnnoCorrente)}</span>
+          </div>
+          {accontiAnnoCorrenteVersati > 0 && (
+            <div className="flex justify-between items-center text-xs text-green-500/70">
+              <span>Acconti {annoSelezionato} già versati</span>
+              <span>- {formatCurrency(accontiAnnoCorrenteVersati)}</span>
+            </div>
+          )}
+          {accontiAnnoCorrenteVersati === 0 && (
+            <div className="flex justify-between items-center text-xs text-amber-500/70">
+              <span>Acconti {annoSelezionato} versati</span>
+              <span>€ 0 (usa categoria "Tasse - Acconto")</span>
+            </div>
+          )}
+          <div className="border-t my-1"></div>
           {saldoAnnoCorrente > 0 && (
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Saldo tasse {annoSelezionato}</span>
