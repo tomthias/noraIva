@@ -107,15 +107,15 @@ function getCategoria(concetto, movimento, descrizione) {
 
   // TASSE - F24, imposte, contributi INPS, etc.
   if (text.includes('tasse') || text.includes('tass') ||
-      text.includes('f24') || text.includes('irpef') ||
-      text.includes('inps') || text.includes('contribut') ||
-      text.includes('imposta') || text.includes('pagamento imposte')) {
+    text.includes('f24') || text.includes('irpef') ||
+    text.includes('inps') || text.includes('contribut') ||
+    text.includes('imposta') || text.includes('pagamento imposte')) {
     return 'TASSE';
   }
 
   // PSICOLOGA
   if (text.includes('psicologo') || text.includes('psicologa') ||
-      text.includes('consulenza psicologica') || text.includes('psico')) {
+    text.includes('consulenza psicologica') || text.includes('psico')) {
     return 'PSICOLOGA';
   }
 
@@ -126,20 +126,20 @@ function getCategoria(concetto, movimento, descrizione) {
 
   // VIAGGI
   if (text.includes('viaggio') || text.includes('volo') || text.includes('skitour') ||
-      text.includes('albania') || text.includes('georgia') || text.includes('norvegia') ||
-      text.includes('flydubai') || text.includes('ryanair') || text.includes('booking')) {
+    text.includes('albania') || text.includes('georgia') || text.includes('norvegia') ||
+    text.includes('flydubai') || text.includes('ryanair') || text.includes('booking')) {
     return 'VIAGGI';
   }
 
   // SHOPPING
   if (text.includes('vinted') || text.includes('north face') || text.includes('northface') ||
-      text.includes('maxi sport') || text.includes('smartwool')) {
+    text.includes('maxi sport') || text.includes('smartwool')) {
     return 'SHOPPING';
   }
 
   // ABBONAMENTI/SERVIZI
   if (text.includes('preply') || text.includes('claude code') || text.includes('moneyfarm') ||
-      text.includes('ticketmaster') || text.includes('impact hub')) {
+    text.includes('ticketmaster') || text.includes('impact hub')) {
     return 'ABBONAMENTI';
   }
 
@@ -160,13 +160,13 @@ function getCategoria(concetto, movimento, descrizione) {
 
   // BENZINA/AUTO
   if (text.includes('q8') || text.includes('benzina') || text.includes('carburante') ||
-      text.includes('autostrad') || text.includes('pedaggio') || text.includes('petrolvilla')) {
+    text.includes('autostrad') || text.includes('pedaggio') || text.includes('petrolvilla')) {
     return 'AUTO';
   }
 
   // PRELIEVI CONTANTI
   if (text.includes('rit. contanti') || text.includes('prelievo contanti') ||
-      text.includes('comm. rit. cont')) {
+    text.includes('comm. rit. cont')) {
     return 'CONTANTI';
   }
 
@@ -182,7 +182,7 @@ function shouldSkipEntrata(concetto, movimento, descrizione) {
 
   // Giroconti e trasferimenti interni (ma NON quelli relativi a tasse - quelli sono uscite legittime)
   if ((text.includes('giroconto') || text.includes('bonifico giroconto')) &&
-      !text.includes('tasse') && !text.includes('tass')) {
+    !text.includes('tasse') && !text.includes('tass')) {
     return true;
   }
 
@@ -226,8 +226,8 @@ function shouldSkipUscita(concetto, movimento, descrizione) {
 function isPrelievo(concetto, movimento, descrizione) {
   const text = `${concetto} ${movimento} ${descrizione}`.toLowerCase();
   return text.includes('mattia marinangeli') ||
-         text.includes('stipendio') ||
-         (text.includes('bonifico eseguito') && text.includes('mattia'));
+    text.includes('stipendio') ||
+    (text.includes('bonifico eseguito') && text.includes('mattia'));
 }
 
 /**
@@ -262,6 +262,13 @@ async function importFatture() {
     if (!dataISO || importo === 0) {
       console.log(`⚠️  Riga ${i + 1} dati invalidi, skip`);
       stats.fatture.errors++;
+      continue;
+    }
+
+    // Skip fatture 2023
+    if (dataISO.startsWith('2023-')) {
+      console.log(`   ⏭️  Skip fattura 2023: ${cliente} - €${importo}`);
+      stats.fatture.skipped++;
       continue;
     }
 
