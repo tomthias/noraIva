@@ -5,6 +5,26 @@
 import type { Fattura, Uscita, Entrata, Prelievo } from "../types/fattura";
 
 /**
+ * Filtra entrate valide escludendo categorie speciali
+ * - Esclude SALDO_INIZIALE (non è denaro fresco)
+ * - Esclude items con escludiDaGrafico = true
+ */
+export function filtraEntrateValide(entrate: Entrata[]): Entrata[] {
+  return entrate.filter(e =>
+    e.categoria !== 'SALDO_INIZIALE' &&
+    !e.escludiDaGrafico
+  );
+}
+
+/**
+ * Filtra uscite valide escludendo movimenti speciali
+ * - Esclude items con escludiDaGrafico = true
+ */
+export function filtraUsciteValide(uscite: Uscita[]): Uscita[] {
+  return uscite.filter(u => !u.escludiDaGrafico);
+}
+
+/**
  * Dati aggregati per categoria
  */
 export interface AggregatoCategoria {
@@ -55,11 +75,21 @@ export interface KPI {
 
 /**
  * Aggrega dati per categoria
+ * ✅ CORRETTO: filtra SALDO_INIZIALE e items con escludiDaGrafico
  */
 export function aggregaPerCategoria(
   items: (Uscita | Entrata)[]
 ): AggregatoCategoria[] {
-  const grouped = items.reduce((acc, item) => {
+  // ✅ Filtra items validi prima di aggregare
+  const itemsValidi = items.filter(item => {
+    // Escludi SALDO_INIZIALE
+    if (item.categoria === 'SALDO_INIZIALE') return false;
+    // Escludi se marcato escludiDaGrafico
+    if (item.escludiDaGrafico) return false;
+    return true;
+  });
+
+  const grouped = itemsValidi.reduce((acc, item) => {
     const cat = item.categoria || "Altro";
     if (!acc[cat]) {
       acc[cat] = 0;
@@ -168,6 +198,7 @@ export function classificaClienti(
 
 /**
  * Calcola saldo cumulativo nel tempo
+ * ✅ CORRETTO: filtra SALDO_INIZIALE e escludiDaGrafico
  */
 export function calcolaSaldoCumulativo(
   fatture: Fattura[],
@@ -176,11 +207,15 @@ export function calcolaSaldoCumulativo(
   prelievi: Prelievo[],
   anno?: number
 ): SaldoCumulativo[] {
+  // ✅ Filtra entrate e uscite valide
+  const entrateValide = filtraEntrateValide(entrate);
+  const usciteValide = filtraUsciteValide(uscite);
+
   // Crea array di tutti i movimenti con segno
   const movimenti: { data: string; importo: number }[] = [
     ...fatture.map((f) => ({ data: f.data, importo: f.importoLordo })),
-    ...entrate.map((e) => ({ data: e.data, importo: e.importo })),
-    ...uscite.map((u) => ({ data: u.data, importo: -u.importo })),
+    ...entrateValide.map((e) => ({ data: e.data, importo: e.importo })),
+    ...usciteValide.map((u) => ({ data: u.data, importo: -u.importo })),
     ...prelievi.map((p) => ({ data: p.data, importo: -p.importo })),
   ];
 
@@ -231,16 +266,20 @@ export function calcolaKPI(
     ? prelievi.filter((p) => p.data.startsWith(String(anno)))
     : prelievi;
 
-  // Totale entrate (fatture + altre entrate)
+  // ✅ CORREZIONE: filtrare SALDO_INIZIALE e escludiDaGrafico
+  const entrateValide = filtraEntrateValide(entrateAnno);
+  const usciteValide = filtraUsciteValide(usciteAnno);
+
+  // Totale entrate (fatture + altre entrate VALIDE)
   const totaleFatture = fattureAnno.reduce(
     (sum, f) => sum + f.importoLordo,
     0
   );
-  const totaleAltreEntrate = entrateAnno.reduce((sum, e) => sum + e.importo, 0);
+  const totaleAltreEntrate = entrateValide.reduce((sum, e) => sum + e.importo, 0);
   const totaleEntrate = totaleFatture + totaleAltreEntrate;
 
-  // Totale uscite (uscite + prelievi)
-  const totaleUsciteBase = usciteAnno.reduce((sum, u) => sum + u.importo, 0);
+  // Totale uscite (uscite VALIDE + prelievi)
+  const totaleUsciteBase = usciteValide.reduce((sum, u) => sum + u.importo, 0);
   const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
   const totaleUscite = totaleUsciteBase + totalePrelievi;
 
@@ -291,6 +330,10 @@ export function getUltimiMovimenti(
   importo: number;
   tipo: "fattura" | "entrata" | "uscita" | "prelievo";
 }> {
+  // ✅ Filtra entrate e uscite valide
+  const entrateValide = filtraEntrateValide(entrate);
+  const usciteValide = filtraUsciteValide(uscite);
+
   const movimenti = [
     ...fatture.map((f) => ({
       id: f.id,
@@ -299,14 +342,14 @@ export function getUltimiMovimenti(
       importo: f.importoLordo,
       tipo: "fattura" as const,
     })),
-    ...entrate.map((e) => ({
+    ...entrateValide.map((e) => ({
       id: e.id,
       data: e.data,
       descrizione: e.descrizione,
       importo: e.importo,
       tipo: "entrata" as const,
     })),
-    ...uscite.map((u) => ({
+    ...usciteValide.map((u) => ({
       id: u.id,
       data: u.data,
       descrizione: u.descrizione,

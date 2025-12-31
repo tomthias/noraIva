@@ -22,28 +22,21 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
 
   // Fatture per anno (basato sull'anno selezionato)
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
-  const fattureAnnoPrecedente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato - 1)));
 
-  // Tasse teoriche per anno
+  // ✅ Tasse realmente pagate nell'anno precedente
+  const tassePagateAnnoPrecedente = uscite
+    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria === 'Tasse')
+    .reduce((sum, u) => sum + u.importo, 0);
+
+  // Calcolo tasse teoriche anno corrente
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
-  const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
-  // Stima degli acconti anno corrente già versati
-  // Gli acconti 2025 = circa tasse 2024 (perché si basano sull'anno precedente)
-  // Acconti versati nel 2025 ≈ tassePagateAnnoCorrente - saldoAnnoPrecedente
-  // Saldo anno precedente ≈ tasseTeoricheAnnoPrecedente - accontiAnnoPrecedente
+  // ✅ Acconti: usare le tasse REALMENTE pagate dell'anno precedente
+  // Gli acconti 2025 versati = tasse realmente pagate nel 2024
+  // Gli acconti 2026 versati = tasse realmente pagate nel 2025
+  const accontiAnnoCorrenteVersati = tassePagateAnnoPrecedente;
 
-  // Semplificazione: gli acconti si basano sulle tasse dell'anno precedente
-  // Acconti 2025 = tasse 2024 (perché non avevi storico precedente significativo)
-  // Acconti 2026 = tasse 2025
-
-  // Metodo storico Fiscozen:
-  // - Acconti anno X = basati sulle tasse dell'anno X-1
-  // - Gli acconti 2025 versati = tasse 2024
-  // - Gli acconti 2026 = tasse 2025
-  const accontiAnnoCorrenteVersati = tasseTeoricheAnnoPrecedente;
-
-  // Saldo anno corrente = Tasse anno corrente - Acconti già versati
+  // ✅ Saldo anno corrente basato su tasse teoriche - acconti REALI versati
   // Se negativo (hai fatturato meno), il saldo è 0 e avrai un credito
   const saldoAnnoCorrente = Math.max(0, tasseTeoricheAnnoCorrente - accontiAnnoCorrenteVersati);
 

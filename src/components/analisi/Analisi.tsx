@@ -73,7 +73,15 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
   // Aggregazioni per grafici
   const entratePerCategoria = useMemo(
     () =>
-      aggregaPerCategoria([...fattureAnno.map(f => ({ ...f, categoria: 'Fatture', importo: f.importoLordo })), ...entrateAnno]).map((a) => ({
+      aggregaPerCategoria([
+        ...fattureAnno.map(f => ({
+          ...f,
+          categoria: 'Fatture',
+          importo: f.importoLordo,
+          escludiDaGrafico: false
+        })),
+        ...entrateAnno // Già filtrate da aggregaPerCategoria internamente
+      ]).map((a) => ({
         label: a.categoria,
         value: a.totale,
       })),
@@ -82,7 +90,14 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
 
   const uscitePerCategoria = useMemo(
     () =>
-      aggregaPerCategoria([...usciteAnno, ...prelieviAnno.map(p => ({ ...p, categoria: 'Stipendi' }))]).map((a) => ({
+      aggregaPerCategoria([
+        ...usciteAnno, // Già filtrate da aggregaPerCategoria internamente
+        ...prelieviAnno.map(p => ({
+          ...p,
+          categoria: 'Stipendi',
+          escludiDaGrafico: false
+        }))
+      ]).map((a) => ({
         label: a.categoria,
         value: a.totale,
       })),
