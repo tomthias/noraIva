@@ -41,17 +41,17 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
     entrateFiltrate
   );
 
-  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE normalizzata)
+  // Calcola tasse già pagate totali (dalle uscite FILTRATE con categoria TASSE - case insensitive)
   const tassePagate = usciteFiltrate
-    .filter((u) => u.categoria === "Tasse")
+    .filter((u) => u.categoria?.toLowerCase() === "tasse")
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Fatture per anno (basato sull'anno selezionato)
   const fattureAnnoCorrente = fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
 
-  // ✅ Tasse realmente pagate nell'anno precedente
+  // ✅ Tasse realmente pagate nell'anno precedente (case insensitive)
   const tassePagateAnnoPrecedente = uscite
-    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria === 'Tasse')
+    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria?.toLowerCase() === 'tasse')
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Calcolo tasse teoriche anno corrente

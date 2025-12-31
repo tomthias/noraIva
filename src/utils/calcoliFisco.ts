@@ -154,14 +154,15 @@ export function calcolaSituazioneCashFlow(
   // Uscite totali (include tasse già pagate)
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
 
-  // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi
+  // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi (case insensitive)
   // Entrate extra (rimborsi, bonus, interessi - NON fatture già conteggiate)
   const totaleEntrate = entrate
-    .filter(e =>
-      e.categoria !== 'Saldo Iniziale' &&
-      e.categoria !== 'Fatture' &&
-      !e.escludiDaGrafico
-    )
+    .filter(e => {
+      const cat = e.categoria?.toLowerCase() || '';
+      return cat !== 'saldo iniziale' &&
+        cat !== 'fatture' &&
+        !e.escludiDaGrafico;
+    })
     .reduce((sum, e) => sum + e.importo, 0);
 
   // Netto disponibile = Fatturato + Entrate Extra - Prelievi - Uscite
