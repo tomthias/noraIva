@@ -63,7 +63,7 @@ export function RechartsLineChart({
             fontSize={12}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
             dy={10}
           />
           <YAxis
@@ -71,18 +71,18 @@ export function RechartsLineChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-            tick={{ fill: "hsl(var(--muted-foreground))" }}
+            tick={{ fill: "#a1a1aa" }}
           />
           <Tooltip
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "3 3" }}
             contentStyle={{
-              backgroundColor: "hsl(var(--popover))",
-              borderColor: "hsl(var(--border))",
-              borderRadius: "var(--radius)",
-              color: "hsl(var(--popover-foreground))",
+              backgroundColor: "#000000",
+              borderColor: "#333333",
+              borderRadius: "8px",
+              color: "#ffffff",
             }}
-            itemStyle={{ color: "hsl(var(--foreground))" }}
-            labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+            itemStyle={{ color: "#ffffff" }}
+            labelStyle={{ color: "#a1a1aa" }}
             formatter={(value) => [formatCurrency(Number(value)), "Saldo"]}
           />
           <Area
