@@ -53,6 +53,17 @@ function App() {
     return Array.from(anni).sort((a, b) => b - a);
   }, [fatture]);
 
+  // Estrai clienti e descrizioni uniche per autocomplete
+  const clientiSuggeriti = useMemo(() => {
+    const clienti = new Set(fatture.map((f) => f.cliente).filter(Boolean));
+    return Array.from(clienti).sort();
+  }, [fatture]);
+
+  const descrizioniSuggerite = useMemo(() => {
+    const descrizioni = new Set(fatture.map((f) => f.descrizione).filter(Boolean));
+    return Array.from(descrizioni).sort();
+  }, [fatture]);
+
   // Filtra fatture per anno selezionato (per il riepilogo)
   const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
 
@@ -158,6 +169,8 @@ function App() {
                       setShowForm(false);
                     }}
                     onCancel={() => setShowForm(false)}
+                    clientiSuggeriti={clientiSuggeriti}
+                    descrizioniSuggerite={descrizioniSuggerite}
                   />
                 </div>
               )}
