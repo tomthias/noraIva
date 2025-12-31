@@ -1,38 +1,51 @@
 /**
  * Card che mostra quanto puoi prelevarti come "stipendio" il mese prossimo
- * basato sul netto disponibile e le tasse da accantonare
+ * Calcolo: Netto Sicuro / Mesi fino alla prossima scadenza fiscale
+ * Scadenze: Giugno (saldo + 1° acconto) e Novembre (2° acconto)
  */
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Banknote, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { Banknote, TrendingUp, TrendingDown, AlertTriangle, Calendar } from "lucide-react";
 import { formatCurrency } from "../../utils/format";
-import { Progress } from "../ui/progress";
 
 interface Props {
   nettoDisponibile: number;
   tasseDaAccantonare: number;
-  mediaStipendioMensile: number;
   mese: string;
+}
+
+// Calcola mesi fino alla prossima scadenza fiscale
+function getMesiAllaScadenza(): { mesi: number; scadenza: string } {
+  const oggi = new Date();
+  const meseCorrente = oggi.getMonth(); // 0-11
+
+  // Scadenze: Giugno (5) e Novembre (10)
+  if (meseCorrente < 5) {
+    // Gen-Mag: conta fino a Giugno
+    return { mesi: 5 - meseCorrente, scadenza: "Giugno" };
+  } else if (meseCorrente < 10) {
+    // Giu-Ott: conta fino a Novembre
+    return { mesi: 10 - meseCorrente, scadenza: "Novembre" };
+  } else {
+    // Nov-Dic: conta fino a Giugno prossimo anno
+    return { mesi: 12 - meseCorrente + 5, scadenza: "Giugno" };
+  }
 }
 
 export function StipendioPrevisto({
   nettoDisponibile,
   tasseDaAccantonare,
-  mediaStipendioMensile,
   mese,
 }: Props) {
   const nettoSicuro = nettoDisponibile - tasseDaAccantonare;
+  const { mesi: mesiAllaScadenza, scadenza } = getMesiAllaScadenza();
 
-  // Suggerimento stipendio: non più della media storica e max 60% del netto sicuro
-  const stipendioConsigliato = Math.max(0, Math.min(
-    mediaStipendioMensile,
-    nettoSicuro * 0.6
-  ));
+  // Stipendio = Netto Sicuro / Mesi alla prossima scadenza
+  const stipendioConsigliato = nettoSicuro > 0
+    ? Math.max(0, nettoSicuro / mesiAllaScadenza)
+    : 0;
 
   const isPositivo = nettoSicuro > 0;
-  const percentualeUtilizzata = nettoSicuro > 0
-    ? (stipendioConsigliato / nettoSicuro) * 100
-    : 0;
 
   return (
     <Card className={`relative overflow-hidden ${
@@ -57,21 +70,14 @@ export function StipendioPrevisto({
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Media storica</p>
-                <p className="text-sm font-medium">{formatCurrency(mediaStipendioMensile)}</p>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Calendar className="h-3 w-3" />
+                  <span>{mesiAllaScadenza} mesi a {scadenza}</span>
+                </div>
+                <p className="text-sm font-medium text-purple-500">
+                  {formatCurrency(nettoSicuro)} ÷ {mesiAllaScadenza}
+                </p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Utilizzo netto sicuro</span>
-                <span className="font-medium">{percentualeUtilizzata.toFixed(0)}%</span>
-              </div>
-              <Progress
-                value={percentualeUtilizzata}
-                className="h-2"
-                indicatorClassName={percentualeUtilizzata > 60 ? "bg-amber-500" : "bg-purple-500"}
-              />
             </div>
 
             <div className="bg-muted/50 rounded-lg p-3 space-y-1">
@@ -82,8 +88,12 @@ export function StipendioPrevisto({
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <TrendingDown className="h-4 w-4 text-amber-500" />
-                <span className="text-muted-foreground">Da accantonare:</span>
+                <span className="text-muted-foreground">Tasse da accantonare:</span>
                 <span className="font-medium">{formatCurrency(tasseDaAccantonare)}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm pt-1 border-t border-muted">
+                <span className="text-muted-foreground">= Netto sicuro:</span>
+                <span className="font-semibold text-purple-500">{formatCurrency(nettoSicuro)}</span>
               </div>
             </div>
           </>

@@ -224,7 +224,6 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
         <StipendioPrevisto
           nettoDisponibile={calcoliFinanziari.nettoDisponibile}
           tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
-          mediaStipendioMensile={calcoliFinanziari.mediaStipendioMensile}
           mese={calcoliFinanziari.meseProssimo}
         />
         <BudgetRule stipendioMensile={calcoliFinanziari.mediaStipendioMensile} />
