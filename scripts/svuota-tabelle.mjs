@@ -10,8 +10,20 @@ const USER_ID = process.env.SUPABASE_USER_ID;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 async function svuotaTabelle() {
-  console.log('🗑️  SVUOTAMENTO TABELLE MOVIMENTI\n');
-  console.log('⚠️  ATTENZIONE: Questa operazione eliminerà tutti i movimenti!\n');
+  console.log('🗑️  SVUOTAMENTO TUTTE LE TABELLE\n');
+  console.log('⚠️  ATTENZIONE: Questa operazione eliminerà TUTTI i dati!\n');
+
+  // Delete fatture
+  const { error: e0 } = await supabase
+    .from('fatture')
+    .delete()
+    .eq('user_id', USER_ID);
+
+  if (e0) {
+    console.error('❌ Errore eliminazione fatture:', e0);
+    process.exit(1);
+  }
+  console.log('✅ Tabella fatture svuotata');
 
   // Delete entrate
   const { error: e1 } = await supabase
