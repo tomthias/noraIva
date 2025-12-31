@@ -51,7 +51,7 @@ export function NettoDisponibile({ fatture, prelievi, uscite, entrate = [], anno
 
   // ✅ Tasse realmente pagate nell'anno precedente
   const tassePagateAnnoPrecedente = uscite
-    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria === 'Tasse')
+    .filter(u => u.data.startsWith(String(annoSelezionato - 1)) && u.categoria === 'TASSE')
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Calcolo tasse teoriche anno corrente
