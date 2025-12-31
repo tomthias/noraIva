@@ -39,3 +39,29 @@ export const COEFFICIENTE_REDDITIVITA = 0.78;
  * Chiave localStorage per salvare le fatture
  */
 export const STORAGE_KEY = "fatture-mattia-2025";
+
+/**
+ * Categorie per le tasse - usate per distinguere tra:
+ * - Saldo: pagamento del saldo anno precedente
+ * - Acconto: pagamento acconti anno corrente
+ * - INPS: contributi previdenziali
+ * - Imposta Sostitutiva: imposta sostitutiva IRPEF
+ */
+export const CATEGORIE_TASSE = {
+  SALDO: "Tasse - Saldo",
+  ACCONTO: "Tasse - Acconto",
+  INPS: "Tasse - INPS",
+  IMPOSTA_SOSTITUTIVA: "Tasse - Imposta Sostitutiva",
+  // Categoria generica per retrocompatibilità
+  GENERICO: "Tasse",
+} as const;
+
+/**
+ * Array di tutte le categorie tasse per suggerimenti
+ */
+export const CATEGORIE_TASSE_LISTA = [
+  CATEGORIE_TASSE.ACCONTO,
+  CATEGORIE_TASSE.SALDO,
+  CATEGORIE_TASSE.INPS,
+  CATEGORIE_TASSE.IMPOSTA_SOSTITUTIVA,
+] as const;
