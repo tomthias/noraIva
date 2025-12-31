@@ -1,7 +1,7 @@
 /**
- * Card con la regola 60/20/20 per il budget personale
- * 60% Bisogni essenziali
- * 20% Desideri
+ * Card con la regola 50/30/20 per il budget personale
+ * 50% Bisogni essenziali
+ * 30% Desideri
  * 20% Risparmio/Investimenti
  */
 
@@ -28,23 +28,23 @@ export function BudgetRule({ stipendioMensile }: Props) {
   const categories: BudgetCategory[] = [
     {
       nome: "Bisogni",
-      percentuale: 60,
-      importo: stipendioMensile * 0.6,
+      percentuale: 50,
+      importo: stipendioMensile * 0.5,
       icon: Home,
       color: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-500",
       descrizione: "Spese essenziali e fisse",
-      esempi: ["Affitto/Mutuo", "Bollette", "Spesa", "Trasporti", "Assicurazioni"],
+      esempi: ["Affitto/Mutuo", "Bollette", "Spesa", "Trasporti", "Assicurazioni", "Spese mediche"],
     },
     {
       nome: "Desideri",
-      percentuale: 20,
-      importo: stipendioMensile * 0.2,
+      percentuale: 30,
+      importo: stipendioMensile * 0.3,
       icon: Heart,
       color: "text-pink-600 dark:text-pink-400",
       bgColor: "bg-pink-500",
-      descrizione: "Piaceri e svago",
-      esempi: ["Ristoranti", "Shopping", "Hobby", "Streaming", "Viaggi"],
+      descrizione: "Tutto ciò che non è strettamente necessario",
+      esempi: ["Uscite", "Viaggi", "Ristoranti", "Abbonamenti", "Hobby", "Shopping"],
     },
     {
       nome: "Risparmio",
@@ -53,8 +53,8 @@ export function BudgetRule({ stipendioMensile }: Props) {
       icon: PiggyBank,
       color: "text-emerald-600 dark:text-emerald-400",
       bgColor: "bg-emerald-500",
-      descrizione: "Futuro e sicurezza",
-      esempi: ["Fondo emergenza", "Investimenti", "Pensione integrativa"],
+      descrizione: "Futuro e sicurezza finanziaria",
+      esempi: ["Fondo emergenza", "Investimenti", "Rimborso debiti extra"],
     },
   ];
 
@@ -64,7 +64,7 @@ export function BudgetRule({ stipendioMensile }: Props) {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-amber-500" />
-            Regola 60/20/20
+            Regola 50/30/20
           </CardTitle>
           <CardDescription>
             Inserisci uno stipendio per vedere la suddivisione consigliata
@@ -79,7 +79,7 @@ export function BudgetRule({ stipendioMensile }: Props) {
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Lightbulb className="h-5 w-5 text-amber-500" />
-          Regola 60/20/20
+          Regola 50/30/20
         </CardTitle>
         <CardDescription>
           Come suddividere il tuo stipendio di {formatCurrency(stipendioMensile)}

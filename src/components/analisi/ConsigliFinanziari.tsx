@@ -92,7 +92,7 @@ export function ConsigliFinanziari({
       tipo: "warning",
       titolo: "Risparmio troppo basso",
       descrizione: `Stai risparmiando solo il ${percentualeRisparmiata.toFixed(0)}% delle entrate. L'obiettivo minimo è 20%.`,
-      azione: "Prova la regola 60/20/20: 60% bisogni, 20% desideri, 20% risparmio.",
+      azione: "Prova la regola 50/30/20: 50% bisogni, 30% desideri, 20% risparmio.",
     });
   } else if (percentualeRisparmiata >= 30) {
     consigli.push({
