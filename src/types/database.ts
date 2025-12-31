@@ -85,6 +85,7 @@ export interface Database {
           categoria: string | null
           importo: number
           note: string | null
+          escludi_da_grafico: boolean | null
           created_at: string
           updated_at: string
         }
@@ -96,6 +97,7 @@ export interface Database {
           categoria?: string | null
           importo: number
           note?: string | null
+          escludi_da_grafico?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -107,6 +109,7 @@ export interface Database {
           categoria?: string | null
           importo?: number
           note?: string | null
+          escludi_da_grafico?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -120,6 +123,7 @@ export interface Database {
           categoria: string | null
           importo: number
           note: string | null
+          escludi_da_grafico: boolean | null
           created_at: string
           updated_at: string
         }
@@ -131,6 +135,7 @@ export interface Database {
           categoria?: string | null
           importo: number
           note?: string | null
+          escludi_da_grafico?: boolean | null
           created_at?: string
           updated_at?: string
         }
@@ -142,6 +147,7 @@ export interface Database {
           categoria?: string | null
           importo?: number
           note?: string | null
+          escludi_da_grafico?: boolean | null
           created_at?: string
           updated_at?: string
         }

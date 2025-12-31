@@ -40,6 +40,7 @@ function App() {
     aggiungiEntrata,
     modificaEntrata,
     eliminaEntrata,
+    convertiTipoMovimento,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
@@ -190,6 +191,7 @@ function App() {
                 onAggiungiEntrata={aggiungiEntrata}
                 onModificaEntrata={modificaEntrata}
                 onEliminaEntrata={eliminaEntrata}
+                onConvertiTipoMovimento={convertiTipoMovimento}
               />
             </div>
           )}

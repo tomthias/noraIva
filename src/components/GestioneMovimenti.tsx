@@ -5,6 +5,7 @@
 import { useState, useMemo } from "react";
 import type { Prelievo, Uscita, Entrata } from "../types/fattura";
 import { formatCurrency, formatDate } from "../utils/format";
+import { normalizzaCategoria } from "../utils/analisiCalcoli";
 import { YearFilter } from "./YearFilter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus, Pencil, Check, X, Search, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ANNO } from "../constants/fiscali";
 import {
   BarChart,
@@ -53,6 +61,12 @@ interface Props {
   onAggiungiEntrata: (dati: Omit<Entrata, "id">) => void;
   onModificaEntrata: (id: string, dati: Partial<Entrata>) => void;
   onEliminaEntrata: (id: string) => void;
+  onConvertiTipoMovimento: (
+    sourceType: 'prelievo' | 'uscita' | 'entrata',
+    targetType: 'prelievo' | 'uscita' | 'entrata',
+    id: string,
+    movimento: Prelievo | Uscita | Entrata
+  ) => void;
 }
 
 // Colori per i badge dei tipi
@@ -75,6 +89,7 @@ export function GestioneMovimenti({
   onAggiungiEntrata,
   onModificaEntrata,
   onEliminaEntrata,
+  onConvertiTipoMovimento,
 }: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,6 +99,7 @@ export function GestioneMovimenti({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDescrizione, setEditDescrizione] = useState("");
   const [editCategoria, setEditCategoria] = useState("");
+  const [editTipo, setEditTipo] = useState<TipoMovimento | null>(null);
 
   // Form state
   const [formData, setFormData] = useState(new Date().toISOString().split("T")[0]);
@@ -102,8 +118,12 @@ export function GestioneMovimenti({
 
   // Estrai categorie disponibili per autocomplete
   const categorieDisponibili = useMemo(() => {
-    const categorieUscite = uscite.map((u) => u.categoria).filter(Boolean) as string[];
-    const categorieEntrate = entrate.map((e) => e.categoria).filter(Boolean) as string[];
+    const categorieUscite = uscite
+      .map((u) => normalizzaCategoria(u.categoria))
+      .filter((cat) => cat !== 'ALTRO');
+    const categorieEntrate = entrate
+      .map((e) => normalizzaCategoria(e.categoria))
+      .filter((cat) => cat !== 'ALTRO');
     const categorie = new Set([...categorieUscite, ...categorieEntrate]);
     return Array.from(categorie).sort();
   }, [uscite, entrate]);
@@ -221,7 +241,7 @@ export function GestioneMovimenti({
     // Raggruppa per categoria
     const perCategoria: Record<string, number> = {};
     movimentiAnno.forEach((m) => {
-      const cat = m.categoria || "Altro";
+      const cat = normalizzaCategoria(m.categoria);
       perCategoria[cat] = (perCategoria[cat] || 0) + m.importo;
     });
 
@@ -283,22 +303,38 @@ export function GestioneMovimenti({
     setEditingId(movimento.id);
     setEditDescrizione(movimento.descrizione);
     setEditCategoria(movimento.categoria || "");
+    setEditTipo(movimento.tipo);
+  };
+
+  const tipoMovimentoToDbType = (tipo: TipoMovimento): 'prelievo' | 'uscita' | 'entrata' => {
+    if (tipo === "stipendio") return "prelievo";
+    return tipo;
   };
 
   const saveEdit = (movimento: MovimentoUnificato) => {
     const originalId = getOriginalId(movimento.id);
-    if (movimento.tipo === "stipendio") {
-      onModificaPrelievo(originalId, { descrizione: editDescrizione });
-    } else if (movimento.tipo === "uscita") {
-      onModificaUscita(originalId, {
-        descrizione: editDescrizione,
-        categoria: editCategoria || undefined,
-      });
+    const tipoChanged = editTipo !== null && editTipo !== movimento.tipo;
+
+    if (tipoChanged && editTipo) {
+      // Conversione di tipo
+      const sourceType = tipoMovimentoToDbType(movimento.tipo);
+      const targetType = tipoMovimentoToDbType(editTipo);
+      onConvertiTipoMovimento(sourceType, targetType, originalId, movimento.originale);
     } else {
-      onModificaEntrata(originalId, {
-        descrizione: editDescrizione,
-        categoria: editCategoria || undefined,
-      });
+      // Modifica normale (stesso tipo)
+      if (movimento.tipo === "stipendio") {
+        onModificaPrelievo(originalId, { descrizione: editDescrizione });
+      } else if (movimento.tipo === "uscita") {
+        onModificaUscita(originalId, {
+          descrizione: editDescrizione,
+          categoria: editCategoria || undefined,
+        });
+      } else {
+        onModificaEntrata(originalId, {
+          descrizione: editDescrizione,
+          categoria: editCategoria || undefined,
+        });
+      }
     }
     setEditingId(null);
   };
@@ -569,13 +605,26 @@ export function GestioneMovimenti({
                 >
                   {editingId === movimento.id ? (
                     <div className="flex-1 space-y-2">
+                      <Select
+                        value={editTipo || movimento.tipo}
+                        onValueChange={(value) => setEditTipo(value as TipoMovimento)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="stipendio">Stipendio</SelectItem>
+                          <SelectItem value="uscita">Uscita</SelectItem>
+                          <SelectItem value="entrata">Entrata</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Input
                         value={editDescrizione}
                         onChange={(e) => setEditDescrizione(e.target.value)}
                         placeholder="Descrizione"
                         autoFocus
                       />
-                      {movimento.tipo !== "stipendio" && (
+                      {editTipo !== "stipendio" && (
                         <>
                           <Input
                             value={editCategoria}

@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
 import type { Database } from "../types/database";
+import { normalizzaCategoria } from "../utils/analisiCalcoli";
 
 type FatturaRow = Database['public']['Tables']['fatture']['Row'];
 type PrelievoRow = Database['public']['Tables']['prelievi']['Row'];
@@ -54,15 +55,17 @@ const dbToUscita = (row: UscitaRow): Uscita => ({
   categoria: row.categoria || undefined,
   importo: Number(row.importo),
   note: row.note || undefined,
+  escludiDaGrafico: row.escludi_da_grafico || false,
 });
 
 const uscitaToDb = (uscita: Omit<Uscita, "id">, userId: string) => ({
   user_id: userId,
   data: uscita.data,
   descrizione: uscita.descrizione,
-  categoria: uscita.categoria || null,
+  categoria: uscita.categoria ? normalizzaCategoria(uscita.categoria) : null,
   importo: uscita.importo,
   note: uscita.note || null,
+  escludi_da_grafico: uscita.escludiDaGrafico || false,
 });
 
 const dbToEntrata = (row: EntrataRow): Entrata => ({
@@ -72,15 +75,17 @@ const dbToEntrata = (row: EntrataRow): Entrata => ({
   categoria: row.categoria || undefined,
   importo: Number(row.importo),
   note: row.note || undefined,
+  escludiDaGrafico: row.escludi_da_grafico || false,
 });
 
 const entrataToDb = (entrata: Omit<Entrata, "id">, userId: string) => ({
   user_id: userId,
   data: entrata.data,
   descrizione: entrata.descrizione,
-  categoria: entrata.categoria || null,
+  categoria: entrata.categoria ? normalizzaCategoria(entrata.categoria) : null,
   importo: entrata.importo,
   note: entrata.note || null,
+  escludi_da_grafico: entrata.escludiDaGrafico || false,
 });
 
 export function useSupabaseCashFlow() {
@@ -310,9 +315,10 @@ export function useSupabaseCashFlow() {
       const updateData: any = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
-      if (dati.categoria !== undefined) updateData.categoria = dati.categoria || null;
+      if (dati.categoria !== undefined) updateData.categoria = dati.categoria ? normalizzaCategoria(dati.categoria) : null;
       if (dati.importo !== undefined) updateData.importo = dati.importo;
       if (dati.note !== undefined) updateData.note = dati.note || null;
+      if (dati.escludiDaGrafico !== undefined) updateData.escludi_da_grafico = dati.escludiDaGrafico || false;
 
       const { error } = await supabase
         .from('uscite')
@@ -375,9 +381,10 @@ export function useSupabaseCashFlow() {
       const updateData: any = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
-      if (dati.categoria !== undefined) updateData.categoria = dati.categoria || null;
+      if (dati.categoria !== undefined) updateData.categoria = dati.categoria ? normalizzaCategoria(dati.categoria) : null;
       if (dati.importo !== undefined) updateData.importo = dati.importo;
       if (dati.note !== undefined) updateData.note = dati.note || null;
+      if (dati.escludiDaGrafico !== undefined) updateData.escludi_da_grafico = dati.escludiDaGrafico || false;
 
       const { error } = await supabase
         .from('entrate')
@@ -409,6 +416,128 @@ export function useSupabaseCashFlow() {
     }
   };
 
+  // ===== CONVERSIONE TIPO MOVIMENTO =====
+
+  type TipoMovimento = 'prelievo' | 'uscita' | 'entrata';
+
+  const convertiTipoMovimento = async (
+    sourceType: TipoMovimento,
+    targetType: TipoMovimento,
+    id: string,
+    movimento: Prelievo | Uscita | Entrata
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Normalizza il movimento in una struttura comune
+      const movimentoComune = {
+        data: movimento.data,
+        descrizione: movimento.descrizione,
+        importo: movimento.importo,
+        note: movimento.note,
+        categoria: (movimento as Uscita | Entrata).categoria,
+        escludiDaGrafico: (movimento as Uscita | Entrata).escludiDaGrafico,
+      };
+
+      // Crea il payload per la tabella di destinazione
+      let targetPayload: any;
+      if (targetType === 'prelievo') {
+        // Stipendio: rimuovi categoria e escludiDaGrafico
+        targetPayload = prelievoToDb(
+          {
+            data: movimentoComune.data,
+            descrizione: movimentoComune.descrizione,
+            importo: movimentoComune.importo,
+            note: movimentoComune.note,
+          },
+          user.id
+        );
+      } else if (targetType === 'uscita') {
+        // Uscita: mantieni categoria (se da entrata) o imposta a null (se da stipendio)
+        targetPayload = uscitaToDb(
+          {
+            data: movimentoComune.data,
+            descrizione: movimentoComune.descrizione,
+            categoria: movimentoComune.categoria || undefined,
+            importo: movimentoComune.importo,
+            note: movimentoComune.note,
+            escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
+          },
+          user.id
+        );
+      } else {
+        // Entrata: mantieni categoria (se da uscita) o imposta a null (se da stipendio)
+        targetPayload = entrataToDb(
+          {
+            data: movimentoComune.data,
+            descrizione: movimentoComune.descrizione,
+            categoria: movimentoComune.categoria || undefined,
+            importo: movimentoComune.importo,
+            note: movimentoComune.note,
+            escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
+          },
+          user.id
+        );
+      }
+
+      // Step 1: Inserisci nella tabella di destinazione
+      const targetTable = targetType === 'prelievo' ? 'prelievi' : targetType === 'uscita' ? 'uscite' : 'entrate';
+      const { data: insertedData, error: insertError } = await supabase
+        .from(targetTable)
+        .insert(targetPayload)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      // Step 2: Elimina dalla tabella di origine (solo se insert è riuscito)
+      const sourceTable = sourceType === 'prelievo' ? 'prelievi' : sourceType === 'uscita' ? 'uscite' : 'entrate';
+      const { error: deleteError } = await supabase
+        .from(sourceTable)
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) {
+        console.warn('Delete failed after insert:', deleteError);
+        setError('Avviso: Conversione completata ma eliminazione non riuscita. Aggiorna la pagina.');
+        await loadData();
+        return;
+      }
+
+      // Step 3: Aggiorna gli stati locali
+      // Rimuovi dall'array di origine
+      if (sourceType === 'prelievo') {
+        setPrelievi(prev => prev.filter(p => p.id !== id));
+      } else if (sourceType === 'uscita') {
+        setUscite(prev => prev.filter(u => u.id !== id));
+      } else {
+        setEntrate(prev => prev.filter(e => e.id !== id));
+      }
+
+      // Aggiungi all'array di destinazione
+      if (targetType === 'prelievo') {
+        const nuovoPrelievo = dbToPrelievo(insertedData as PrelievoRow);
+        setPrelievi(prev => [nuovoPrelievo, ...prev].sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+        ));
+      } else if (targetType === 'uscita') {
+        const nuovaUscita = dbToUscita(insertedData as UscitaRow);
+        setUscite(prev => [nuovaUscita, ...prev].sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+        ));
+      } else {
+        const nuovaEntrata = dbToEntrata(insertedData as EntrataRow);
+        setEntrate(prev => [nuovaEntrata, ...prev].sort(
+          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
+        ));
+      }
+    } catch (err) {
+      console.error('Error converting movement type:', err);
+      setError(err instanceof Error ? err.message : 'Errore nella conversione del movimento');
+    }
+  };
+
   return {
     fatture,
     prelievi,
@@ -428,6 +557,7 @@ export function useSupabaseCashFlow() {
     aggiungiEntrata,
     modificaEntrata,
     eliminaEntrata,
+    convertiTipoMovimento,
     refresh: loadData,
   };
 }

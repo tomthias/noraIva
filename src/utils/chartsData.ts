@@ -4,6 +4,7 @@ import {
   ALIQUOTA_CONTRIBUTI_GS,
   COEFFICIENTE_REDDITIVITA,
 } from "../constants/fiscali";
+import { normalizzaCategoria } from "./analisiCalcoli";
 
 /**
  * Calcola il netto di una singola fattura
@@ -143,7 +144,7 @@ export function aggregaUscitePerCategoria(uscite: Uscita[]): CategoryData[] {
   uscite
     .filter((u) => !u.escludiDaGrafico)
     .forEach((uscita) => {
-      const categoria = uscita.categoria || "Altro";
+      const categoria = normalizzaCategoria(uscita.categoria);
       const current = categoryMap.get(categoria) || 0;
       categoryMap.set(categoria, current + uscita.importo);
     });

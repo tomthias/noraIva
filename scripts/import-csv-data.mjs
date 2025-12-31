@@ -16,17 +16,27 @@ const __dirname = dirname(__filename);
 
 // Configurazione
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const USER_ID = process.env.SUPABASE_USER_ID;
 const DRY_RUN = process.argv.includes('--dry-run');
 
 const CSV_PATH = '/Users/mattia/Desktop/noraiva conti/nuovo';
 const FATTURE_CSV = join(CSV_PATH, 'fatture.csv');
-const MOVIMENTI_CSV = join(CSV_PATH, 'movimenti.csv');
+// Usa il CSV trasformato generato da transform-movimenti-csv.mjs
+const MOVIMENTI_CSV = join(dirname(__dirname), 'movimenti-trasformati.csv');
 
 // Validazione configurazione
-if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-  console.error('❌ Errore: VITE_SUPABASE_URL e SUPABASE_SERVICE_KEY devono essere definite nel .env');
+if (!SUPABASE_URL) {
+  console.error('❌ Errore: VITE_SUPABASE_URL deve essere definita nel .env');
+  process.exit(1);
+}
+
+if (!SUPABASE_SERVICE_KEY) {
+  console.error('❌ Errore: SUPABASE_SERVICE_KEY non fornita!');
+  console.error('   La chiave ANON non ha i permessi necessari per bypassare RLS.');
+  console.error('   Recupera la Service Role Key da Supabase Dashboard:');
+  console.error('   Settings → API → Project API keys → service_role');
+  console.error('\n   Esegui: export SUPABASE_SERVICE_KEY=<la-tua-service-role-key>');
   process.exit(1);
 }
 
@@ -127,54 +137,59 @@ async function importFatture() {
   const lines = content.split(/\r?\n/).filter(line => line.trim());
 
   // Skip header
+  // Formato CSV: Numero Fattura,Data,Anno,Cliente,Descrizione,Importo Netto (€),Importo Totale (€)
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    const [numero, data, cliente, importoLordo, ivaStatus, descrizione] = parseCSVLine(line);
+    const [numeroFattura, data, anno, cliente, descrizione, importoNetto, importoTotale] = parseCSVLine(line);
 
-    if (!data || !cliente || !importoLordo) {
+    if (!data || !cliente || !importoTotale) {
       console.log(`⚠️  Riga ${i + 1} malformata, skip`);
       stats.fatture.errors++;
       continue;
     }
 
     try {
-      const importo = parseImporto(importoLordo);
+      const importo = parseImporto(importoTotale);
+
+      // Converti data da DD/MM/YYYY a YYYY-MM-DD
+      const [giorno, mese, annoData] = data.split('/');
+      const dataISO = `${annoData}-${mese.padStart(2, '0')}-${giorno.padStart(2, '0')}`;
 
       // Check duplicati
       const { data: existing } = await supabase
         .from('fatture')
         .select('id')
         .eq('user_id', USER_ID)
-        .eq('data', data)
+        .eq('data', dataISO)
         .eq('cliente', cliente)
         .eq('importo_lordo', importo)
         .limit(1);
 
       if (existing && existing.length > 0) {
-        console.log(`⏭️  Skip fattura duplicata: ${data} - ${cliente} - €${importo}`);
+        console.log(`⏭️  Skip fattura duplicata: ${dataISO} - ${cliente} - €${importo}`);
         stats.fatture.skipped++;
         continue;
       }
 
       if (DRY_RUN) {
-        console.log(`[DRY-RUN] Importerei fattura: ${data} - ${cliente} - €${importo}`);
+        console.log(`[DRY-RUN] Importerei fattura: ${dataISO} - ${cliente} - €${importo} - ${descrizione}`);
         stats.fatture.imported++;
       } else {
         const { error } = await supabase.from('fatture').insert({
           user_id: USER_ID,
-          data,
+          data: dataISO,
           cliente,
           importo_lordo: importo,
-          descrizione: descrizione || `Fattura ${numero}`,
-          note: ivaStatus || null,
+          descrizione: descrizione || `Fattura ${numeroFattura}`,
+          note: null,
         });
 
         if (error) {
-          console.error(`❌ Errore importando fattura ${numero}:`, error.message);
+          console.error(`❌ Errore importando fattura ${numeroFattura}:`, error.message);
           errors.push({ tipo: 'fattura', riga: i + 1, error: error.message });
           stats.fatture.errors++;
         } else {
-          console.log(`✅ Importata fattura: ${data} - ${cliente} - €${importo}`);
+          console.log(`✅ Importata fattura: ${dataISO} - ${cliente} - €${importo}`);
           stats.fatture.imported++;
         }
       }
@@ -266,9 +281,11 @@ async function importMovimenti() {
         importo,
       };
 
-      // Aggiungi categoria se non è prelievo
+      // Aggiungi categoria e escludi_da_grafico se non è prelievo
       if (table !== 'prelievi') {
         insertData.categoria = categoria || null;
+        // NON escludiamo mai i movimenti dai grafici (solo SALDO_INIZIALE eventualmente)
+        insertData.escludi_da_grafico = false;
       }
 
       if (DRY_RUN) {

@@ -74,8 +74,25 @@ export interface KPI {
 }
 
 /**
+ * Normalizza una categoria: uppercase, trim, e mappature speciali
+ */
+export function normalizzaCategoria(categoria: string | undefined): string {
+  if (!categoria) return 'ALTRO';
+  const normalized = categoria.trim().toUpperCase();
+
+  // Mappature speciali per uniformità
+  if (normalized === 'FATTURA') return 'FATTURE';
+  if (normalized === 'RIMBORSO') return 'RIMBORSI';
+  if (normalized === 'STIPENDIO') return 'STIPENDI';
+  if (normalized === 'INTERESSE') return 'INTERESSI';
+
+  return normalized;
+}
+
+/**
  * Aggrega dati per categoria
  * ✅ CORRETTO: filtra SALDO_INIZIALE e items con escludiDaGrafico
+ * ✅ NORMALIZZA categorie per evitare duplicati (TASSE vs Tasse)
  */
 export function aggregaPerCategoria(
   items: (Uscita | Entrata)[]
@@ -90,7 +107,7 @@ export function aggregaPerCategoria(
   });
 
   const grouped = itemsValidi.reduce((acc, item) => {
-    const cat = item.categoria || "Altro";
+    const cat = normalizzaCategoria(item.categoria);
     if (!acc[cat]) {
       acc[cat] = 0;
     }
