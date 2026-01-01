@@ -228,14 +228,13 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     );
 
     // --- PROIEZIONE ANNO SUCCESSIVO ---
-    const saldoAnnoCorrente = Math.max(0, tasseTeoricheAnno - accontiVersatiAnnoCorrente);
     const primoAccontoAnnoProssimo = tasseTeoricheAnno * 0.4;
 
     // TOTALE DA ACCANTONARE
+    // NON includiamo saldoAnnoCorrente perché verrà pagato solo a Giugno anno prossimo
     const tasseDaAccantonare =
       saldoAnnoPrecedente +
       accontiAnnoCorrenteDaPagare +
-      saldoAnnoCorrente +
       primoAccontoAnnoProssimo;
 
     // Media stipendio mensile (dell'anno corrente)

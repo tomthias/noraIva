@@ -148,19 +148,22 @@ export function NettoDisponibile({
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
 
   // Saldo anno corrente (quanto mancherà a giugno dell'anno prossimo)
+  // = tasse anno corrente - acconti che verranno versati nell'anno corrente
+  // Gli acconti anno corrente = 100% delle tasse anno precedente
   const saldoAnnoCorrente = Math.max(
     0,
-    tasseTeoricheAnnoCorrente - accontiAnnoCorrenteGiaVersati
+    tasseTeoricheAnnoCorrente - (primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente)
   );
 
   // TOTALE DA ACCANTONARE:
-  // 1. Saldo anno precedente (se non ancora pagato)
-  // 2. Acconti anno corrente ancora da versare (1° + 2° acconto basati su anno precedente)
-  // 3. Saldo anno corrente + 1° acconto anno prossimo (per il futuro)
+  // 1. Saldo anno precedente (se non ancora pagato) - scadenza Giugno anno corrente
+  // 2. Acconti anno corrente ancora da versare - scadenze Giugno e Novembre anno corrente
+  // 3. 1° acconto anno prossimo - scadenza Giugno anno prossimo
+  // NOTA: NON includiamo saldoAnnoCorrente perché verrà pagato solo a Giugno anno prossimo
+  //       e l'utente avrà altre entrate nel frattempo
   const totaleDaAccantonare =
     saldoAnnoPrecedente +
     accontiAnnoCorrenteDaPagare +
-    saldoAnnoCorrente +
     primoAccontoAnnoProssimo;
 
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
