@@ -120,12 +120,15 @@ export function GestioneMovimenti({
   const [formCategoria, setFormCategoria] = useState("");
   const [formImporto, setFormImporto] = useState("");
 
-  // Estrai anni disponibili
+  // Estrai anni disponibili, includendo sempre anno corrente e prossimo
   const anniDisponibili = useMemo(() => {
     const anniPrelievi = prelievi.map((p) => parseInt(p.data.substring(0, 4)));
     const anniUscite = uscite.map((u) => parseInt(u.data.substring(0, 4)));
     const anniEntrate = entrate.map((e) => parseInt(e.data.substring(0, 4)));
     const anni = new Set([...anniPrelievi, ...anniUscite, ...anniEntrate]);
+    // Aggiungi sempre anno corrente e prossimo anno
+    anni.add(ANNO);
+    anni.add(ANNO + 1);
     return Array.from(anni).sort((a, b) => b - a);
   }, [prelievi, uscite, entrate]);
 
