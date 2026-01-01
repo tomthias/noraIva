@@ -22,7 +22,6 @@ import {
   Info,
   User,
 } from "lucide-react";
-import { CATEGORIE_TASSE } from "../constants/fiscali";
 import { Progress } from "./ui/progress";
 import {
   Tooltip,
@@ -98,34 +97,30 @@ export function NettoDisponibile({
   const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
   // Acconti versati nell'anno selezionato (per tasse anno precedente)
-  // Questi sono i versamenti di giugno e novembre dell'anno selezionato
+  // Conta TUTTE le tasse pagate nell'anno (saldo, acconto, INPS, imposta sostitutiva)
   const accontiVersatiNellAnno = uscite
     .filter((u) => {
       const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
       const cat = u.categoria?.toLowerCase() || "";
-      const isAcconto =
-        cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
-        cat === "tasse - acconto";
-      return isAnnoCorrente && isAcconto;
+      const isTassa = cat.startsWith("tasse");
+      return isAnnoCorrente && isTassa;
     })
     .reduce((sum, u) => sum + u.importo, 0);
 
   // Saldo anno precedente (quanto manca da pagare a giugno dell'anno corrente)
-  // = tasse anno precedente - acconti già versati nell'anno precedente
-  const accontiVersatiAnnoPrecedente = uscite
+  // = tasse anno precedente - tasse già pagate nell'anno precedente
+  const tasseVersateAnnoPrecedente = uscite
     .filter((u) => {
       const isAnnoPrecedente = u.data.startsWith(String(annoPrecedente));
       const cat = u.categoria?.toLowerCase() || "";
-      const isAcconto =
-        cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
-        cat === "tasse - acconto";
-      return isAnnoPrecedente && isAcconto;
+      const isTassa = cat.startsWith("tasse");
+      return isAnnoPrecedente && isTassa;
     })
     .reduce((sum, u) => sum + u.importo, 0);
 
   const saldoAnnoPrecedente = Math.max(
     0,
-    tasseTeoricheAnnoPrecedente - accontiVersatiAnnoPrecedente
+    tasseTeoricheAnnoPrecedente - tasseVersateAnnoPrecedente
   );
 
   // 1° Acconto anno corrente (40% delle tasse anno precedente) - scadenza Giugno
