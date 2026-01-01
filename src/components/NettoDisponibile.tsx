@@ -84,13 +84,22 @@ export function NettoDisponibile({
     .filter((u) => isTassaCategoria(u.categoria))
     .reduce((sum, u) => sum + u.importo, 0);
 
+  // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
     f.data.startsWith(String(annoSelezionato))
   );
-
   const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnnoCorrente);
 
-  const accontiAnnoCorrenteVersati = uscite
+  // --- ANNO PRECEDENTE (per calcolo acconti da pagare nell'anno selezionato) ---
+  const annoPrecedente = annoSelezionato - 1;
+  const fattureAnnoPrecedente = fatture.filter((f) =>
+    f.data.startsWith(String(annoPrecedente))
+  );
+  const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
+
+  // Acconti versati nell'anno selezionato (per tasse anno precedente)
+  // Questi sono i versamenti di giugno e novembre dell'anno selezionato
+  const accontiVersatiNellAnno = uscite
     .filter((u) => {
       const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
       const cat = u.categoria?.toLowerCase() || "";
@@ -101,22 +110,70 @@ export function NettoDisponibile({
     })
     .reduce((sum, u) => sum + u.importo, 0);
 
-  const saldoAnnoCorrente = Math.max(
+  // Saldo anno precedente (quanto manca da pagare a giugno dell'anno corrente)
+  // = tasse anno precedente - acconti già versati nell'anno precedente
+  const accontiVersatiAnnoPrecedente = uscite
+    .filter((u) => {
+      const isAnnoPrecedente = u.data.startsWith(String(annoPrecedente));
+      const cat = u.categoria?.toLowerCase() || "";
+      const isAcconto =
+        cat === CATEGORIE_TASSE.ACCONTO.toLowerCase() ||
+        cat === "tasse - acconto";
+      return isAnnoPrecedente && isAcconto;
+    })
+    .reduce((sum, u) => sum + u.importo, 0);
+
+  const saldoAnnoPrecedente = Math.max(
     0,
-    tasseTeoricheAnnoCorrente - accontiAnnoCorrenteVersati
+    tasseTeoricheAnnoPrecedente - accontiVersatiAnnoPrecedente
   );
 
+  // 1° Acconto anno corrente (40% delle tasse anno precedente) - scadenza Giugno
+  const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
+
+  // 2° Acconto anno corrente (60% delle tasse anno precedente) - scadenza Novembre
+  const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
+
+  // Totale acconti anno corrente già versati
+  const accontiAnnoCorrenteGiaVersati = accontiVersatiNellAnno;
+
+  // Quanto rimane da pagare degli acconti anno corrente (basati su anno precedente)
+  const accontiAnnoCorrenteDaPagare = Math.max(
+    0,
+    primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - accontiAnnoCorrenteGiaVersati
+  );
+
+  // --- PROIEZIONE ANNO SUCCESSIVO ---
+  // 1° Acconto anno prossimo (40% delle tasse anno corrente) - scadenza Giugno anno prossimo
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
-  const totaleDaAccantonare = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+
+  // Saldo anno corrente (quanto mancherà a giugno dell'anno prossimo)
+  const saldoAnnoCorrente = Math.max(
+    0,
+    tasseTeoricheAnnoCorrente - accontiAnnoCorrenteGiaVersati
+  );
+
+  // TOTALE DA ACCANTONARE:
+  // 1. Saldo anno precedente (se non ancora pagato)
+  // 2. Acconti anno corrente ancora da versare (1° + 2° acconto basati su anno precedente)
+  // 3. Saldo anno corrente + 1° acconto anno prossimo (per il futuro)
+  const totaleDaAccantonare =
+    saldoAnnoPrecedente +
+    accontiAnnoCorrenteDaPagare +
+    saldoAnnoCorrente +
+    primoAccontoAnnoProssimo;
+
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 
-  // Calcolo per la progress bar "Tasse Versate vs Teoriche"
-  const percentualeTasseVersate =
-    tasseTeoricheAnnoCorrente > 0
+  // Calcolo per la progress bar "Acconti anno corrente versati vs dovuti"
+  // Gli acconti dell'anno corrente sono basati sulle tasse dell'anno precedente
+  const totaleDovutoAccontiAnnoCorrente = primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente;
+  const percentualeAccontiVersati =
+    totaleDovutoAccontiAnnoCorrente > 0
       ? Math.min(
         100,
         Math.round(
-          (accontiAnnoCorrenteVersati / tasseTeoricheAnnoCorrente) * 100
+          (accontiAnnoCorrenteGiaVersati / totaleDovutoAccontiAnnoCorrente) * 100
         )
       )
       : 0;
@@ -220,30 +277,81 @@ export function NettoDisponibile({
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
 
-          {/* Progress Bar Tasse Versate */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Acconti versati vs Dovuto</span>
-              <span className="font-medium text-foreground">
-                {percentualeTasseVersate}%
-              </span>
+          {/* Progress Bar Acconti Anno Corrente */}
+          {totaleDovutoAccontiAnnoCorrente > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Acconti {annoSelezionato} versati</span>
+                <span className="font-medium text-foreground">
+                  {percentualeAccontiVersati}%
+                </span>
+              </div>
+              <Progress value={percentualeAccontiVersati} className="h-2" indicatorClassName={percentualeAccontiVersati >= 100 ? "bg-green-500" : "bg-amber-500"} />
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>Versati: {formatCurrency(accontiAnnoCorrenteGiaVersati)}</span>
+                <span>Dovuti (su tasse {annoPrecedente}): {formatCurrency(totaleDovutoAccontiAnnoCorrente)}</span>
+              </div>
             </div>
-            <Progress value={percentualeTasseVersate} className="h-2" indicatorClassName={percentualeTasseVersate >= 100 ? "bg-green-500" : "bg-amber-500"} />
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <span>Versati: {formatCurrency(accontiAnnoCorrenteVersati)}</span>
-              <span>Totale Stimato: {formatCurrency(tasseTeoricheAnnoCorrente)}</span>
-            </div>
-          </div>
+          )}
 
           <div className="border-t border-dashed my-2" />
 
-          {/* Dettagli Calcolo */}
+          {/* Dettagli Calcolo - Scadenze Anno Corrente */}
           <div className="space-y-3 bg-muted/40 p-4 rounded-lg">
+
+            {/* Sezione: Scadenze anno corrente (basate su anno precedente) */}
+            {tasseTeoricheAnnoPrecedente > 0 && (
+              <>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Scadenze {annoSelezionato} (su tasse {annoPrecedente})
+                </div>
+
+                {saldoAnnoPrecedente > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <span>Saldo Tasse {annoPrecedente}</span>
+                      <InfoTooltip text={`Residuo tasse ${annoPrecedente} da saldare a Giugno ${annoSelezionato}.`} />
+                    </div>
+                    <span className="font-mono font-medium">{formatCurrency(saldoAnnoPrecedente)}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span>1° Acconto {annoSelezionato} (40%)</span>
+                    <InfoTooltip text={`40% delle tasse ${annoPrecedente} (${formatCurrency(tasseTeoricheAnnoPrecedente)}). Scadenza: Giugno ${annoSelezionato}.`} />
+                  </div>
+                  <span className="font-mono font-medium">{formatCurrency(primoAccontoAnnoCorrente)}</span>
+                </div>
+
+                <div className="flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span>2° Acconto {annoSelezionato} (60%)</span>
+                    <InfoTooltip text={`60% delle tasse ${annoPrecedente} (${formatCurrency(tasseTeoricheAnnoPrecedente)}). Scadenza: Novembre ${annoSelezionato}.`} />
+                  </div>
+                  <span className="font-mono font-medium">{formatCurrency(secondoAccontoAnnoCorrente)}</span>
+                </div>
+
+                {accontiAnnoCorrenteGiaVersati > 0 && (
+                  <div className="flex justify-between items-center text-sm text-green-600">
+                    <span>Già versati nel {annoSelezionato}</span>
+                    <span className="font-mono font-medium">-{formatCurrency(accontiAnnoCorrenteGiaVersati)}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-muted-foreground/10 my-2" />
+              </>
+            )}
+
+            {/* Sezione: Proiezioni anno prossimo */}
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Proiezione {annoSelezionato + 1} (su tasse {annoSelezionato})
+            </div>
 
             <div className="flex justify-between items-center text-sm">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <span>Saldo Tasse {annoSelezionato}</span>
-                <InfoTooltip text="La differenza tra le tasse totali stimate e gli acconti che hai già versato quest'anno." />
+                <InfoTooltip text={`Tasse ${annoSelezionato} meno acconti versati. Da pagare a Giugno ${annoSelezionato + 1}.`} />
               </div>
               <span className="font-mono font-medium">{formatCurrency(saldoAnnoCorrente)}</span>
             </div>
@@ -251,7 +359,7 @@ export function NettoDisponibile({
             <div className="flex justify-between items-center text-sm">
               <div className="flex items-center gap-1.5 text-muted-foreground">
                 <span>1° Acconto {annoSelezionato + 1} (40%)</span>
-                <InfoTooltip text={`Calcolato come il 40% delle tasse totali di quest'anno (${formatCurrency(tasseTeoricheAnnoCorrente)}). Da pagare a Giugno.`} />
+                <InfoTooltip text={`40% delle tasse ${annoSelezionato} (${formatCurrency(tasseTeoricheAnnoCorrente)}). Scadenza: Giugno ${annoSelezionato + 1}.`} />
               </div>
               <span className="font-mono font-medium">{formatCurrency(primoAccontoAnnoProssimo)}</span>
             </div>
