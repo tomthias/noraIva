@@ -203,28 +203,28 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     const fattureAnnoPrecedente = fatture.filter(f => f.data.startsWith(String(annoPrecedente)));
     const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
-    // Acconti versati nell'anno precedente
+    // Tasse versate nell'anno precedente (tutte le categorie tasse)
     const usciteAnnoPrecedente = uscite.filter(u => u.data.startsWith(String(annoPrecedente)));
-    const accontiVersatiAnnoPrecedente = usciteAnnoPrecedente
-      .filter(u => u.categoria?.toLowerCase().includes('acconto'))
+    const tasseVersateAnnoPrecedente = usciteAnnoPrecedente
+      .filter(u => u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
 
     // Saldo anno precedente (residuo da pagare a giugno anno corrente)
-    const saldoAnnoPrecedente = Math.max(0, tasseTeoricheAnnoPrecedente - accontiVersatiAnnoPrecedente);
+    const saldoAnnoPrecedente = Math.max(0, tasseTeoricheAnnoPrecedente - tasseVersateAnnoPrecedente);
 
     // Acconti anno corrente (basati su tasse anno precedente)
     const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
     const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
 
-    // Acconti già versati nell'anno corrente
-    const accontiVersatiAnnoCorrente = usciteAnno
-      .filter(u => u.categoria?.toLowerCase().includes('acconto'))
+    // Tasse già versate nell'anno corrente (tutte le categorie tasse)
+    const tasseVersateAnnoCorrente = usciteAnno
+      .filter(u => u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
 
     // Quanto rimane da pagare degli acconti anno corrente
     const accontiAnnoCorrenteDaPagare = Math.max(
       0,
-      primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - accontiVersatiAnnoCorrente
+      primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - tasseVersateAnnoCorrente
     );
 
     // --- PROIEZIONE ANNO SUCCESSIVO ---
