@@ -195,13 +195,48 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     );
     const nettoDisponibile = cashFlow.nettoDisponibile;
 
-    // Tasse teoriche dell'anno corrente + acconti versati nell'anno corrente
+    // --- ANNO CORRENTE ---
     const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
-    const accontiVersati = usciteAnno
+
+    // --- ANNO PRECEDENTE ---
+    const annoPrecedente = annoSelezionato - 1;
+    const fattureAnnoPrecedente = fatture.filter(f => f.data.startsWith(String(annoPrecedente)));
+    const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
+
+    // Acconti versati nell'anno precedente
+    const usciteAnnoPrecedente = uscite.filter(u => u.data.startsWith(String(annoPrecedente)));
+    const accontiVersatiAnnoPrecedente = usciteAnnoPrecedente
       .filter(u => u.categoria?.toLowerCase().includes('acconto'))
       .reduce((sum, u) => sum + u.importo, 0);
-    const saldoAnno = Math.max(0, tasseTeoricheAnno - accontiVersati);
-    const tasseDaAccantonare = saldoAnno + (tasseTeoricheAnno * 0.4);
+
+    // Saldo anno precedente (residuo da pagare a giugno anno corrente)
+    const saldoAnnoPrecedente = Math.max(0, tasseTeoricheAnnoPrecedente - accontiVersatiAnnoPrecedente);
+
+    // Acconti anno corrente (basati su tasse anno precedente)
+    const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
+    const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
+
+    // Acconti già versati nell'anno corrente
+    const accontiVersatiAnnoCorrente = usciteAnno
+      .filter(u => u.categoria?.toLowerCase().includes('acconto'))
+      .reduce((sum, u) => sum + u.importo, 0);
+
+    // Quanto rimane da pagare degli acconti anno corrente
+    const accontiAnnoCorrenteDaPagare = Math.max(
+      0,
+      primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - accontiVersatiAnnoCorrente
+    );
+
+    // --- PROIEZIONE ANNO SUCCESSIVO ---
+    const saldoAnnoCorrente = Math.max(0, tasseTeoricheAnno - accontiVersatiAnnoCorrente);
+    const primoAccontoAnnoProssimo = tasseTeoricheAnno * 0.4;
+
+    // TOTALE DA ACCANTONARE
+    const tasseDaAccantonare =
+      saldoAnnoPrecedente +
+      accontiAnnoCorrenteDaPagare +
+      saldoAnnoCorrente +
+      primoAccontoAnnoProssimo;
 
     // Media stipendio mensile (dell'anno corrente)
     const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
@@ -228,7 +263,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi]);
+  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi, fatture, uscite, annoSelezionato]);
 
   return (
     <div className="space-y-6">
