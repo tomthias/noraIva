@@ -49,9 +49,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [annoDashboard, setAnnoDashboard] = useState<number>(ANNO);
 
-  // Estrai anni disponibili dalle fatture
+  // Estrai anni disponibili dalle fatture, includendo sempre anno corrente e prossimo
   const anniDisponibili = useMemo(() => {
     const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
+    // Aggiungi sempre anno corrente e prossimo anno
+    anni.add(ANNO);
+    anni.add(ANNO + 1);
     return Array.from(anni).sort((a, b) => b - a);
   }, [fatture]);
 
