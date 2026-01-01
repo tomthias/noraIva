@@ -132,12 +132,6 @@ export function NettoDisponibile({
   // Totale acconti anno corrente già versati
   const accontiAnnoCorrenteGiaVersati = accontiVersatiNellAnno;
 
-  // Quanto rimane da pagare degli acconti anno corrente (basati su anno precedente)
-  const accontiAnnoCorrenteDaPagare = Math.max(
-    0,
-    primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - accontiAnnoCorrenteGiaVersati
-  );
-
   // --- PROIEZIONE ANNO SUCCESSIVO ---
   // 1° Acconto anno prossimo (40% delle tasse anno corrente) - scadenza Giugno anno prossimo
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
@@ -151,15 +145,19 @@ export function NettoDisponibile({
   );
 
   // TOTALE DA ACCANTONARE:
-  // 1. Saldo anno precedente (se non ancora pagato) - scadenza Giugno anno corrente
-  // 2. Acconti anno corrente ancora da versare - scadenze Giugno e Novembre anno corrente
-  // 3. 1° acconto anno prossimo - scadenza Giugno anno prossimo
-  // NOTA: NON includiamo saldoAnnoCorrente perché verrà pagato solo a Giugno anno prossimo
-  //       e l'utente avrà altre entrate nel frattempo
-  const totaleDaAccantonare =
-    saldoAnnoPrecedente +
-    accontiAnnoCorrenteDaPagare +
-    primoAccontoAnnoProssimo;
+  // Logica semplice: tasse anno visualizzato + 40% per 1° acconto anno prossimo
+  // Le tasse degli anni precedenti NON sono incluse perché erano già nel calcolo dell'anno precedente
+  // Questo garantisce che il netto sia consistente tra 31/12 e 1/1
+  const tasseTotaliAnnoCorrente = tasseTeoricheAnnoCorrente;
+  const tasseGiaPagateAnnoCorrente = uscite
+    .filter((u) => {
+      const cat = u.categoria?.toLowerCase() || "";
+      return u.data.startsWith(String(annoSelezionato)) && cat.startsWith("tasse");
+    })
+    .reduce((sum, u) => sum + u.importo, 0);
+
+  const tasseAnnoCorrenteNonPagate = Math.max(0, tasseTotaliAnnoCorrente - tasseGiaPagateAnnoCorrente);
+  const totaleDaAccantonare = tasseAnnoCorrenteNonPagate + primoAccontoAnnoProssimo;
 
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 

@@ -198,44 +198,17 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     // --- ANNO CORRENTE ---
     const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
 
-    // --- ANNO PRECEDENTE ---
-    const annoPrecedente = annoSelezionato - 1;
-    const fattureAnnoPrecedente = fatture.filter(f => f.data.startsWith(String(annoPrecedente)));
-    const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
-
-    // Tasse versate nell'anno precedente (tutte le categorie tasse)
-    const usciteAnnoPrecedente = uscite.filter(u => u.data.startsWith(String(annoPrecedente)));
-    const tasseVersateAnnoPrecedente = usciteAnnoPrecedente
-      .filter(u => u.categoria?.toLowerCase().startsWith('tasse'))
-      .reduce((sum, u) => sum + u.importo, 0);
-
-    // Saldo anno precedente (residuo da pagare a giugno anno corrente)
-    const saldoAnnoPrecedente = Math.max(0, tasseTeoricheAnnoPrecedente - tasseVersateAnnoPrecedente);
-
-    // Acconti anno corrente (basati su tasse anno precedente)
-    const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
-    const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
-
     // Tasse già versate nell'anno corrente (tutte le categorie tasse)
     const tasseVersateAnnoCorrente = usciteAnno
       .filter(u => u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
 
-    // Quanto rimane da pagare degli acconti anno corrente
-    const accontiAnnoCorrenteDaPagare = Math.max(
-      0,
-      primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente - tasseVersateAnnoCorrente
-    );
-
-    // --- PROIEZIONE ANNO SUCCESSIVO ---
-    const primoAccontoAnnoProssimo = tasseTeoricheAnno * 0.4;
-
     // TOTALE DA ACCANTONARE
-    // NON includiamo saldoAnnoCorrente perché verrà pagato solo a Giugno anno prossimo
-    const tasseDaAccantonare =
-      saldoAnnoPrecedente +
-      accontiAnnoCorrenteDaPagare +
-      primoAccontoAnnoProssimo;
+    // Logica semplice: tasse anno visualizzato + 40% per 1° acconto anno prossimo
+    // Le tasse degli anni precedenti NON sono incluse perché erano già nel calcolo dell'anno precedente
+    const primoAccontoAnnoProssimo = tasseTeoricheAnno * 0.4;
+    const tasseAnnoNonPagate = Math.max(0, tasseTeoricheAnno - tasseVersateAnnoCorrente);
+    const tasseDaAccantonare = tasseAnnoNonPagate + primoAccontoAnnoProssimo;
 
     // Media stipendio mensile (dell'anno corrente)
     const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
@@ -262,7 +235,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi, fatture, uscite, annoSelezionato]);
+  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi]);
 
   return (
     <div className="space-y-6">
