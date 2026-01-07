@@ -37,7 +37,7 @@ interface Props {
 export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number>(ANNO);
 
-  // Estrai anni disponibili, includendo sempre anno corrente e prossimo
+  // Estrai anni disponibili, includendo sempre anno corrente
   const anniDisponibili = useMemo(() => {
     const anni = new Set([
       ...fatture.map((f) => parseInt(f.data.substring(0, 4))),
@@ -45,9 +45,8 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       ...entrate.map((e) => parseInt(e.data.substring(0, 4))),
       ...prelievi.map((p) => parseInt(p.data.substring(0, 4))),
     ]);
-    // Aggiungi sempre anno corrente e prossimo anno
+    // Aggiungi sempre anno corrente
     anni.add(ANNO);
-    anni.add(ANNO + 1);
     return Array.from(anni).sort((a, b) => b - a);
   }, [fatture, uscite, entrate, prelievi]);
 
