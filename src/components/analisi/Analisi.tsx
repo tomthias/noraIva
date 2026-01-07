@@ -195,20 +195,34 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     );
     const nettoDisponibile = cashFlow.nettoDisponibile;
 
-    // --- ANNO CORRENTE ---
-    const tasseTeoricheAnno = calcolaTasseTotali(fattureAnno);
+    // --- LOGICA CUMULATIVA (stessa di NettoDisponibile.tsx) ---
+    // 1. Calcola tasse teoriche su TUTTE le fatture fino all'anno selezionato
+    const tasseTeoricheCumulative = calcolaTasseTotali(fattureCumulative);
 
-    // Tasse già versate nell'anno corrente (tutte le categorie tasse)
-    const tasseVersateAnnoCorrente = usciteAnno
+    // 2. Sottrai TUTTE le tasse già pagate fino all'anno selezionato
+    const tassePagateCumulative = usciteCumulative
       .filter(u => u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
 
-    // TOTALE DA ACCANTONARE
-    // Logica semplice: tasse anno visualizzato + 40% per 1° acconto anno prossimo
-    // Le tasse degli anni precedenti NON sono incluse perché erano già nel calcolo dell'anno precedente
-    const primoAccontoAnnoProssimo = tasseTeoricheAnno * 0.4;
-    const tasseAnnoNonPagate = Math.max(0, tasseTeoricheAnno - tasseVersateAnnoCorrente);
-    const tasseDaAccantonare = tasseAnnoNonPagate + primoAccontoAnnoProssimo;
+    const tasseNonPagateCumulative = Math.max(0, tasseTeoricheCumulative - tassePagateCumulative);
+
+    // 3. Aggiungi 40% delle tasse dell'anno corrente per acconto anno prossimo
+    const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnno);
+    const annoPrecedente = annoSelezionato - 1;
+    const fattureAnnoPrecedente = fatture.filter((f) =>
+      f.data.startsWith(String(annoPrecedente))
+    );
+    const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
+
+    // Se non ci sono fatture nell'anno selezionato, usa le tasse dell'anno precedente
+    // (visione conservativa: assumiamo fatturato simile all'anno precedente)
+    const baseTassePerAcconto = tasseTeoricheAnnoCorrente > 0
+      ? tasseTeoricheAnnoCorrente
+      : tasseTeoricheAnnoPrecedente;
+    const primoAccontoAnnoProssimo = baseTassePerAcconto * 0.4;
+
+    // TOTALE DA ACCANTONARE (logica cumulativa)
+    const tasseDaAccantonare = tasseNonPagateCumulative + primoAccontoAnnoProssimo;
 
     // Media stipendio mensile (dell'anno corrente)
     const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
@@ -235,7 +249,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi]);
+  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi, fatture, annoSelezionato]);
 
   return (
     <div className="space-y-6">
