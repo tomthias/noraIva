@@ -15,12 +15,8 @@ import {
   CheckCircle,
   AlertCircle,
   Wallet,
-  TrendingDown,
-  TrendingUp,
   PiggyBank,
-  Landmark,
   Info,
-  User,
 } from "lucide-react";
 import { Progress } from "./ui/progress";
 import {
@@ -72,16 +68,6 @@ export function NettoDisponibile({
     usciteFiltrate,
     entrateFiltrate
   );
-
-  const isTassaCategoria = (categoria: string | undefined): boolean => {
-    if (!categoria) return false;
-    const cat = categoria.toLowerCase();
-    return cat.startsWith("tasse");
-  };
-
-  const tassePagate = usciteFiltrate
-    .filter((u) => isTassaCategoria(u.categoria))
-    .reduce((sum, u) => sum + u.importo, 0);
 
   // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
@@ -225,37 +211,7 @@ export function NettoDisponibile({
         </CardContent>
       </Card>
 
-      {/* 2. CASH FLOW GRID - KPI VELOCI */}
-      <div className="grid grid-cols-2 gap-4">
-        <KpiCard
-          title="Saldo Attuale Conto"
-          value={cashFlow.nettoDisponibile}
-          icon={Landmark}
-          colorClass="text-foreground"
-        />
-        <KpiCard
-          title="Prelievi Personali"
-          value={cashFlow.totalePrelievi}
-          icon={User}
-          colorClass="text-blue-600"
-        />
-        <KpiCard
-          title="Spese & Tasse Totali"
-          value={cashFlow.totaleUscite}
-          subtext={`Di cui tasse: ${formatCurrency(tassePagate)}`}
-          icon={TrendingDown}
-          colorClass="text-rose-600"
-        />
-        <KpiCard
-          title="Entrate Extra"
-          value={cashFlow.totaleEntrate}
-          icon={TrendingUp}
-          colorClass="text-emerald-600"
-          hidden={cashFlow.totaleEntrate <= 0}
-        />
-      </div>
-
-      {/* 3. DETTAGLIO FISCALE - PROGRESS & ACCANTONAMENTO */}
+      {/* 2. DETTAGLIO FISCALE - PROGRESS & ACCANTONAMENTO */}
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
@@ -370,46 +326,6 @@ export function NettoDisponibile({
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-// --- SUB-COMPONENTS ---
-
-function KpiCard({
-  title,
-  value,
-  icon: Icon,
-  colorClass,
-  subtext,
-  hidden = false,
-}: {
-  title: string;
-  value: number;
-  icon: any;
-  colorClass: string;
-  subtext?: string;
-  hidden?: boolean;
-}) {
-  if (hidden) return null;
-  return (
-    <Card className="shadow-sm">
-      <CardContent className="p-4 flex flex-col justify-between h-full">
-        <div className="flex justify-between items-start mb-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase">{title}</span>
-          <Icon className={`h-4 w-4 ${colorClass} opacity-80`} />
-        </div>
-        <div>
-          <span className={`text-xl font-bold ${colorClass}`}>
-            {formatCurrency(value)}
-          </span>
-          {subtext && (
-            <p className="text-xs text-muted-foreground mt-1 leading-tight">
-              {subtext}
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
