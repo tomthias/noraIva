@@ -155,13 +155,14 @@ export function calcolaSituazioneCashFlow(
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
 
   // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi (case insensitive)
+  // Supporta sia "saldo iniziale" che "saldo_iniziale" (formato DB)
   // Entrate extra (rimborsi, bonus, interessi - NON fatture già conteggiate)
   const totaleEntrate = entrate
     .filter(e => {
       const cat = e.categoria?.toLowerCase() || '';
-      return cat !== 'saldo iniziale' &&
-        cat !== 'fatture' &&
-        !e.escludiDaGrafico;
+      const isSaldoIniziale = cat === 'saldo iniziale' || cat === 'saldo_iniziale';
+      const isFatture = cat === 'fatture';
+      return !isSaldoIniziale && !isFatture && !e.escludiDaGrafico;
     })
     .reduce((sum, e) => sum + e.importo, 0);
 

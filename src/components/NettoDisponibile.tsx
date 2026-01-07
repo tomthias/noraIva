@@ -132,7 +132,12 @@ export function NettoDisponibile({
 
   // --- PROIEZIONE ANNO SUCCESSIVO ---
   // 1° Acconto anno prossimo (40% delle tasse anno corrente) - scadenza Giugno anno prossimo
-  const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
+  // Se non ci sono fatture nell'anno selezionato, usa le tasse dell'anno precedente
+  // (visione conservativa: assumiamo fatturato simile all'anno precedente)
+  const baseTassePerAcconto = tasseTeoricheAnnoCorrente > 0
+    ? tasseTeoricheAnnoCorrente
+    : tasseTeoricheAnnoPrecedente;
+  const primoAccontoAnnoProssimo = baseTassePerAcconto * 0.4;
 
   // Saldo anno corrente (quanto mancherà a giugno dell'anno prossimo)
   // = tasse anno corrente - acconti che verranno versati nell'anno corrente
