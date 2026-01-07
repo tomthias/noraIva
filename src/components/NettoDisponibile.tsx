@@ -69,6 +69,18 @@ export function NettoDisponibile({
     entrateFiltrate
   );
 
+  // Helper per identificare uscite categorizzate come tasse
+  const isTassaCategoria = (categoria: string | undefined): boolean => {
+    if (!categoria) return false;
+    const cat = categoria.toLowerCase();
+    return cat.startsWith("tasse");
+  };
+
+  // Tasse già pagate (cumulative fino all'anno selezionato)
+  const tassePagate = usciteFiltrate
+    .filter((u) => isTassaCategoria(u.categoria))
+    .reduce((sum, u) => sum + u.importo, 0);
+
   // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
     f.data.startsWith(String(annoSelezionato))
