@@ -7,7 +7,7 @@ import { Combobox } from "@/components/ui/combobox";
 
 interface Props {
   fattura?: Fattura;
-  onSubmit: (dati: Omit<Fattura, "id">) => void;
+  onSubmit: (dati: Omit<Fattura, "id">, salvaDescrizione?: boolean) => void;
   onCancel?: () => void;
   clientiSuggeriti?: string[];
   descrizioniSuggerite?: string[];
@@ -25,6 +25,10 @@ export function FormFattura({
   const [cliente, setCliente] = useState(fattura?.cliente || "");
   const [importoLordo, setImportoLordo] = useState(fattura?.importoLordo?.toString() || "");
   const [note, setNote] = useState(fattura?.note || "");
+  const [salvaDescrizioneFlag, setSalvaDescrizioneFlag] = useState(false);
+
+  // Controlla se la descrizione è già salvata
+  const isDescrizioneGiaSalvata = descrizioniSuggerite.includes(descrizione);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -36,7 +40,7 @@ export function FormFattura({
       cliente,
       importoLordo: importoNum,
       note: note || undefined,
-    });
+    }, salvaDescrizioneFlag && !isDescrizioneGiaSalvata);
 
     // Reset form se non è in edit mode
     if (!fattura) {
@@ -44,6 +48,7 @@ export function FormFattura({
       setCliente("");
       setImportoLordo("");
       setNote("");
+      setSalvaDescrizioneFlag(false);
     }
   };
 
@@ -81,6 +86,23 @@ export function FormFattura({
           placeholder="Seleziona o scrivi descrizione..."
           emptyText="Nessuna descrizione trovata."
         />
+        {/* Checkbox per salvare la descrizione - mostra solo se non è già salvata e c'è una descrizione */}
+        {descrizione && !isDescrizioneGiaSalvata && !fattura && (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer mt-2">
+            <input
+              type="checkbox"
+              checked={salvaDescrizioneFlag}
+              onChange={(e) => setSalvaDescrizioneFlag(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            />
+            Salva descrizione per il futuro
+          </label>
+        )}
+        {descrizione && isDescrizioneGiaSalvata && !fattura && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Questa descrizione è già salvata
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
