@@ -206,19 +206,10 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     const tasseNonPagateCumulative = Math.max(0, tasseTeoricheCumulative - tassePagateCumulative);
 
     // 3. Aggiungi 40% delle tasse dell'anno corrente per acconto anno prossimo
+    // Usa sempre le tasse dell'anno corrente (anche se 0) per evitare salti improvvisi
+    // quando si aggiunge la prima fattura dell'anno
     const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnno);
-    const annoPrecedente = annoSelezionato - 1;
-    const fattureAnnoPrecedente = fatture.filter((f) =>
-      f.data.startsWith(String(annoPrecedente))
-    );
-    const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
-
-    // Se non ci sono fatture nell'anno selezionato, usa le tasse dell'anno precedente
-    // (visione conservativa: assumiamo fatturato simile all'anno precedente)
-    const baseTassePerAcconto = tasseTeoricheAnnoCorrente > 0
-      ? tasseTeoricheAnnoCorrente
-      : tasseTeoricheAnnoPrecedente;
-    const primoAccontoAnnoProssimo = baseTassePerAcconto * 0.4;
+    const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
 
     // TOTALE DA ACCANTONARE (logica cumulativa)
     const tasseDaAccantonare = tasseNonPagateCumulative + primoAccontoAnnoProssimo;
