@@ -69,18 +69,6 @@ export function NettoDisponibile({
     entrateFiltrate
   );
 
-  // Helper per identificare uscite categorizzate come tasse
-  const isTassaCategoria = (categoria: string | undefined): boolean => {
-    if (!categoria) return false;
-    const cat = categoria.toLowerCase();
-    return cat.startsWith("tasse");
-  };
-
-  // Tasse già pagate (cumulative fino all'anno selezionato)
-  const tassePagate = usciteFiltrate
-    .filter((u) => isTassaCategoria(u.categoria))
-    .reduce((sum, u) => sum + u.importo, 0);
-
   // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
     f.data.startsWith(String(annoSelezionato))
@@ -144,22 +132,24 @@ export function NettoDisponibile({
     tasseTeoricheAnnoCorrente - (primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente)
   );
 
-  // TOTALE DA ACCANTONARE (LOGICA CUMULATIVA):
-  // 1. Calcola tasse teoriche su TUTTE le fatture fino all'anno selezionato
-  // 2. Sottrai TUTTE le tasse già pagate fino all'anno selezionato
-  // 3. Aggiungi 40% delle tasse dell'anno corrente per acconto anno prossimo
-  //
-  // Questa logica garantisce che le tasse degli anni precedenti non vengano
-  // "dimenticate" quando si cambia anno di visualizzazione.
-  const tasseTeoricheCumulative = calcolaTasseTotali(fattureFiltrate);
+  // TOTALE DA ACCANTONARE:
+  // Include sia le scadenze dell'anno corrente che la proiezione per l'anno prossimo
 
-  // Tasse già pagate = tutte le uscite "tasse" fino all'anno selezionato
-  // (tassePagate è già calcolato sopra su usciteFiltrate)
-  const tasseNonPagateCumulative = Math.max(0, tasseTeoricheCumulative - tassePagate);
+  // 1. SCADENZE ANNO CORRENTE (basate su tasse anno precedente)
+  // Queste sono le tasse che DEVI pagare quest'anno (saldo + acconti)
+  const scadenzeAnnoCorrente = Math.max(0,
+    saldoAnnoPrecedente
+    + primoAccontoAnnoCorrente
+    + secondoAccontoAnnoCorrente
+    - accontiAnnoCorrenteGiaVersati
+  );
 
-  // L'acconto anno prossimo si basa sulle tasse dell'anno SELEZIONATO
-  // (nel sistema italiano gli acconti si calcolano sulle tasse dell'anno precedente)
-  const totaleDaAccantonare = tasseNonPagateCumulative + primoAccontoAnnoProssimo;
+  // 2. PROIEZIONE ANNO PROSSIMO (basate su tasse anno corrente)
+  // Queste sono le tasse che DOVRAI pagare l'anno prossimo
+  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+
+  // TOTALE = Scadenze anno corrente + Proiezione anno prossimo
+  const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
 
   const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
 
