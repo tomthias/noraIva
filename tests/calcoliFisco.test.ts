@@ -171,20 +171,20 @@ describe("calcolaSituazioneCashFlow", () => {
 
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, prelievi, uscite);
 
-    // nettoFatture ora è il fatturato NETTO (dopo accantonamento tasse)
-    // Per 3500€: Reddito 2730€ (78%) - INPS 711.71€ - Imposta 100.91€ = 2687.37€
-    expect(cashFlow.nettoFatture).toBeCloseTo(2687.37, 2);
+    // nettoFatture è il fatturato LORDO
+    expect(cashFlow.nettoFatture).toBe(3500);
     expect(cashFlow.totalePrelievi).toBe(1000);
     expect(cashFlow.totaleUscite).toBe(500);
-    // Netto disponibile = 2687.37 - 1000 - 500 = 1187.37
-    expect(cashFlow.nettoDisponibile).toBeCloseTo(1187.37, 2);
+    // Netto disponibile = 3500 - 1000 - 500 = 2000
+    expect(cashFlow.nettoDisponibile).toBe(2000);
   });
 
   it("gestisce correttamente il caso senza prelievi e uscite", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, [], []);
 
     // Senza prelievi e uscite, netto disponibile = fatturato lordo
-    expect(cashFlow.nettoDisponibile).toBe(cashFlow.nettoFatture);
+    expect(cashFlow.nettoDisponibile).toBe(3500);
+    expect(cashFlow.nettoFatture).toBe(3500);
   });
 });
 
