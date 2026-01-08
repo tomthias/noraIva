@@ -15,9 +15,10 @@ interface Props {
   fatture: Fattura[];
   onModifica: (id: string, dati: Partial<Fattura>) => void;
   onElimina: (id: string) => void;
+  descrizioniSuggerite?: string[];
 }
 
-export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
+export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSuggerite = [] }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,10 +38,6 @@ export function TabellaFatture({ fatture, onModifica, onElimina }: Props) {
     return Array.from(clienti).sort();
   }, [fatture]);
 
-  const descrizioniSuggerite = useMemo(() => {
-    const descrizioni = new Set(fatture.map((f) => f.descrizione).filter(Boolean));
-    return Array.from(descrizioni).sort();
-  }, [fatture]);
 
   // Filtra fatture per anno e search
   const fattureFiltrate = useMemo(() => {

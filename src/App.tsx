@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { toast } from "sonner";
 import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
@@ -20,6 +20,7 @@ import { Toaster } from "./components/ui/sonner";
 import { ANNO } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
+import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
 
 function App() {
   const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
@@ -48,6 +49,12 @@ function App() {
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [annoDashboard, setAnnoDashboard] = useState<number>(ANNO);
+  const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>([]);
+
+  // Carica descrizioni salvate da localStorage
+  useEffect(() => {
+    setDescrizioniSalvate(caricaDescrizioniSalvate());
+  }, []);
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
   const anniDisponibili = useMemo(() => {
@@ -63,10 +70,8 @@ function App() {
     return Array.from(clienti).sort();
   }, [fatture]);
 
-  const descrizioniSuggerite = useMemo(() => {
-    const descrizioni = new Set(fatture.map((f) => f.descrizione).filter(Boolean));
-    return Array.from(descrizioni).sort();
-  }, [fatture]);
+  // Usa le descrizioni salvate da localStorage
+  const descrizioniSuggerite = descrizioniSalvate;
 
   // Filtra fatture per anno selezionato (per il riepilogo)
   const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
@@ -169,10 +174,16 @@ function App() {
               {showForm && (
                 <div className="border rounded-lg p-6 bg-card">
                   <FormFattura
-                    onSubmit={(dati) => {
+                    onSubmit={(dati, salvaDescrizioneFlag) => {
                       aggiungiFattura(dati);
+                      if (salvaDescrizioneFlag && dati.descrizione) {
+                        salvaDescrizione(dati.descrizione);
+                        setDescrizioniSalvate(caricaDescrizioniSalvate());
+                        toast.success("Fattura aggiunta e descrizione salvata");
+                      } else {
+                        toast.success("Fattura aggiunta");
+                      }
                       setShowForm(false);
-                      toast.success("Fattura aggiunta");
                     }}
                     onCancel={() => setShowForm(false)}
                     clientiSuggeriti={clientiSuggeriti}
@@ -187,6 +198,7 @@ function App() {
                 fatture={fatture}
                 onModifica={modificaFattura}
                 onElimina={eliminaFattura}
+                descrizioniSuggerite={descrizioniSuggerite}
               />
             </div>
           )}
