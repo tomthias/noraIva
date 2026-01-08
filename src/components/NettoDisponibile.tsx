@@ -69,6 +69,17 @@ export function NettoDisponibile({
     entrateFiltrate
   );
 
+  // Calcola il saldo iniziale (escluso da calcolaSituazioneCashFlow ma necessario per il netto reale)
+  const saldoIniziale = entrateFiltrate
+    .filter((e) => {
+      const cat = e.categoria?.toLowerCase() || "";
+      return cat === "saldo iniziale" || cat === "saldo_iniziale";
+    })
+    .reduce((sum, e) => sum + e.importo, 0);
+
+  // Cash disponibile REALE = cash flow + saldo iniziale
+  const cashDisponibileReale = cashFlow.nettoDisponibile + saldoIniziale;
+
   // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
     f.data.startsWith(String(annoSelezionato))
@@ -151,7 +162,8 @@ export function NettoDisponibile({
   // TOTALE = Scadenze anno corrente + Proiezione anno prossimo
   const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
 
-  const nettoSicuro = cashFlow.nettoDisponibile - totaleDaAccantonare;
+  // Netto Sicuro = Cash reale (incluso saldo iniziale) - Tasse da accantonare
+  const nettoSicuro = cashDisponibileReale - totaleDaAccantonare;
 
   // Calcolo per la progress bar "Acconti anno corrente versati vs dovuti"
   // Gli acconti dell'anno corrente sono basati sulle tasse dell'anno precedente
