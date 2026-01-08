@@ -161,9 +161,10 @@ export function NettoDisponibile({
   );
 
   // 2. PROIEZIONE ANNO PROSSIMO (basate su tasse anno corrente)
-  // NOTA: Questa è SOLO per visualizzazione, NON viene sottratta dal cash disponibile
-  // perché le fatture dell'anno corrente hanno già le tasse accantonate nel calcolo NET
-  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo + secondoAccontoAnnoProssimo;
+  // NOTA: Con il nuovo calcolo NET, le tasse dell'anno corrente sono GIÀ accantonate
+  // nel fatturato netto, quindi NON le sottraiamo nuovamente.
+  // La proiezione anno prossimo potrebbe essere usata in futuro per visualizzazione:
+  // const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo + secondoAccontoAnnoProssimo;
 
   // TOTALE DA ACCANTONARE = SOLO scadenze anno corrente (tasse passate non pagate)
   // Le tasse dell'anno corrente sono già state accantonate nel calcolo NET delle fatture
