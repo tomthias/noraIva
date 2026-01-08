@@ -135,6 +135,9 @@ export function NettoDisponibile({
   // quando si aggiunge la prima fattura dell'anno
   const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
 
+  // 2° Acconto anno prossimo (60% delle tasse anno corrente) - scadenza Novembre anno prossimo
+  const secondoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.6;
+
   // Saldo anno corrente (quanto mancherà a giugno dell'anno prossimo)
   // = tasse anno corrente - acconti che verranno versati nell'anno corrente
   // Gli acconti anno corrente = 100% delle tasse anno precedente
@@ -156,8 +159,8 @@ export function NettoDisponibile({
   );
 
   // 2. PROIEZIONE ANNO PROSSIMO (basate su tasse anno corrente)
-  // Queste sono le tasse che DOVRAI pagare l'anno prossimo
-  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+  // Include TUTTO: saldo + 1° acconto (Giugno) + 2° acconto (Novembre)
+  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo + secondoAccontoAnnoProssimo;
 
   // TOTALE = Scadenze anno corrente + Proiezione anno prossimo
   const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
@@ -332,6 +335,14 @@ export function NettoDisponibile({
                 <InfoTooltip text={`40% delle tasse ${annoSelezionato} (${formatCurrency(tasseTeoricheAnnoCorrente)}). Scadenza: Giugno ${annoSelezionato + 1}.`} />
               </div>
               <span className="font-mono font-medium">{formatCurrency(primoAccontoAnnoProssimo)}</span>
+            </div>
+
+            <div className="flex justify-between items-center text-sm">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span>2° Acconto {annoSelezionato + 1} (60%)</span>
+                <InfoTooltip text={`60% delle tasse ${annoSelezionato} (${formatCurrency(tasseTeoricheAnnoCorrente)}). Scadenza: Novembre ${annoSelezionato + 1}.`} />
+              </div>
+              <span className="font-mono font-medium">{formatCurrency(secondoAccontoAnnoProssimo)}</span>
             </div>
 
             <div className="flex justify-between items-center pt-2 border-t border-muted-foreground/20">
