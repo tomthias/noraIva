@@ -200,23 +200,20 @@ describe("calcolaSituazioneCashFlow", () => {
 
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, prelievi, uscite);
 
-    // Fatture NETTO (non più LORDO):
-    // 2000€: netto ≈ 1.535,64€
-    // 1500€: netto ≈ 1.151,73€
-    // Totale netto: 2.687,37€
-    expect(cashFlow.nettoFatture).toBeCloseTo(2687.37, 2);
+    // Fatture LORDO
+    expect(cashFlow.nettoFatture).toBe(3500);
     expect(cashFlow.totalePrelievi).toBe(1000);
     expect(cashFlow.totaleUscite).toBe(500);
 
-    // Netto disponibile = 2.687,37 - 1000 - 500 = 1.187,37€
-    expect(cashFlow.nettoDisponibile).toBeCloseTo(1187.37, 2);
+    // Netto disponibile = 3500 - 1000 - 500 = 2000€
+    expect(cashFlow.nettoDisponibile).toBe(2000);
   });
 
   it("gestisce correttamente il caso senza prelievi e uscite", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, [], []);
 
-    // Senza prelievi e uscite, netto disponibile = fatturato NETTO
-    expect(cashFlow.nettoDisponibile).toBeCloseTo(cashFlow.nettoFatture, 2);
+    // Senza prelievi e uscite, netto disponibile = fatturato LORDO
+    expect(cashFlow.nettoDisponibile).toBe(cashFlow.nettoFatture);
   });
 });
 

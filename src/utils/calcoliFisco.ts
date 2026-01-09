@@ -171,11 +171,8 @@ export function calcolaSituazioneCashFlow(
   uscite: Uscita[],
   entrate: Entrata[] = []
 ): SituazioneCashFlow {
-  // Fatturato NETTO disponibile (dopo accantonamento tasse per ogni fattura)
-  const totaleFatturatoNetto = fatture.reduce(
-    (sum, f) => sum + calcolaNettoDisponibileDaFattura(f.importoLordo),
-    0
-  );
+  // Fatturato LORDO (soldi effettivamente incassati)
+  const totaleFatturato = calcolaTotaleFatture(fatture);
 
   // Prelievi effettuati (stipendi)
   const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
@@ -183,9 +180,8 @@ export function calcolaSituazioneCashFlow(
   // Uscite totali (include tasse già pagate)
   const totaleUscite = uscite.reduce((sum, u) => sum + u.importo, 0);
 
-  // ✅ CORREZIONE: filtrare Saldo Iniziale, Fatture e movimenti esclusi (case insensitive)
-  // Supporta sia "saldo iniziale" che "saldo_iniziale" (formato DB)
-  // Entrate extra (rimborsi, bonus, interessi - NON fatture già conteggiate)
+  // Entrate extra (rimborsi, bonus, interessi)
+  // ESCLUDI: Saldo Iniziale e Fatture (già conteggiate sopra)
   const totaleEntrate = entrate
     .filter(e => {
       const cat = e.categoria?.toLowerCase() || '';
@@ -195,15 +191,14 @@ export function calcolaSituazioneCashFlow(
     })
     .reduce((sum, e) => sum + e.importo, 0);
 
-  // Netto disponibile = Fatturato NETTO + Entrate Extra - Prelievi - Uscite
-  // Le tasse delle fatture sono già accantonate nel calcolo NETTO
-  const nettoDisponibile = totaleFatturatoNetto + totaleEntrate - totalePrelievi - totaleUscite;
+  // Netto disponibile = Fatturato LORDO + Entrate Extra - Prelievi - Uscite
+  const nettoDisponibile = totaleFatturato + totaleEntrate - totalePrelievi - totaleUscite;
 
   return {
-    nettoFatture: totaleFatturatoNetto, // NETTO disponibile dopo tasse accantonate
+    nettoFatture: totaleFatturato, // Fatturato LORDO
     totalePrelievi,
     totaleUscite,
-    totaleEntrate, // Esclusi Saldo Iniziale e Fatture
+    totaleEntrate,
     nettoDisponibile,
   };
 }

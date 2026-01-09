@@ -42,43 +42,48 @@ export function NettoDisponibile({
   annoSelezionato,
 }: Props) {
   // --- CALCOLI LOGICA ---
-  const fattureFiltrate = fatture.filter((f) => {
+
+  // FATTURE: solo anno corrente per cash flow (anni precedenti sono già nel saldo iniziale)
+  const fattureAnnoCorrenteCashFlow = fatture.filter((f) => {
     const anno = parseInt(f.data.substring(0, 4));
-    return anno <= annoSelezionato;
+    return anno === annoSelezionato;
   });
 
+  // MOVIMENTI: solo anno corrente (quelli precedenti sono già nel saldo iniziale)
   const prelieviFiltrati = prelievi.filter((p) => {
     const anno = parseInt(p.data.substring(0, 4));
-    return anno <= annoSelezionato;
+    return anno === annoSelezionato;
   });
 
   const usciteFiltrate = uscite.filter((u) => {
     const anno = parseInt(u.data.substring(0, 4));
-    return anno <= annoSelezionato;
+    return anno === annoSelezionato;
   });
 
   const entrateFiltrate = entrate.filter((e) => {
     const anno = parseInt(e.data.substring(0, 4));
-    return anno <= annoSelezionato;
+    return anno === annoSelezionato;
   });
 
   const cashFlow = calcolaSituazioneCashFlow(
-    fattureFiltrate,
+    fattureAnnoCorrenteCashFlow,
     prelieviFiltrati,
     usciteFiltrate,
     entrateFiltrate
   );
 
-  // Calcola il saldo iniziale (escluso da calcolaSituazioneCashFlow ma necessario per il netto reale)
-  const saldoIniziale = entrateFiltrate
+  // Calcola il saldo iniziale (il punto di partenza dell'anno)
+  // Cerca in TUTTE le entrate (non filtrate per anno) perché il saldo iniziale
+  // potrebbe essere datato in un anno precedente
+  const saldoIniziale = entrate
     .filter((e) => {
       const cat = e.categoria?.toLowerCase() || "";
       return cat === "saldo iniziale" || cat === "saldo_iniziale";
     })
     .reduce((sum, e) => sum + e.importo, 0);
 
-  // Cash disponibile REALE = cash flow + saldo iniziale
-  const cashDisponibileReale = cashFlow.nettoDisponibile + saldoIniziale;
+  // Cash disponibile REALE = saldo iniziale + cash flow anno corrente
+  const cashDisponibileReale = saldoIniziale + cashFlow.nettoDisponibile;
 
   // --- ANNO CORRENTE (annoSelezionato) ---
   const fattureAnnoCorrente = fatture.filter((f) =>
@@ -147,8 +152,7 @@ export function NettoDisponibile({
   );
 
   // TOTALE DA ACCANTONARE:
-  // NOTA IMPORTANTE: Le tasse dell'anno CORRENTE sono già accantonate nel calcolo NETTO delle fatture
-  // Quindi sottraiamo SOLO le tasse degli anni PRECEDENTI ancora da pagare
+  // Include tasse passate da pagare + tasse future da accantonare
 
   // 1. SCADENZE ANNO CORRENTE (basate su tasse anno precedente)
   // Queste sono le tasse che DEVI pagare quest'anno (saldo + acconti anno precedente)
@@ -160,15 +164,14 @@ export function NettoDisponibile({
   );
 
   // 2. PROIEZIONE ANNO PROSSIMO (basate su tasse anno corrente)
-  // Le singole voci (saldoAnnoCorrente, primoAccontoAnnoProssimo, secondoAccontoAnnoProssimo)
-  // sono VISUALIZZATE nell'UI per informazione, ma NON sottratte dal netto
-  // perché le tasse dell'anno corrente sono già accantonate nel calcolo NETTO delle fatture
+  // Include: saldo anno corrente + 1° acconto (40%)
+  // NON include 2° acconto perché troppo lontano (Novembre anno prossimo)
+  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
 
-  // TOTALE = SOLO scadenze anno corrente (tasse passate non pagate)
-  // Le tasse dell'anno corrente sono già accantonate nel calcolo NETTO delle fatture
-  const totaleDaAccantonare = scadenzeAnnoCorrente;
+  // TOTALE = scadenze anno corrente + proiezione anno prossimo (solo saldo + 1° acconto)
+  const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
 
-  // Netto Sicuro = Cash reale (incluso saldo iniziale) - Tasse passate da pagare
+  // Netto Sicuro = Cash reale - Tasse da accantonare
   const nettoSicuro = cashDisponibileReale - totaleDaAccantonare;
 
   // Calcolo per la progress bar "Acconti anno corrente versati vs dovuti"
