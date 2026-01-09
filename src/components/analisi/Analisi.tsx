@@ -38,6 +38,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number>(ANNO);
 
   // Estrai anni disponibili, includendo sempre anno corrente
+  // Nascondi anni precedenti al 2026 (dati resettati)
   const anniDisponibili = useMemo(() => {
     const anni = new Set([
       ...fatture.map((f) => parseInt(f.data.substring(0, 4))),
@@ -47,7 +48,9 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     ]);
     // Aggiungi sempre anno corrente
     anni.add(ANNO);
-    return Array.from(anni).sort((a, b) => b - a);
+    return Array.from(anni)
+      .filter((anno) => anno >= 2026)
+      .sort((a, b) => b - a);
   }, [fatture, uscite, entrate, prelievi]);
 
   // Calcola KPI
@@ -77,23 +80,13 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [prelievi, annoSelezionato]
   );
 
-  // Filtri CUMULATIVI per cash flow (come Dashboard)
-  const fattureCumulative = useMemo(
-    () => fatture.filter((f) => parseInt(f.data.substring(0, 4)) <= annoSelezionato),
-    [fatture, annoSelezionato]
-  );
-  const usciteCumulative = useMemo(
-    () => uscite.filter((u) => parseInt(u.data.substring(0, 4)) <= annoSelezionato),
-    [uscite, annoSelezionato]
-  );
-  const entrateCumulative = useMemo(
-    () => entrate.filter((e) => parseInt(e.data.substring(0, 4)) <= annoSelezionato),
-    [entrate, annoSelezionato]
-  );
-  const prelieviCumulativi = useMemo(
-    () => prelievi.filter((p) => parseInt(p.data.substring(0, 4)) <= annoSelezionato),
-    [prelievi, annoSelezionato]
-  );
+  // Saldo Iniziale (cerca in TUTTE le entrate, non filtrate per anno)
+  const saldoIniziale = useMemo(() => {
+    const entrataSaldo = entrate.find((e) =>
+      e.descrizione?.toLowerCase().includes("saldo iniziale")
+    );
+    return entrataSaldo?.importo ?? 0;
+  }, [entrate]);
 
   // Aggregazioni per grafici
   const entratePerCategoria = useMemo(
@@ -183,16 +176,18 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [fatture, uscite, entrate, prelievi]
   );
 
-  // Calcoli per consigli finanziari - usa stessa logica della Dashboard (dati CUMULATIVI)
+  // Calcoli per consigli finanziari - usa stessa logica della Dashboard (solo anno corrente + saldo iniziale)
   const calcoliFinanziari = useMemo(() => {
-    // Usa calcolaSituazioneCashFlow con dati CUMULATIVI come la Dashboard
+    // Cash flow anno corrente (come Dashboard)
     const cashFlow = calcolaSituazioneCashFlow(
-      fattureCumulative,
-      prelieviCumulativi,
-      usciteCumulative,
-      entrateCumulative
+      fattureAnno,
+      prelieviAnno,
+      usciteAnno,
+      entrateAnno
     );
-    const nettoDisponibile = cashFlow.nettoDisponibile;
+
+    // Netto disponibile = Saldo Iniziale + cash flow anno corrente
+    const nettoDisponibile = saldoIniziale + cashFlow.nettoDisponibile;
 
     // --- CALCOLO TASSE DA ACCANTONARE (stessa logica di NettoDisponibile.tsx) ---
 
@@ -204,7 +199,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     );
     const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
-    // Tasse già pagate nell'anno precedente
+    // Tasse già pagate nell'anno precedente (cerca in TUTTE le uscite)
     const tasseVersateAnnoPrecedente = uscite
       .filter((u) => {
         const isAnnoPrecedente = u.data.startsWith(String(annoPrecedente));
@@ -220,10 +215,11 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
     const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
 
-    // Acconti già versati nell'anno corrente
+    // Acconti già versati nell'anno corrente (cerca in TUTTE le uscite)
     const accontiVersatiNellAnno = uscite
       .filter((u) => {
-        const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
+        const annoUscita = parseInt(u.data.substring(0, 4));
+        const isAnnoCorrente = annoUscita === annoSelezionato;
         const cat = u.categoria?.toLowerCase() || "";
         return isAnnoCorrente && cat.startsWith("tasse");
       })
@@ -274,7 +270,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [fattureCumulative, usciteCumulative, entrateCumulative, prelieviCumulativi, fattureAnno, usciteAnno, prelieviAnno, kpi, fatture, annoSelezionato]);
+  }, [saldoIniziale, fattureAnno, usciteAnno, entrateAnno, prelieviAnno, kpi, fatture, uscite, annoSelezionato]);
 
   return (
     <div className="space-y-6">
