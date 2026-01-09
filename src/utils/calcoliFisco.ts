@@ -85,6 +85,32 @@ export function calcolaTasseTotali(fatture: Fattura[]): number {
 }
 
 /**
+ * Calcola il netto disponibile da una singola fattura dopo aver accantonato le tasse
+ *
+ * Formula:
+ * 1. Reddito Imponibile = importoLordo × 78%
+ * 2. Contributi INPS = reddito × 26.07%
+ * 3. Imponibile Netto = reddito - INPS
+ * 4. Imposta Sostitutiva = imponibileNetto × 5%
+ * 5. NETTO DISPONIBILE = importoLordo - INPS - Imposta
+ *
+ * Esempio 10.000€:
+ * - Reddito: 10.000 × 78% = 7.800€
+ * - INPS: 7.800 × 26.07% = 2.033,46€
+ * - Imponibile netto: 7.800 - 2.033,46 = 5.766,54€
+ * - Imposta: 5.766,54 × 5% = 288,33€
+ * - NETTO: 10.000 - 2.033,46 - 288,33 = 7.678,21€
+ */
+export function calcolaNettoDisponibileDaFattura(importoLordo: number): number {
+  const reddito = importoLordo * COEFFICIENTE_REDDITIVITA; // 78%
+  const inps = reddito * ALIQUOTA_CONTRIBUTI_GS; // 26.07%
+  const redditoNetto = reddito - inps;
+  const impostaSostitutiva = redditoNetto * ALIQUOTA_IMPOSTA_SOSTITUTIVA; // 5%
+
+  return importoLordo - inps - impostaSostitutiva;
+}
+
+/**
  * Calcola il netto derivante dalle fatture (prima di prelievi e uscite)
  * Formula: Fatturato Totale - Totale Tasse
  */
@@ -145,8 +171,11 @@ export function calcolaSituazioneCashFlow(
   uscite: Uscita[],
   entrate: Entrata[] = []
 ): SituazioneCashFlow {
-  // Fatturato totale lordo
-  const totaleFatturato = calcolaTotaleFatture(fatture);
+  // Fatturato NETTO disponibile (dopo accantonamento tasse per ogni fattura)
+  const totaleFatturatoNetto = fatture.reduce(
+    (sum, f) => sum + calcolaNettoDisponibileDaFattura(f.importoLordo),
+    0
+  );
 
   // Prelievi effettuati (stipendi)
   const totalePrelievi = prelievi.reduce((sum, p) => sum + p.importo, 0);
@@ -166,15 +195,15 @@ export function calcolaSituazioneCashFlow(
     })
     .reduce((sum, e) => sum + e.importo, 0);
 
-  // Netto disponibile = Fatturato LORDO + Entrate Extra - Prelievi - Uscite
-  // Le tasse pagate sono già nelle uscite, quindi non vengono sottratte due volte
-  const nettoDisponibile = totaleFatturato + totaleEntrate - totalePrelievi - totaleUscite;
+  // Netto disponibile = Fatturato NETTO + Entrate Extra - Prelievi - Uscite
+  // Le tasse delle fatture sono già accantonate nel calcolo NETTO
+  const nettoDisponibile = totaleFatturatoNetto + totaleEntrate - totalePrelievi - totaleUscite;
 
   return {
-    nettoFatture: totaleFatturato, // Fatturato LORDO
+    nettoFatture: totaleFatturatoNetto, // NETTO disponibile dopo tasse accantonate
     totalePrelievi,
     totaleUscite,
-    totaleEntrate, // Ora è corretto senza SALDO_INIZIALE
+    totaleEntrate, // Esclusi Saldo Iniziale e Fatture
     nettoDisponibile,
   };
 }

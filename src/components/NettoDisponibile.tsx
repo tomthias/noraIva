@@ -147,8 +147,11 @@ export function NettoDisponibile({
   );
 
   // TOTALE DA ACCANTONARE:
+  // NOTA IMPORTANTE: Le tasse dell'anno CORRENTE sono già accantonate nel calcolo NETTO delle fatture
+  // Quindi sottraiamo SOLO le tasse degli anni PRECEDENTI ancora da pagare
+
   // 1. SCADENZE ANNO CORRENTE (basate su tasse anno precedente)
-  // Queste sono le tasse che DEVI pagare quest'anno (saldo + acconti dell'anno precedente)
+  // Queste sono le tasse che DEVI pagare quest'anno (saldo + acconti anno precedente)
   const scadenzeAnnoCorrente = Math.max(0,
     saldoAnnoPrecedente
     + primoAccontoAnnoCorrente
@@ -157,14 +160,15 @@ export function NettoDisponibile({
   );
 
   // 2. PROIEZIONE ANNO PROSSIMO (basate su tasse anno corrente)
-  // Secondo CLAUDE.md: includere SOLO saldo + 1° acconto (40%)
-  // NON includere il 2° acconto perché è troppo lontano (Novembre anno prossimo)
-  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+  // Le singole voci (saldoAnnoCorrente, primoAccontoAnnoProssimo, secondoAccontoAnnoProssimo)
+  // sono VISUALIZZATE nell'UI per informazione, ma NON sottratte dal netto
+  // perché le tasse dell'anno corrente sono già accantonate nel calcolo NETTO delle fatture
 
-  // TOTALE DA ACCANTONARE = scadenze anno corrente + proiezione anno prossimo
-  const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
+  // TOTALE = SOLO scadenze anno corrente (tasse passate non pagate)
+  // Le tasse dell'anno corrente sono già accantonate nel calcolo NETTO delle fatture
+  const totaleDaAccantonare = scadenzeAnnoCorrente;
 
-  // Netto Sicuro = Cash reale (incluso saldo iniziale) - Totale da accantonare
+  // Netto Sicuro = Cash reale (incluso saldo iniziale) - Tasse passate da pagare
   const nettoSicuro = cashDisponibileReale - totaleDaAccantonare;
 
   // Calcolo per la progress bar "Acconti anno corrente versati vs dovuti"

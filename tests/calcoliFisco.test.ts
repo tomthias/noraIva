@@ -7,6 +7,7 @@ import {
   calcolaImposta,
   calcolaTasseTotali,
   calcolaNettoFatture,
+  calcolaNettoDisponibileDaFattura,
   calcolaRiepilogoPerFattura,
   calcolaRiepilogoAnnuale,
   simulaNuovaFattura,
@@ -149,8 +150,36 @@ describe("calcolaRiepilogoAnnuale", () => {
   });
 });
 
+describe("calcolaNettoDisponibileDaFattura", () => {
+  it("calcola correttamente il netto disponibile da una fattura di 10.000€", () => {
+    const netto = calcolaNettoDisponibileDaFattura(10000);
+
+    // Calcolo atteso:
+    // Reddito: 10.000 × 0.78 = 7.800
+    // INPS: 7.800 × 0.2607 = 2.033,46
+    // Imponibile netto: 7.800 - 2.033,46 = 5.766,54
+    // Imposta: 5.766,54 × 0.05 = 288,33
+    // NETTO: 10.000 - 2.033,46 - 288,33 = 7.678,21
+
+    expect(netto).toBeCloseTo(7678.21, 2);
+  });
+
+  it("calcola correttamente il netto per 52.796€ (fatture 2025 utente)", () => {
+    const netto = calcolaNettoDisponibileDaFattura(52796);
+
+    // Tasse teoriche: 12.258€
+    // NETTO: 52.796 - 12.258 = 40.538€
+
+    expect(netto).toBeCloseTo(40538, 0);
+  });
+
+  it("restituisce 0 per fattura di 0€", () => {
+    expect(calcolaNettoDisponibileDaFattura(0)).toBe(0);
+  });
+});
+
 describe("calcolaSituazioneCashFlow", () => {
-  it("calcola correttamente il cash flow con prelievi e uscite", () => {
+  it("calcola correttamente il cash flow con fatture NETTO", () => {
     const prelievi: Prelievo[] = [
       {
         id: "p1",
@@ -171,20 +200,23 @@ describe("calcolaSituazioneCashFlow", () => {
 
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, prelievi, uscite);
 
-    // nettoFatture è il fatturato LORDO
-    expect(cashFlow.nettoFatture).toBe(3500);
+    // Fatture NETTO (non più LORDO):
+    // 2000€: netto ≈ 1.535,64€
+    // 1500€: netto ≈ 1.151,73€
+    // Totale netto: 2.687,37€
+    expect(cashFlow.nettoFatture).toBeCloseTo(2687.37, 2);
     expect(cashFlow.totalePrelievi).toBe(1000);
     expect(cashFlow.totaleUscite).toBe(500);
-    // Netto disponibile = 3500 - 1000 - 500 = 2000
-    expect(cashFlow.nettoDisponibile).toBe(2000);
+
+    // Netto disponibile = 2.687,37 - 1000 - 500 = 1.187,37€
+    expect(cashFlow.nettoDisponibile).toBeCloseTo(1187.37, 2);
   });
 
   it("gestisce correttamente il caso senza prelievi e uscite", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, [], []);
 
-    // Senza prelievi e uscite, netto disponibile = fatturato lordo
-    expect(cashFlow.nettoDisponibile).toBe(3500);
-    expect(cashFlow.nettoFatture).toBe(3500);
+    // Senza prelievi e uscite, netto disponibile = fatturato NETTO
+    expect(cashFlow.nettoDisponibile).toBeCloseTo(cashFlow.nettoFatture, 2);
   });
 });
 
