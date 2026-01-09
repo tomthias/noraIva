@@ -99,10 +99,11 @@ export function NettoDisponibile({
   const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
 
   // Acconti versati nell'anno selezionato (per tasse anno precedente)
-  // Conta TUTTE le tasse pagate nell'anno (saldo, acconto, INPS, imposta sostitutiva)
+  // NOTA: cerca in TUTTE le uscite, non quelle filtrate per anno
   const accontiVersatiNellAnno = uscite
     .filter((u) => {
-      const isAnnoCorrente = u.data.startsWith(String(annoSelezionato));
+      const annoUscita = parseInt(u.data.substring(0, 4));
+      const isAnnoCorrente = annoUscita === annoSelezionato;
       const cat = u.categoria?.toLowerCase() || "";
       const isTassa = cat.startsWith("tasse");
       return isAnnoCorrente && isTassa;
@@ -111,9 +112,11 @@ export function NettoDisponibile({
 
   // Saldo anno precedente (quanto manca da pagare a giugno dell'anno corrente)
   // = tasse anno precedente - tasse già pagate nell'anno precedente
+  // NOTA: cerca in TUTTE le uscite, non quelle filtrate per anno
   const tasseVersateAnnoPrecedente = uscite
     .filter((u) => {
-      const isAnnoPrecedente = u.data.startsWith(String(annoPrecedente));
+      const annoUscita = parseInt(u.data.substring(0, 4));
+      const isAnnoPrecedente = annoUscita === annoPrecedente;
       const cat = u.categoria?.toLowerCase() || "";
       const isTassa = cat.startsWith("tasse");
       return isAnnoPrecedente && isTassa;
