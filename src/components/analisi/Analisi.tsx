@@ -80,12 +80,15 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [prelievi, annoSelezionato]
   );
 
-  // Saldo Iniziale (cerca in TUTTE le entrate, non filtrate per anno)
+  // Saldo Iniziale (cerca in TUTTE le entrate per CATEGORIA, non filtrate per anno)
+  // Stessa logica di NettoDisponibile.tsx
   const saldoIniziale = useMemo(() => {
-    const entrataSaldo = entrate.find((e) =>
-      e.descrizione?.toLowerCase().includes("saldo iniziale")
-    );
-    return entrataSaldo?.importo ?? 0;
+    return entrate
+      .filter((e) => {
+        const cat = e.categoria?.toLowerCase() || "";
+        return cat === "saldo iniziale" || cat === "saldo_iniziale";
+      })
+      .reduce((sum, e) => sum + e.importo, 0);
   }, [entrate]);
 
   // Aggregazioni per grafici
