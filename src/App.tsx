@@ -57,11 +57,14 @@ function App() {
   }, []);
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
+  // Nascondi anni precedenti al 2026 (dati resettati)
   const anniDisponibili = useMemo(() => {
     const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
     // Aggiungi sempre anno corrente
     anni.add(ANNO);
-    return Array.from(anni).sort((a, b) => b - a);
+    return Array.from(anni)
+      .filter((anno) => anno >= 2026)
+      .sort((a, b) => b - a);
   }, [fatture]);
 
   // Estrai clienti e descrizioni uniche per autocomplete
