@@ -1,5 +1,10 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
-import { calcolaAccantonamento } from "../utils/calcoliFisco";
+import { calcolaAccantonamento, type IncassiPerAnno } from "../utils/calcoliFisco";
+import { calcolaEspressione } from "../utils/calcolaEspressione";
+import { Button } from "@/components/ui/button";
+import { ImportoInput } from "@/components/ui/importo-input";
 import { aliquoteStimate, getAliquotaSostitutiva } from "../constants/fiscali";
 import { formatCurrency } from "../utils/format";
 import {
@@ -31,6 +36,13 @@ interface Props {
   uscite: Uscita[];
   entrate?: Entrata[];
   annoSelezionato: number;
+  /** Incassi dichiarati a mano per anno, che sostituiscono il totale fatture. */
+  incassiOverride?: IncassiPerAnno;
+  /**
+   * Permette di dichiarare l'incassato dell'anno PRECEDENTE senza cambiare
+   * filtro: quell'anno può non essere selezionabile, ma serve per gli acconti.
+   */
+  onSalvaIncassiAnnoPrecedente?: (importo: number) => void;
 }
 
 export function NettoDisponibile({
@@ -39,7 +51,10 @@ export function NettoDisponibile({
   uscite,
   entrate = [],
   annoSelezionato,
+  incassiOverride = {},
+  onSalvaIncassiAnnoPrecedente,
 }: Props) {
+  const [bozzaAnnoPrecedente, setBozzaAnnoPrecedente] = useState("");
   // Tutta la logica fiscale vive in calcoliFisco.ts: qui si consuma soltanto.
   // Analisi.tsx usa la stessa funzione, così i due schermi non possono divergere.
   const a = calcolaAccantonamento(
@@ -47,9 +62,11 @@ export function NettoDisponibile({
     prelievi,
     uscite,
     entrate,
-    annoSelezionato
+    annoSelezionato,
+    incassiOverride
   );
 
+  const d = a.dettaglioCash;
   const annoPrecedente = a.annoPrecedente;
   const annoProssimo = annoSelezionato + 1;
 
@@ -118,6 +135,51 @@ export function NettoDisponibile({
                 : "Importo insufficiente per coprire le tasse future."}
             </p>
           </div>
+
+          {/* Scomposizione del cash: serve a confrontare voce per voce con il
+              commercialista quando il totale non torna. */}
+          <details className="mt-4 group">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1">
+              <span className="group-open:rotate-90 transition-transform inline-block">›</span>
+              Com'è composta la disponibilità di {formatCurrency(a.cashDisponibileReale)}
+            </summary>
+            <div className="mt-3 space-y-1.5 text-sm border-t pt-3">
+              <RigaCash etichetta="Saldo iniziale" importo={d.saldoIniziale} />
+              <RigaCash etichetta={`Fatturato ${annoSelezionato}`} importo={d.fatturato} />
+              <RigaCash etichetta="Entrate extra" importo={d.entrateExtra} />
+              <RigaCash etichetta="Stipendi prelevati" importo={-d.prelievi} />
+              <RigaCash etichetta="Uscite (tasse incluse)" importo={-d.uscite} />
+              <div className="flex justify-between items-center pt-2 border-t font-semibold">
+                <span>Disponibilità</span>
+                <span className="font-mono tabular-nums">
+                  {formatCurrency(a.cashDisponibileReale)}
+                </span>
+              </div>
+
+              {d.numeroSaldiIniziali > 1 && (
+                <p className="text-xs text-amber-600 pt-2 flex gap-1.5 items-start">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Ci sono <strong>{d.numeroSaldiIniziali}</strong> movimenti con categoria
+                    “Saldo Iniziale” e vengono sommati tutti. Se ne serve uno solo, gli
+                    altri gonfiano la disponibilità.
+                  </span>
+                </p>
+              )}
+
+              {d.entrateMarcateEscluse !== 0 && (
+                <p className="text-xs text-amber-600 pt-2 flex gap-1.5 items-start">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>
+                    Nelle entrate extra sono inclusi{" "}
+                    <strong>{formatCurrency(d.entrateMarcateEscluse)}</strong> di movimenti
+                    marcati “escludi dal grafico”. Il flag nasconde dai grafici ma non
+                    toglie i soldi dal conto.
+                  </span>
+                </p>
+              )}
+            </div>
+          </details>
         </CardContent>
       </Card>
 
@@ -157,6 +219,65 @@ export function NettoDisponibile({
           {aliquoteStimate(annoSelezionato) && (
             <p className="text-xs text-muted-foreground">
               Aliquote INPS {annoSelezionato} stimate sull'ultimo anno noto.
+            </p>
+          )}
+
+          {/* Senza dati dell'anno precedente gli acconti risultano zero e il
+              "totale da tenere da parte" è pericolosamente ottimista.
+              L'anno precedente può non essere selezionabile nel filtro, quindi
+              l'incassato si inserisce direttamente da qui. */}
+          {a.tasseAnnoPrecedente === 0 && a.tasseAnnoCorrente > 0 && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 space-y-2">
+              <div className="flex gap-2 items-start text-sm">
+                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                <p className="text-muted-foreground">
+                  Non risultano incassi nel <strong>{annoPrecedente}</strong>, quindi
+                  l'app calcola <strong>zero acconti</strong> per il {annoSelezionato}
+                  {" "}e il totale qui sotto è più basso del reale. Chiedi al
+                  commercialista l'<strong>incassato {annoPrecedente}</strong> (non il
+                  fatturato: sono diversi) e scrivilo qui.
+                </p>
+              </div>
+              {onSalvaIncassiAnnoPrecedente && (
+                <div className="flex gap-2 items-start pl-6">
+                  <div className="flex-1 max-w-[220px]">
+                    <ImportoInput
+                      value={bozzaAnnoPrecedente}
+                      onChange={setBozzaAnnoPrecedente}
+                      placeholder={`Incassato ${annoPrecedente}`}
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const { valore, errore } = calcolaEspressione(bozzaAnnoPrecedente);
+                      if (valore === null || valore < 0) {
+                        toast.error(errore ?? "Inserisci un importo valido");
+                        return;
+                      }
+                      onSalvaIncassiAnnoPrecedente(valore);
+                      setBozzaAnnoPrecedente("");
+                      toast.success(
+                        `Incassi ${annoPrecedente} impostati a ${formatCurrency(valore)}`
+                      );
+                    }}
+                  >
+                    Salva
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {(a.incassiSovrascrittiAnnoCorrente || a.incassiSovrascrittiAnnoPrecedente) && (
+            <p className="text-xs text-blue-500/90">
+              Tasse calcolate su incassi dichiarati a mano:
+              {a.incassiSovrascrittiAnnoCorrente &&
+                ` ${annoSelezionato} ${formatCurrency(a.incassiAnnoCorrente)}`}
+              {a.incassiSovrascrittiAnnoCorrente && a.incassiSovrascrittiAnnoPrecedente && ","}
+              {a.incassiSovrascrittiAnnoPrecedente &&
+                ` ${annoPrecedente} ${formatCurrency(a.incassiAnnoPrecedente)}`}
+              .
             </p>
           )}
 
@@ -260,6 +381,20 @@ export function NettoDisponibile({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function RigaCash({ etichetta, importo }: { etichetta: string; importo: number }) {
+  return (
+    <div className="flex justify-between items-center">
+      <span className="text-muted-foreground">{etichetta}</span>
+      <span
+        className={`font-mono tabular-nums ${importo < 0 ? "text-red-500" : ""}`}
+      >
+        {importo < 0 ? "−" : "+"}
+        {formatCurrency(Math.abs(importo))}
+      </span>
     </div>
   );
 }

@@ -56,7 +56,7 @@ export function FormFattura({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="data">Data</Label>
+          <Label htmlFor="data">Data incasso</Label>
           <Input
             type="date"
             id="data"
@@ -64,6 +64,10 @@ export function FormFattura({
             onChange={(e) => setData(e.target.value)}
             required
           />
+          <p className="text-xs text-muted-foreground">
+            Quando hai <strong>incassato</strong>, non quando hai emesso: il forfettario
+            tassa per cassa.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="cliente">Cliente</Label>

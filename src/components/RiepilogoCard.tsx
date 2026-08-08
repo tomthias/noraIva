@@ -7,11 +7,26 @@ import { TrendingUp, Building2, Landmark, ReceiptEuro } from "lucide-react";
 interface Props {
   fatture: Fattura[];
   anno: number;
+  /** Incassato dichiarato a mano: se presente sostituisce il totale fatture. */
+  incassiDichiarati?: number;
 }
 
-export function RiepilogoCard({ fatture, anno }: Props) {
-  const riepilogo = calcolaRiepilogoAnnuale(fatture);
-  const percentualeTasse = calcolaPercentualeTasse(fatture);
+export function RiepilogoCard({ fatture, anno, incassiDichiarati }: Props) {
+  // Con un incassato dichiarato il riepilogo si calcola su quello: è la base
+  // imponibile reale del forfettario (principio di cassa).
+  const fattureEffettive: Fattura[] =
+    incassiDichiarati !== undefined
+      ? [{
+        id: "incassi-dichiarati",
+        data: `${anno}-12-31`,
+        descrizione: "Incassi dichiarati",
+        cliente: "",
+        importoLordo: incassiDichiarati,
+      }]
+      : fatture;
+
+  const riepilogo = calcolaRiepilogoAnnuale(fattureEffettive, anno);
+  const percentualeTasse = calcolaPercentualeTasse(fattureEffettive);
 
   return (
     <Card className="h-full border-l-4 border-l-primary/50 shadow-sm">
@@ -31,7 +46,14 @@ export function RiepilogoCard({ fatture, anno }: Props) {
                 <ReceiptEuro className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground font-medium">Totale Fatturato</p>
+                <p className="text-sm text-muted-foreground font-medium">
+                  Totale Incassato
+                  {incassiDichiarati !== undefined && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wider text-blue-500">
+                      dichiarato
+                    </span>
+                  )}
+                </p>
                 <p className="font-bold text-lg">{formatCurrency(riepilogo.totaleFatture)}</p>
               </div>
             </div>

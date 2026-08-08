@@ -75,6 +75,44 @@ Tutte le funzioni di `calcoliFisco.ts` accettano un parametro `anno`.
 La Gestione Separata **non ha minimale** per i professionisti, e il massimale
 (122.295 € nel 2026) è sopra il tetto forfettario di 85.000 €: mai vincolante.
 
+## ⚠️ PRINCIPIO DI CASSA — `Fattura.data` è la data di INCASSO
+
+Il regime forfettario tassa **per cassa**: contano i compensi *percepiti*
+nell'anno, non le fatture *emesse*. Vale sia per il reddito imponibile sia per
+il limite degli 85.000 € (confermato dall'Agenzia delle Entrate, Telefisco
+18/09/2025: una fattura emessa a dicembre e incassata a gennaio conta nell'anno
+dell'incasso).
+
+**Convenzione di questa app**: il campo `data` di `Fattura` contiene la data di
+**incasso**, non di emissione. Tutti i filtri per anno (tasse, acconti, limite
+85k, grafici) si basano su quel campo. La UI lo dice esplicitamente: il form
+mostra "Data incasso" con la spiegazione, e la tabella ha la stessa intestazione.
+
+Conseguenza pratica: il fatturato mostrato dall'app coincide con gli **incassi**
+del gestionale del commercialista, non con il suo "fatturato emesso". Se i due
+numeri divergono, quasi certamente una fattura è stata registrata con la data
+sbagliata.
+
+Non esiste (per scelta) un campo separato per la data di emissione: se in futuro
+servisse, va aggiunta una colonna `data_emissione` lasciando `data` come incasso,
+mai il contrario.
+
+### Override degli incassi annuali
+
+Quando le fatture registrate non rispecchiano l'incassato reale (date sbagliate,
+o anni non presenti in database), l'incassato di un anno si può **dichiarare a
+mano** da Dashboard → card "Incassi" → matita.
+
+- Storage: `localStorage` (`incassi-override`), gestito da `utils/storage.ts`.
+  **Legato al browser, non sincronizzato.** Se serve su più dispositivi va
+  spostato su Supabase in una tabella `incassi_annuali`.
+- L'override sostituisce l'imponibile **solo ai fini fiscali** (tasse, acconti,
+  limite 85k). Il **cash disponibile continua a derivare dai movimenti reali**:
+  dichiarare un incasso diverso non fa comparire soldi sul conto.
+- È per anno, quindi vale anche per l'anno precedente: è così che si alimentano
+  gli acconti quando le fatture dell'anno prima non ci sono.
+- `incassiOverride[anno] === 0` è un valore valido, non "assente".
+
 ## Tax Calculation Formula
 
 ```

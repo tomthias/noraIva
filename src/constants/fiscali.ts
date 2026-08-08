@@ -160,3 +160,22 @@ export const LIMITE_USCITA_IMMEDIATA = 100_000;
  * stati resettati e quelli storici non sono attendibili.
  */
 export const ANNO_MINIMO_VISIBILE = 2026;
+
+/**
+ * Incassi noti dal gestionale del commercialista, precaricati al primo avvio.
+ *
+ * Servono perché le fatture registrate nell'app hanno date di emissione, mentre
+ * il forfettario tassa per cassa: al 2026 risultavano 44.464 € di fatture emesse
+ * contro 52.924 € realmente incassati.
+ *
+ * Sono solo un valore iniziale: una volta caricati in localStorage restano
+ * modificabili da Dashboard → Incassi → matita, e possono essere rimossi per
+ * tornare al totale calcolato dalle fatture.
+ *
+ * ⚠️ Manca il 2025. Il commercialista ha fornito il *fatturato* 2025 (54.796 €),
+ * non l'*incassato*, e i due valori non coincidono. Senza il dato corretto gli
+ * acconti 2026 restano a zero: va chiesto e inserito.
+ */
+export const INCASSI_DICHIARATI_INIZIALI: Record<number, number> = {
+  2026: 52_924,
+};

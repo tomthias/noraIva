@@ -65,8 +65,29 @@ export function calcolaContributi(
   fatture: Fattura[],
   anno: number = ANNO_CORRENTE
 ): number {
-  const redditoImponibileLordo = calcolaRedditoImponibileLordo(fatture);
-  return redditoImponibileLordo * getAliquotaInps(anno);
+  return calcolaContributiDaImporto(calcolaTotaleFatture(fatture), anno);
+}
+
+/**
+ * Come `calcolaContributi` ma partendo da un importo incassato già noto,
+ * senza passare dalle singole fatture. Serve quando l'imponibile arriva da un
+ * override manuale invece che dalla somma delle fatture registrate.
+ */
+export function calcolaContributiDaImporto(
+  incassato: number,
+  anno: number = ANNO_CORRENTE
+): number {
+  return incassato * COEFFICIENTE_REDDITIVITA * getAliquotaInps(anno);
+}
+
+/** Imposta sostitutiva a partire da un importo incassato già noto. */
+export function calcolaImpostaDaImporto(
+  incassato: number,
+  anno: number = ANNO_CORRENTE
+): number {
+  const redditoLordo = incassato * COEFFICIENTE_REDDITIVITA;
+  const redditoNetto = redditoLordo - redditoLordo * getAliquotaInps(anno);
+  return redditoNetto * getAliquotaSostitutiva(anno);
 }
 
 /**
@@ -321,13 +342,54 @@ function sommaTassePagate(
     .reduce((sum, u) => sum + u.importo, 0);
 }
 
+/**
+ * Incassi effettivi dichiarati a mano, per anno.
+ *
+ * Il forfettario tassa per cassa, ma le fatture registrate nell'app possono
+ * avere date di emissione invece che di incasso (o mancare del tutto, come per
+ * gli anni prima del reset dei dati). Questo override permette di dichiarare
+ * l'incassato reale di un anno senza ridatare o reinserire tutte le fatture.
+ *
+ * Sostituisce l'imponibile SOLO ai fini fiscali (tasse, acconti, limite 85k).
+ * Il cash disponibile continua a derivare dai movimenti realmente registrati.
+ */
+export type IncassiPerAnno = Record<number, number>;
+
 export interface Accantonamento {
   anno: number;
   annoPrecedente: number;
 
+  /** true se l'imponibile dell'anno viene da un override manuale. */
+  incassiSovrascrittiAnnoCorrente: boolean;
+  /** true se l'imponibile dell'anno precedente viene da un override manuale. */
+  incassiSovrascrittiAnnoPrecedente: boolean;
+  /** Imponibile effettivamente usato per le tasse dell'anno selezionato. */
+  incassiAnnoCorrente: number;
+  /** Imponibile effettivamente usato per le tasse dell'anno precedente. */
+  incassiAnnoPrecedente: number;
+
   /** Cash realmente disponibile: saldo iniziale + movimenti dell'anno. */
   saldoIniziale: number;
   cashDisponibileReale: number;
+
+  /**
+   * Scomposizione del cash, riga per riga. Serve a confrontare il numero
+   * dell'app con quello del commercialista e capire QUALE voce diverge.
+   */
+  dettaglioCash: {
+    saldoIniziale: number;
+    fatturato: number;
+    entrateExtra: number;
+    prelievi: number;
+    uscite: number;
+    /** Quanti movimenti "Saldo Iniziale" sono stati sommati: se >1, sospetto. */
+    numeroSaldiIniziali: number;
+    /**
+     * Entrate dell'anno marcate `escludiDaGrafico` e comunque incluse nel cash.
+     * Se questo valore non è zero e il totale sembra gonfiato, è qui la causa.
+     */
+    entrateMarcateEscluse: number;
+  };
 
   contributiAnnoCorrente: number;
   impostaAnnoCorrente: number;
@@ -372,7 +434,9 @@ export function calcolaAccantonamento(
   prelievi: Prelievo[],
   uscite: Uscita[],
   entrate: Entrata[],
-  anno: number
+  anno: number,
+  /** Incassi dichiarati a mano che sostituiscono l'imponibile calcolato. */
+  incassiOverride: IncassiPerAnno = {}
 ): Accantonamento {
   const annoPrecedente = anno - 1;
   const dellAnno = <T extends { data: string }>(items: T[]) =>
@@ -389,30 +453,60 @@ export function calcolaAccantonamento(
 
   // Il saldo iniziale si cerca in TUTTE le entrate: può essere datato in un
   // anno precedente ma rappresentare comunque il punto di partenza del conto.
-  const saldoIniziale = entrate
-    .filter((e) => {
-      const cat = e.categoria?.toLowerCase() ?? "";
-      return cat === "saldo iniziale" || cat === "saldo_iniziale";
-    })
-    .reduce((sum, e) => sum + e.importo, 0);
+  // ATTENZIONE: se esiste più di un movimento "Saldo Iniziale" vengono sommati
+  // tutti, e il cash risulta gonfiato. `numeroSaldiIniziali` lo rende visibile.
+  const movimentiSaldoIniziale = entrate.filter((e) => {
+    const cat = e.categoria?.toLowerCase() ?? "";
+    return cat === "saldo iniziale" || cat === "saldo_iniziale";
+  });
+  const saldoIniziale = movimentiSaldoIniziale.reduce(
+    (sum, e) => sum + e.importo,
+    0
+  );
 
   const cashDisponibileReale = saldoIniziale + cashFlow.nettoDisponibile;
 
-  // --- TASSE TEORICHE, ognuna con le aliquote del proprio anno ---
-  const fattureAnnoCorrente = dellAnno(fatture);
-  const contributiAnnoCorrente = calcolaContributi(fattureAnnoCorrente, anno);
-  const impostaAnnoCorrente = calcolaImposta(fattureAnnoCorrente, anno);
-  const tasseAnnoCorrente = contributiAnnoCorrente + impostaAnnoCorrente;
+  const entrateMarcateEscluse = dellAnno(entrate)
+    .filter((e) => {
+      const cat = e.categoria?.toLowerCase() ?? "";
+      const speciale =
+        cat === "saldo iniziale" || cat === "saldo_iniziale" || cat === "fatture";
+      return e.escludiDaGrafico && !speciale;
+    })
+    .reduce((sum, e) => sum + e.importo, 0);
 
+  // --- TASSE TEORICHE, ognuna con le aliquote del proprio anno ---
+  // L'imponibile è l'incassato dell'anno: la somma delle fatture registrate,
+  // oppure il valore dichiarato a mano se presente un override.
+  const fattureAnnoCorrente = dellAnno(fatture);
   const fattureAnnoPrecedente = fatture.filter((f) =>
     f.data.startsWith(String(annoPrecedente))
   );
-  const contributiAnnoPrecedente = calcolaContributi(
-    fattureAnnoPrecedente,
+
+  const incassiSovrascrittiAnnoCorrente = incassiOverride[anno] !== undefined;
+  const incassiSovrascrittiAnnoPrecedente =
+    incassiOverride[annoPrecedente] !== undefined;
+
+  const incassiAnnoCorrente = incassiSovrascrittiAnnoCorrente
+    ? incassiOverride[anno]
+    : calcolaTotaleFatture(fattureAnnoCorrente);
+  const incassiAnnoPrecedente = incassiSovrascrittiAnnoPrecedente
+    ? incassiOverride[annoPrecedente]
+    : calcolaTotaleFatture(fattureAnnoPrecedente);
+
+  const contributiAnnoCorrente = calcolaContributiDaImporto(
+    incassiAnnoCorrente,
+    anno
+  );
+  const impostaAnnoCorrente = calcolaImpostaDaImporto(incassiAnnoCorrente, anno);
+  const tasseAnnoCorrente = contributiAnnoCorrente + impostaAnnoCorrente;
+
+  const contributiAnnoPrecedente = calcolaContributiDaImporto(
+    incassiAnnoPrecedente,
     annoPrecedente
   );
-  const impostaAnnoPrecedente = calcolaImposta(
-    fattureAnnoPrecedente,
+  const impostaAnnoPrecedente = calcolaImpostaDaImporto(
+    incassiAnnoPrecedente,
     annoPrecedente
   );
   const tasseAnnoPrecedente = contributiAnnoPrecedente + impostaAnnoPrecedente;
@@ -470,8 +564,21 @@ export function calcolaAccantonamento(
   return {
     anno,
     annoPrecedente,
+    incassiSovrascrittiAnnoCorrente,
+    incassiSovrascrittiAnnoPrecedente,
+    incassiAnnoCorrente,
+    incassiAnnoPrecedente,
     saldoIniziale,
     cashDisponibileReale,
+    dettaglioCash: {
+      saldoIniziale,
+      fatturato: cashFlow.totaleFatturato,
+      entrateExtra: cashFlow.totaleEntrate,
+      prelievi: cashFlow.totalePrelievi,
+      uscite: cashFlow.totaleUscite,
+      numeroSaldiIniziali: movimentiSaldoIniziale.length,
+      entrateMarcateEscluse,
+    },
     contributiAnnoCorrente,
     impostaAnnoCorrente,
     tasseAnnoCorrente,

@@ -21,7 +21,14 @@ import { Toaster } from "./components/ui/sonner";
 import { ANNO, ANNO_MINIMO_VISIBILE } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
-import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
+import {
+  caricaDescrizioniSalvate,
+  salvaDescrizione,
+  caricaIncassiOverride,
+  salvaIncassoOverride,
+  rimuoviIncassoOverride,
+} from "./utils/storage";
+import { calcolaTotaleFatture } from "./utils/calcoliFisco";
 
 function App() {
   const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
@@ -53,6 +60,20 @@ function App() {
   // Descrizioni salvate in localStorage: lette una sola volta al primo render
   // (lazy initializer, non un effect: evita il render a vuoto iniziale).
   const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>(caricaDescrizioniSalvate);
+
+  // Incassi dichiarati a mano, per anno: sostituiscono il totale delle fatture
+  // ai fini fiscali quando le fatture registrate non rispecchiano l'incassato.
+  const [incassiOverride, setIncassiOverride] = useState(caricaIncassiOverride);
+
+  const impostaIncassi = (anno: number, importo: number) => {
+    salvaIncassoOverride(anno, importo);
+    setIncassiOverride(caricaIncassiOverride());
+  };
+
+  const azzeraIncassi = (anno: number) => {
+    rimuoviIncassoOverride(anno);
+    setIncassiOverride(caricaIncassiOverride());
+  };
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
   // Nascondi anni precedenti al 2026 (dati resettati)
@@ -144,10 +165,25 @@ function App() {
                   onChange={(anno) => setAnnoDashboard(anno ?? ANNO)}
                 />
               </div>
-              <SogliaForfettario fatture={fattureAnnoSelezionato} anno={annoDashboard} />
+              <SogliaForfettario
+                incassi={incassiOverride[annoDashboard] ?? calcolaTotaleFatture(fattureAnnoSelezionato)}
+                dichiarato={incassiOverride[annoDashboard] !== undefined}
+                incassiDaFatture={calcolaTotaleFatture(fattureAnnoSelezionato)}
+                anno={annoDashboard}
+                onSalvaIncassi={(importo) => impostaIncassi(annoDashboard, importo)}
+                onRimuoviIncassi={() => azzeraIncassi(annoDashboard)}
+              />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} />
-                <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} entrate={entrate} annoSelezionato={annoDashboard} />
+                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} incassiDichiarati={incassiOverride[annoDashboard]} />
+                <NettoDisponibile
+                  fatture={fatture}
+                  prelievi={prelievi}
+                  uscite={uscite}
+                  entrate={entrate}
+                  annoSelezionato={annoDashboard}
+                  incassiOverride={incassiOverride}
+                  onSalvaIncassiAnnoPrecedente={(importo) => impostaIncassi(annoDashboard - 1, importo)}
+                />
               </div>
 
             </div>
@@ -235,6 +271,7 @@ function App() {
               uscite={uscite}
               entrate={entrate}
               prelievi={prelievi}
+              incassiOverride={incassiOverride}
             />
           )}
 

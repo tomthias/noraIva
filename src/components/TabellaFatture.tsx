@@ -99,7 +99,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
         <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Data</TableHead>
+            <TableHead>Data incasso</TableHead>
             <TableHead>Descrizione</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead className="text-right">Importo lordo</TableHead>

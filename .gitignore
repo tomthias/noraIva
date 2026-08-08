@@ -30,3 +30,6 @@ yarn-error.log*
 
 # TypeScript cache
 *.tsbuildinfo
+
+# Impostazioni locali degli agenti
+.claude/settings.local.json

@@ -1,38 +1,61 @@
 /**
- * Avviso sull'avvicinarsi dei limiti di ricavi del regime forfettario.
+ * Incassi dell'anno rispetto ai limiti di ricavi del regime forfettario.
  *
  * Due soglie con conseguenze molto diverse:
  * - oltre 85.000 € si esce dal forfettario dall'anno SUCCESSIVO;
  * - oltre 100.000 € si esce nell'anno STESSO, con IVA dovuta a partire
  *   dall'operazione che ha fatto superare il limite.
+ *
+ * Il limite si misura sui compensi INCASSATI nell'anno, non sulle fatture
+ * emesse (Agenzia delle Entrate, Telefisco 18/09/2025). Il campo `data` di
+ * Fattura è per convenzione la data di incasso; quando le fatture registrate
+ * non rispecchiano l'incassato reale, l'importo si può dichiarare a mano.
  */
 
-import type { Fattura } from "../types/fattura";
-import { calcolaTotaleFatture } from "../utils/calcoliFisco";
+import { useState } from "react";
+import { toast } from "sonner";
 import {
   LIMITE_RICAVI_FORFETTARIO,
   LIMITE_USCITA_IMMEDIATA,
 } from "../constants/fiscali";
 import { formatCurrency } from "../utils/format";
+import { calcolaEspressione } from "../utils/calcolaEspressione";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
-import { AlertTriangle, CheckCircle, Gauge } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ImportoInput } from "@/components/ui/importo-input";
+import { AlertTriangle, CheckCircle, Gauge, Pencil, PenLine } from "lucide-react";
 
 interface Props {
-  /** Fatture del solo anno selezionato. */
-  fatture: Fattura[];
+  /** Incassato dell'anno, già risolto (fatture registrate o valore dichiarato). */
+  incassi: number;
+  /** true se `incassi` viene da un valore dichiarato a mano. */
+  dichiarato: boolean;
+  /** Somma delle fatture registrate nell'anno, per il confronto. */
+  incassiDaFatture: number;
   anno: number;
+  onSalvaIncassi: (importo: number) => void;
+  onRimuoviIncassi: () => void;
 }
 
-export function SogliaForfettario({ fatture, anno }: Props) {
-  const fatturato = calcolaTotaleFatture(fatture);
-  const percentuale = (fatturato / LIMITE_RICAVI_FORFETTARIO) * 100;
-  const residuo = LIMITE_RICAVI_FORFETTARIO - fatturato;
+export function SogliaForfettario({
+  incassi,
+  dichiarato,
+  incassiDaFatture,
+  anno,
+  onSalvaIncassi,
+  onRimuoviIncassi,
+}: Props) {
+  const [inModifica, setInModifica] = useState(false);
+  const [bozza, setBozza] = useState("");
+
+  const percentuale = (incassi / LIMITE_RICAVI_FORFETTARIO) * 100;
+  const residuo = LIMITE_RICAVI_FORFETTARIO - incassi;
 
   const stato =
-    fatturato > LIMITE_USCITA_IMMEDIATA
+    incassi > LIMITE_USCITA_IMMEDIATA
       ? "uscita-immediata"
-      : fatturato > LIMITE_RICAVI_FORFETTARIO
+      : incassi > LIMITE_RICAVI_FORFETTARIO
         ? "superato"
         : percentuale >= 90
           ? "critico"
@@ -49,28 +72,76 @@ export function SogliaForfettario({ fatture, anno }: Props) {
   }[stato];
 
   const messaggio = {
-    ok: `Ti restano ${formatCurrency(residuo)} prima del limite.`,
-    attenzione: `Ti restano ${formatCurrency(residuo)} prima del limite di ${formatCurrency(LIMITE_RICAVI_FORFETTARIO)}.`,
-    critico: `Sei vicino al limite: mancano solo ${formatCurrency(residuo)}.`,
+    ok: `Puoi incassare ancora ${formatCurrency(residuo)} quest'anno.`,
+    attenzione: `Puoi incassare ancora ${formatCurrency(residuo)} prima del limite di ${formatCurrency(LIMITE_RICAVI_FORFETTARIO)}.`,
+    critico: `Sei vicino al limite: puoi incassare ancora solo ${formatCurrency(residuo)}.`,
     superato: `Limite di ${formatCurrency(LIMITE_RICAVI_FORFETTARIO)} superato: dal ${anno + 1} esci dal regime forfettario.`,
     "uscita-immediata": `Superati i ${formatCurrency(LIMITE_USCITA_IMMEDIATA)}: esci dal forfettario già nel ${anno}, con IVA dovuta dall'operazione che ha sforato.`,
   }[stato];
 
+  const apriModifica = () => {
+    setBozza(String(incassi || ""));
+    setInModifica(true);
+  };
+
+  const salva = () => {
+    const { valore, errore } = calcolaEspressione(bozza);
+    if (valore === null) {
+      toast.error(errore ?? "Inserisci un importo valido");
+      return;
+    }
+    if (valore < 0) {
+      toast.error("L'incassato non può essere negativo");
+      return;
+    }
+    onSalvaIncassi(valore);
+    setInModifica(false);
+    toast.success(`Incassi ${anno} impostati a ${formatCurrency(valore)}`);
+  };
+
+  const ripristina = () => {
+    onRimuoviIncassi();
+    setInModifica(false);
+    toast.success(`Incassi ${anno} ricalcolati dalle fatture registrate`);
+  };
+
   return (
     <Card>
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Gauge className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Limite forfettario {anno}</span>
+            <span className="text-sm font-medium">Incassi {anno}</span>
+            {dichiarato && (
+              <span
+                className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500 flex items-center gap-1"
+                title="Valore dichiarato a mano, non calcolato dalle fatture"
+              >
+                <PenLine className="h-2.5 w-2.5" />
+                dichiarato
+              </span>
+            )}
           </div>
-          <span className={`text-sm font-semibold tabular-nums ${colore.testo}`}>
-            {formatCurrency(fatturato)}
-            <span className="text-muted-foreground font-normal">
-              {" / "}
-              {formatCurrency(LIMITE_RICAVI_FORFETTARIO)}
+          <div className="flex items-center gap-1.5">
+            <span className={`text-sm font-semibold tabular-nums ${colore.testo}`}>
+              {formatCurrency(incassi)}
+              <span className="text-muted-foreground font-normal">
+                {" / "}
+                {formatCurrency(LIMITE_RICAVI_FORFETTARIO)}
+              </span>
             </span>
-          </span>
+            {!inModifica && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={apriModifica}
+                title="Dichiara l'incassato reale"
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
         </div>
 
         <Progress
@@ -79,17 +150,63 @@ export function SogliaForfettario({ fatture, anno }: Props) {
           indicatorClassName={colore.barra}
         />
 
-        <div className="flex items-start gap-2">
-          {stato === "ok" ? (
-            <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-          ) : (
-            <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${colore.testo}`} />
-          )}
-          <p className="text-xs text-muted-foreground">
-            {messaggio}{" "}
-            <span className="tabular-nums">({percentuale.toFixed(0)}%)</span>
-          </p>
-        </div>
+        {inModifica ? (
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-xs text-muted-foreground">
+              Incassato reale del {anno} (quello del commercialista). Sostituisce il
+              totale delle fatture <strong>ai soli fini fiscali</strong>: tasse, acconti
+              e limite 85.000 €.
+            </p>
+            <ImportoInput
+              value={bozza}
+              onChange={setBozza}
+              placeholder="52924"
+              autoFocus
+            />
+            <div className="flex gap-2 flex-wrap">
+              <Button size="sm" onClick={salva}>
+                Salva
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setInModifica(false)}>
+                Annulla
+              </Button>
+              {dichiarato && (
+                <Button size="sm" variant="ghost" onClick={ripristina}>
+                  Usa le fatture ({formatCurrency(incassiDaFatture)})
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-2">
+              {stato === "ok" ? (
+                <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${colore.testo}`} />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {messaggio}{" "}
+                <span className="tabular-nums">({percentuale.toFixed(0)}%)</span>
+              </p>
+            </div>
+
+            <p className="text-xs text-muted-foreground/80 border-t pt-2">
+              {dichiarato ? (
+                <>
+                  Valore dichiarato a mano. Le fatture registrate nel {anno} sommano{" "}
+                  <span className="tabular-nums">{formatCurrency(incassiDaFatture)}</span>.
+                </>
+              ) : (
+                <>
+                  Somma delle fatture <strong>incassate</strong> nel {anno} (il forfettario
+                  tassa per cassa). Se non torna con il commercialista, usa la matita per
+                  dichiarare l'incassato reale.
+                </>
+              )}
+            </p>
+          </>
+        )}
       </CardContent>
     </Card>
   );

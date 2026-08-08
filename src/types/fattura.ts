@@ -4,10 +4,20 @@
 
 export interface Fattura {
   id: string;
-  data: string; // ISO date format (YYYY-MM-DD)
+  /**
+   * Data di INCASSO (ISO YYYY-MM-DD), non di emissione.
+   *
+   * Il regime forfettario tassa per CASSA: contano i compensi percepiti
+   * nell'anno, non le fatture emesse. Una fattura di dicembre incassata a
+   * gennaio appartiene fiscalmente all'anno successivo — e lo stesso vale per
+   * il limite degli 85.000 € (Agenzia delle Entrate, Telefisco 18/09/2025).
+   *
+   * Tutti i filtri per anno di questa app usano questo campo.
+   */
+  data: string;
   descrizione: string;
   cliente: string;
-  importoLordo: number; // Importo totale della fattura (sempre incassato)
+  importoLordo: number; // Importo totale incassato
   note?: string;
 }
 

@@ -327,6 +327,79 @@ describe("calcolaAccantonamento - cash disponibile", () => {
 
 // ============================================================================
 
+describe("calcolaAccantonamento - incassi dichiarati a mano", () => {
+  const fatture = [fattura("2026-06-01", 44464)];
+
+  it("senza override l'imponibile è la somma delle fatture", () => {
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026);
+    expect(a.incassiAnnoCorrente).toBe(44464);
+    expect(a.incassiSovrascrittiAnnoCorrente).toBe(false);
+  });
+
+  it("l'override sostituisce l'imponibile dell'anno", () => {
+    // Caso reale: fatture emesse 44.464 €, ma incassato 52.924 € (il forfettario
+    // tassa per cassa, quindi conta l'incassato).
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
+      2026: 52924,
+    });
+    expect(a.incassiAnnoCorrente).toBe(52924);
+    expect(a.incassiSovrascrittiAnnoCorrente).toBe(true);
+  });
+
+  it("con l'incassato reale le tasse salgono di ~1.960 €", () => {
+    const senza = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026);
+    const con = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
+      2026: 52924,
+    });
+
+    expect(senza.tasseAnnoCorrente).toBeCloseTo(10323.59, 1);
+    expect(con.tasseAnnoCorrente).toBeCloseTo(12287.82, 1);
+    expect(con.tasseAnnoCorrente - senza.tasseAnnoCorrente).toBeCloseTo(1964.23, 1);
+  });
+
+  it("l'override dell'anno precedente alimenta gli acconti dell'anno", () => {
+    // Serve quando le fatture dell'anno prima non sono in database:
+    // senza, l'app non calcolerebbe alcun acconto.
+    const senza = calcolaAccantonamento([], nessunPrelievo, [], [], 2026);
+    expect(senza.tasseAnnoPrecedente).toBe(0);
+    expect(senza.primoAccontoAnnoCorrente).toBe(0);
+
+    const con = calcolaAccantonamento([], nessunPrelievo, [], [], 2026, {
+      2025: 54796,
+    });
+    expect(con.tasseAnnoPrecedente).toBeGreaterThan(0);
+    expect(con.primoAccontoAnnoCorrente).toBeGreaterThan(0);
+    expect(con.scadenzeAnnoCorrente).toBeGreaterThan(0);
+  });
+
+  it("l'override NON tocca il cash disponibile", () => {
+    // Il cash deriva dai movimenti realmente registrati: dichiarare un
+    // incassato diverso non fa comparire soldi sul conto.
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
+      2026: 52924,
+    });
+    expect(a.cashDisponibileReale).toBe(44464);
+    expect(a.dettaglioCash.fatturato).toBe(44464);
+  });
+
+  it("un override a zero è rispettato, non trattato come assente", () => {
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
+      2026: 0,
+    });
+    expect(a.incassiAnnoCorrente).toBe(0);
+    expect(a.tasseAnnoCorrente).toBe(0);
+    expect(a.incassiSovrascrittiAnnoCorrente).toBe(true);
+  });
+
+  it("un override su un altro anno non interferisce", () => {
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
+      2030: 99999,
+    });
+    expect(a.incassiAnnoCorrente).toBe(44464);
+    expect(a.incassiSovrascrittiAnnoCorrente).toBe(false);
+  });
+});
+
 describe("calcolaAccantonamento - coerenza interna", () => {
   const fatture = [fattura("2025-06-01", 40000), fattura("2026-06-01", 55000)];
   const uscite = [uscita("2026-06-30", 3000, "Tasse - Acconto")];
