@@ -327,37 +327,65 @@ describe("calcolaAccantonamento - cash disponibile", () => {
 
 // ============================================================================
 
-describe("calcolaAccantonamento - incassi dichiarati a mano", () => {
+describe("calcolaAccantonamento - rettifiche degli incassi", () => {
   const fatture = [fattura("2026-06-01", 44464)];
+  // Caso reale: 44.464 € di fatture registrate, 52.924 € realmente incassati
+  // (il forfettario tassa per cassa) → rettifica di 8.460 €.
+  const RETTIFICA_2026 = { 2026: 8460 };
 
-  it("senza override l'imponibile è la somma delle fatture", () => {
+  it("senza rettifica l'imponibile è la somma delle fatture", () => {
     const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026);
     expect(a.incassiAnnoCorrente).toBe(44464);
-    expect(a.incassiSovrascrittiAnnoCorrente).toBe(false);
+    expect(a.rettificaAnnoCorrente).toBe(0);
   });
 
-  it("l'override sostituisce l'imponibile dell'anno", () => {
-    // Caso reale: fatture emesse 44.464 €, ma incassato 52.924 € (il forfettario
-    // tassa per cassa, quindi conta l'incassato).
-    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
-      2026: 52924,
-    });
+  it("la rettifica si somma alle fatture", () => {
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, RETTIFICA_2026);
     expect(a.incassiAnnoCorrente).toBe(52924);
-    expect(a.incassiSovrascrittiAnnoCorrente).toBe(true);
+    expect(a.incassiDaFattureAnnoCorrente).toBe(44464);
+    expect(a.rettificaAnnoCorrente).toBe(8460);
+  });
+
+  it("una fattura nuova continua a incrementare il totale", () => {
+    // È il motivo per cui la rettifica si SOMMA invece di sostituire: con un
+    // valore fisso il totale restava congelato e le fatture nuove sparivano.
+    const conNuova = calcolaAccantonamento(
+      [...fatture, fattura("2026-09-01", 1000, "nuova")],
+      nessunPrelievo,
+      [],
+      [],
+      2026,
+      RETTIFICA_2026
+    );
+    expect(conNuova.incassiAnnoCorrente).toBe(53924);
+  });
+
+  it("più fatture successive si accumulano tutte", () => {
+    const a = calcolaAccantonamento(
+      [
+        ...fatture,
+        fattura("2026-09-01", 1000, "n1"),
+        fattura("2026-10-01", 2500, "n2"),
+      ],
+      nessunPrelievo,
+      [],
+      [],
+      2026,
+      RETTIFICA_2026
+    );
+    expect(a.incassiAnnoCorrente).toBe(56424);
   });
 
   it("con l'incassato reale le tasse salgono di ~1.960 €", () => {
     const senza = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026);
-    const con = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
-      2026: 52924,
-    });
+    const con = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, RETTIFICA_2026);
 
     expect(senza.tasseAnnoCorrente).toBeCloseTo(10323.59, 1);
     expect(con.tasseAnnoCorrente).toBeCloseTo(12287.82, 1);
     expect(con.tasseAnnoCorrente - senza.tasseAnnoCorrente).toBeCloseTo(1964.23, 1);
   });
 
-  it("l'override dell'anno precedente alimenta gli acconti dell'anno", () => {
+  it("la rettifica dell'anno precedente alimenta gli acconti dell'anno", () => {
     // Serve quando le fatture dell'anno prima non sono in database:
     // senza, l'app non calcolerebbe alcun acconto.
     const senza = calcolaAccantonamento([], nessunPrelievo, [], [], 2026);
@@ -365,38 +393,36 @@ describe("calcolaAccantonamento - incassi dichiarati a mano", () => {
     expect(senza.primoAccontoAnnoCorrente).toBe(0);
 
     const con = calcolaAccantonamento([], nessunPrelievo, [], [], 2026, {
-      2025: 54796,
+      2025: 50000,
     });
+    expect(con.incassiAnnoPrecedente).toBe(50000);
     expect(con.tasseAnnoPrecedente).toBeGreaterThan(0);
     expect(con.primoAccontoAnnoCorrente).toBeGreaterThan(0);
     expect(con.scadenzeAnnoCorrente).toBeGreaterThan(0);
   });
 
-  it("l'override NON tocca il cash disponibile", () => {
-    // Il cash deriva dai movimenti realmente registrati: dichiarare un
-    // incassato diverso non fa comparire soldi sul conto.
-    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
-      2026: 52924,
-    });
+  it("la rettifica NON tocca il cash disponibile", () => {
+    // Il cash deriva dai movimenti realmente registrati: rettificare
+    // l'imponibile non fa comparire soldi sul conto.
+    const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, RETTIFICA_2026);
     expect(a.cashDisponibileReale).toBe(44464);
     expect(a.dettaglioCash.fatturato).toBe(44464);
   });
 
-  it("un override a zero è rispettato, non trattato come assente", () => {
+  it("una rettifica negativa riduce l'imponibile", () => {
+    // Caso opposto: fatture emesse ma non ancora incassate.
     const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
-      2026: 0,
+      2026: -4464,
     });
-    expect(a.incassiAnnoCorrente).toBe(0);
-    expect(a.tasseAnnoCorrente).toBe(0);
-    expect(a.incassiSovrascrittiAnnoCorrente).toBe(true);
+    expect(a.incassiAnnoCorrente).toBe(40000);
   });
 
-  it("un override su un altro anno non interferisce", () => {
+  it("una rettifica su un altro anno non interferisce", () => {
     const a = calcolaAccantonamento(fatture, nessunPrelievo, [], [], 2026, {
       2030: 99999,
     });
     expect(a.incassiAnnoCorrente).toBe(44464);
-    expect(a.incassiSovrascrittiAnnoCorrente).toBe(false);
+    expect(a.rettificaAnnoCorrente).toBe(0);
   });
 });
 

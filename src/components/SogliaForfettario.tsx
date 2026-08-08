@@ -27,27 +27,30 @@ import { ImportoInput } from "@/components/ui/importo-input";
 import { AlertTriangle, CheckCircle, Gauge, Pencil, PenLine } from "lucide-react";
 
 interface Props {
-  /** Incassato dell'anno, già risolto (fatture registrate o valore dichiarato). */
-  incassi: number;
-  /** true se `incassi` viene da un valore dichiarato a mano. */
-  dichiarato: boolean;
-  /** Somma delle fatture registrate nell'anno, per il confronto. */
+  /** Somma delle fatture registrate nell'anno. */
   incassiDaFatture: number;
+  /** Incassato che le fatture non rappresentano (0 se assente). */
+  rettifica: number;
   anno: number;
-  onSalvaIncassi: (importo: number) => void;
-  onRimuoviIncassi: () => void;
+  /** Riceve la rettifica, non il totale: il totale resta progressivo. */
+  onSalvaRettifica: (rettifica: number) => void;
+  onAzzeraRettifica: () => void;
 }
 
 export function SogliaForfettario({
-  incassi,
-  dichiarato,
   incassiDaFatture,
+  rettifica,
   anno,
-  onSalvaIncassi,
-  onRimuoviIncassi,
+  onSalvaRettifica,
+  onAzzeraRettifica,
 }: Props) {
   const [inModifica, setInModifica] = useState(false);
   const [bozza, setBozza] = useState("");
+
+  // La rettifica si SOMMA alle fatture: aggiungerne una nuova alza il totale
+  // senza dover reinserire nulla.
+  const incassi = incassiDaFatture + rettifica;
+  const dichiarato = rettifica !== 0;
 
   const percentuale = (incassi / LIMITE_RICAVI_FORFETTARIO) * 100;
   const residuo = LIMITE_RICAVI_FORFETTARIO - incassi;
@@ -94,15 +97,17 @@ export function SogliaForfettario({
       toast.error("L'incassato non può essere negativo");
       return;
     }
-    onSalvaIncassi(valore);
+    // Si digita il TOTALE incassato, ma si salva la differenza rispetto alle
+    // fatture: così le fatture successive continuano a sommarsi.
+    onSalvaRettifica(valore - incassiDaFatture);
     setInModifica(false);
-    toast.success(`Incassi ${anno} impostati a ${formatCurrency(valore)}`);
+    toast.success(`Incassi ${anno} allineati a ${formatCurrency(valore)}`);
   };
 
   const ripristina = () => {
-    onRimuoviIncassi();
+    onAzzeraRettifica();
     setInModifica(false);
-    toast.success(`Incassi ${anno} ricalcolati dalle fatture registrate`);
+    toast.success(`Incassi ${anno} ricalcolati dalle sole fatture registrate`);
   };
 
   return (
@@ -115,10 +120,10 @@ export function SogliaForfettario({
             {dichiarato && (
               <span
                 className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-500 flex items-center gap-1"
-                title="Valore dichiarato a mano, non calcolato dalle fatture"
+                title={`Include una rettifica di ${formatCurrency(rettifica)} oltre alle fatture registrate`}
               >
                 <PenLine className="h-2.5 w-2.5" />
-                dichiarato
+                rettificato
               </span>
             )}
           </div>
@@ -153,9 +158,10 @@ export function SogliaForfettario({
         {inModifica ? (
           <div className="space-y-2 border-t pt-3">
             <p className="text-xs text-muted-foreground">
-              Incassato reale del {anno} (quello del commercialista). Sostituisce il
-              totale delle fatture <strong>ai soli fini fiscali</strong>: tasse, acconti
-              e limite 85.000 €.
+              Scrivi l'<strong>incassato totale</strong> del {anno} secondo il
+              commercialista. L'app ne ricava la differenza rispetto alle fatture
+              registrate e la tiene come rettifica, così le fatture che aggiungerai
+              dopo continueranno a sommarsi normalmente.
             </p>
             <ImportoInput
               value={bozza}
@@ -172,7 +178,7 @@ export function SogliaForfettario({
               </Button>
               {dichiarato && (
                 <Button size="sm" variant="ghost" onClick={ripristina}>
-                  Usa le fatture ({formatCurrency(incassiDaFatture)})
+                  Azzera rettifica ({formatCurrency(incassiDaFatture)})
                 </Button>
               )}
             </div>
@@ -194,14 +200,20 @@ export function SogliaForfettario({
             <p className="text-xs text-muted-foreground/80 border-t pt-2">
               {dichiarato ? (
                 <>
-                  Valore dichiarato a mano. Le fatture registrate nel {anno} sommano{" "}
-                  <span className="tabular-nums">{formatCurrency(incassiDaFatture)}</span>.
+                  <span className="tabular-nums">{formatCurrency(incassiDaFatture)}</span>{" "}
+                  dalle fatture registrate{" "}
+                  <span className="tabular-nums">
+                    {rettifica < 0 ? "−" : "+"} {formatCurrency(Math.abs(rettifica))}
+                  </span>{" "}
+                  di rettifica. Le fatture che aggiungi da qui in avanti si sommano
+                  normalmente; riduci la rettifica man mano che ridati le vecchie
+                  fatture per cassa.
                 </>
               ) : (
                 <>
                   Somma delle fatture <strong>incassate</strong> nel {anno} (il forfettario
                   tassa per cassa). Se non torna con il commercialista, usa la matita per
-                  dichiarare l'incassato reale.
+                  allinearlo.
                 </>
               )}
             </p>

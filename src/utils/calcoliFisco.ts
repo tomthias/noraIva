@@ -343,30 +343,37 @@ function sommaTassePagate(
 }
 
 /**
- * Incassi effettivi dichiarati a mano, per anno.
+ * Rettifiche degli incassi, per anno.
  *
  * Il forfettario tassa per cassa, ma le fatture registrate nell'app possono
  * avere date di emissione invece che di incasso (o mancare del tutto, come per
- * gli anni prima del reset dei dati). Questo override permette di dichiarare
- * l'incassato reale di un anno senza ridatare o reinserire tutte le fatture.
+ * gli anni prima del reset dei dati). La rettifica è l'incassato che quelle
+ * fatture non rappresentano:
  *
- * Sostituisce l'imponibile SOLO ai fini fiscali (tasse, acconti, limite 85k).
+ *     incassi anno = somma fatture dell'anno + rettifica
+ *
+ * Si SOMMA, non sostituisce: ogni nuova fattura continua a incrementare il
+ * totale, senza bisogno di aggiornare la rettifica a ogni inserimento.
+ *
+ * Corregge l'imponibile SOLO ai fini fiscali (tasse, acconti, limite 85k).
  * Il cash disponibile continua a derivare dai movimenti realmente registrati.
  */
-export type IncassiPerAnno = Record<number, number>;
+export type RettifichePerAnno = Record<number, number>;
 
 export interface Accantonamento {
   anno: number;
   annoPrecedente: number;
 
-  /** true se l'imponibile dell'anno viene da un override manuale. */
-  incassiSovrascrittiAnnoCorrente: boolean;
-  /** true se l'imponibile dell'anno precedente viene da un override manuale. */
-  incassiSovrascrittiAnnoPrecedente: boolean;
-  /** Imponibile effettivamente usato per le tasse dell'anno selezionato. */
+  /** Imponibile usato per le tasse dell'anno: fatture + rettifica. */
   incassiAnnoCorrente: number;
-  /** Imponibile effettivamente usato per le tasse dell'anno precedente. */
+  /** Imponibile usato per le tasse dell'anno precedente: fatture + rettifica. */
   incassiAnnoPrecedente: number;
+  /** Quota dell'imponibile che viene dalle fatture registrate. */
+  incassiDaFattureAnnoCorrente: number;
+  incassiDaFattureAnnoPrecedente: number;
+  /** Rettifica applicata (0 se assente). */
+  rettificaAnnoCorrente: number;
+  rettificaAnnoPrecedente: number;
 
   /** Cash realmente disponibile: saldo iniziale + movimenti dell'anno. */
   saldoIniziale: number;
@@ -435,8 +442,8 @@ export function calcolaAccantonamento(
   uscite: Uscita[],
   entrate: Entrata[],
   anno: number,
-  /** Incassi dichiarati a mano che sostituiscono l'imponibile calcolato. */
-  incassiOverride: IncassiPerAnno = {}
+  /** Incassi non rappresentati dalle fatture, sommati all'imponibile. */
+  rettifiche: RettifichePerAnno = {}
 ): Accantonamento {
   const annoPrecedente = anno - 1;
   const dellAnno = <T extends { data: string }>(items: T[]) =>
@@ -476,23 +483,26 @@ export function calcolaAccantonamento(
     .reduce((sum, e) => sum + e.importo, 0);
 
   // --- TASSE TEORICHE, ognuna con le aliquote del proprio anno ---
-  // L'imponibile è l'incassato dell'anno: la somma delle fatture registrate,
-  // oppure il valore dichiarato a mano se presente un override.
+  // L'imponibile è l'incassato dell'anno: le fatture registrate PIÙ la
+  // rettifica, cioè l'incassato che quelle fatture non rappresentano.
+  // Sommando (invece di sostituire) ogni nuova fattura continua a contare.
   const fattureAnnoCorrente = dellAnno(fatture);
   const fattureAnnoPrecedente = fatture.filter((f) =>
     f.data.startsWith(String(annoPrecedente))
   );
 
-  const incassiSovrascrittiAnnoCorrente = incassiOverride[anno] !== undefined;
-  const incassiSovrascrittiAnnoPrecedente =
-    incassiOverride[annoPrecedente] !== undefined;
+  const incassiDaFattureAnnoCorrente = calcolaTotaleFatture(fattureAnnoCorrente);
+  const incassiDaFattureAnnoPrecedente = calcolaTotaleFatture(
+    fattureAnnoPrecedente
+  );
 
-  const incassiAnnoCorrente = incassiSovrascrittiAnnoCorrente
-    ? incassiOverride[anno]
-    : calcolaTotaleFatture(fattureAnnoCorrente);
-  const incassiAnnoPrecedente = incassiSovrascrittiAnnoPrecedente
-    ? incassiOverride[annoPrecedente]
-    : calcolaTotaleFatture(fattureAnnoPrecedente);
+  const rettificaAnnoCorrente = rettifiche[anno] ?? 0;
+  const rettificaAnnoPrecedente = rettifiche[annoPrecedente] ?? 0;
+
+  const incassiAnnoCorrente =
+    incassiDaFattureAnnoCorrente + rettificaAnnoCorrente;
+  const incassiAnnoPrecedente =
+    incassiDaFattureAnnoPrecedente + rettificaAnnoPrecedente;
 
   const contributiAnnoCorrente = calcolaContributiDaImporto(
     incassiAnnoCorrente,
@@ -564,10 +574,12 @@ export function calcolaAccantonamento(
   return {
     anno,
     annoPrecedente,
-    incassiSovrascrittiAnnoCorrente,
-    incassiSovrascrittiAnnoPrecedente,
     incassiAnnoCorrente,
     incassiAnnoPrecedente,
+    incassiDaFattureAnnoCorrente,
+    incassiDaFattureAnnoPrecedente,
+    rettificaAnnoCorrente,
+    rettificaAnnoPrecedente,
     saldoIniziale,
     cashDisponibileReale,
     dettaglioCash: {

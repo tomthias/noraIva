@@ -162,20 +162,26 @@ export const LIMITE_USCITA_IMMEDIATA = 100_000;
 export const ANNO_MINIMO_VISIBILE = 2026;
 
 /**
- * Incassi noti dal gestionale del commercialista, precaricati al primo avvio.
+ * Rettifiche degli incassi, precaricate al primo avvio.
  *
- * Servono perché le fatture registrate nell'app hanno date di emissione, mentre
- * il forfettario tassa per cassa: al 2026 risultavano 44.464 € di fatture emesse
- * contro 52.924 € realmente incassati.
+ * Una rettifica è l'incassato che le fatture registrate NON rappresentano:
+ * fatture datate per emissione invece che per incasso, o anni non presenti in
+ * database. Si SOMMA al totale calcolato, non lo sostituisce — così ogni nuova
+ * fattura continua a incrementare il totale normalmente.
  *
- * Sono solo un valore iniziale: una volta caricati in localStorage restano
- * modificabili da Dashboard → Incassi → matita, e possono essere rimossi per
- * tornare al totale calcolato dalle fatture.
+ *     incassi anno = somma fatture dell'anno + rettifica
  *
- * ⚠️ Manca il 2025. Il commercialista ha fornito il *fatturato* 2025 (54.796 €),
- * non l'*incassato*, e i due valori non coincidono. Senza il dato corretto gli
- * acconti 2026 restano a zero: va chiesto e inserito.
+ * 2026: il commercialista riportava 52.924 € incassati contro 44.464 € di
+ * fatture registrate → rettifica di 8.460 €.
+ *
+ * Va ridotta man mano che le fatture vengono ridatate per cassa, altrimenti
+ * quell'importo viene contato due volte. La Dashboard mostra sempre la
+ * scomposizione "da fatture + rettifica" per tenerlo sotto controllo.
+ *
+ * ⚠️ Manca il 2025. Il commercialista ha fornito il *fatturato* 2025
+ * (54.796 €), non l'*incassato*, e i due valori non coincidono. Senza quel
+ * dato gli acconti 2026 restano a zero.
  */
-export const INCASSI_DICHIARATI_INIZIALI: Record<number, number> = {
-  2026: 52_924,
+export const RETTIFICHE_INCASSI_INIZIALI: Record<number, number> = {
+  2026: 8_460,
 };

@@ -7,21 +7,21 @@ import { TrendingUp, Building2, Landmark, ReceiptEuro } from "lucide-react";
 interface Props {
   fatture: Fattura[];
   anno: number;
-  /** Incassato dichiarato a mano: se presente sostituisce il totale fatture. */
-  incassiDichiarati?: number;
+  /** Incassato non rappresentato dalle fatture: si somma all'imponibile. */
+  rettifica?: number;
 }
 
-export function RiepilogoCard({ fatture, anno, incassiDichiarati }: Props) {
-  // Con un incassato dichiarato il riepilogo si calcola su quello: è la base
-  // imponibile reale del forfettario (principio di cassa).
+export function RiepilogoCard({ fatture, anno, rettifica = 0 }: Props) {
+  // La rettifica entra come voce aggiuntiva dell'imponibile: il forfettario
+  // tassa per cassa, e le fatture registrate possono non coprire tutto.
   const fattureEffettive: Fattura[] =
-    incassiDichiarati !== undefined
-      ? [{
-        id: "incassi-dichiarati",
+    rettifica !== 0
+      ? [...fatture, {
+        id: "rettifica-incassi",
         data: `${anno}-12-31`,
-        descrizione: "Incassi dichiarati",
+        descrizione: "Rettifica incassi",
         cliente: "",
-        importoLordo: incassiDichiarati,
+        importoLordo: rettifica,
       }]
       : fatture;
 
@@ -48,9 +48,9 @@ export function RiepilogoCard({ fatture, anno, incassiDichiarati }: Props) {
               <div>
                 <p className="text-sm text-muted-foreground font-medium">
                   Totale Incassato
-                  {incassiDichiarati !== undefined && (
+                  {rettifica !== 0 && (
                     <span className="ml-1.5 text-[10px] uppercase tracking-wider text-blue-500">
-                      dichiarato
+                      rettificato
                     </span>
                   )}
                 </p>

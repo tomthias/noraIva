@@ -3,33 +3,35 @@
  * incassi dichiarati a mano)
  */
 
-import { INCASSI_DICHIARATI_INIZIALI } from "../constants/fiscali";
+import { RETTIFICHE_INCASSI_INIZIALI } from "../constants/fiscali";
 
 // I dati (fatture, prelievi, uscite, entrate) vivono su Supabase: qui resta
 // solo ciò che è puramente locale a questo browser.
 
-// ===== INCASSI DICHIARATI A MANO (override per anno) =====
+// ===== RETTIFICHE INCASSI (per anno) =====
 
-const INCASSI_OVERRIDE_KEY = "incassi-override";
+const RETTIFICHE_KEY = "rettifiche-incassi";
 
 /**
- * Incassi effettivi dichiarati a mano, per anno fiscale.
+ * Incassato che le fatture registrate NON rappresentano, per anno fiscale.
  *
- * Serve quando le fatture registrate non rispecchiano l'incassato reale
- * (date di emissione invece che di incasso, o anni non presenti in database).
+ * Serve quando le fatture hanno date di emissione invece che di incasso, o
+ * quando un anno non è in database. Si somma al totale calcolato:
  *
- * NOTA: stanno in localStorage, quindi sono legati a QUESTO browser e non
- * sono sincronizzati fra dispositivi. Se questo diventa un problema vanno
- * spostati su Supabase in una tabella `incassi_annuali`.
+ *     incassi anno = somma fatture + rettifica
+ *
+ * NOTA: stanno in localStorage, quindi sono legate a QUESTO browser e non
+ * sono sincronizzate fra dispositivi. Se questo diventa un problema vanno
+ * spostate su Supabase in una tabella `rettifiche_incassi`.
  */
 /**
  * Chiave del seed: garantisce che i valori iniziali vengano scritti UNA volta
- * sola. Senza, rimuovere un override lo farebbe ricomparire al reload.
+ * sola. Senza, azzerare una rettifica la farebbe ricomparire al reload.
  */
-const INCASSI_SEED_KEY = "incassi-override-seed-v1";
+const RETTIFICHE_SEED_KEY = "rettifiche-incassi-seed-v1";
 
-function leggiIncassi(): Record<number, number> {
-  const data = localStorage.getItem(INCASSI_OVERRIDE_KEY);
+function leggiRettifiche(): Record<number, number> {
+  const data = localStorage.getItem(RETTIFICHE_KEY);
   if (!data) return {};
   const parsed = JSON.parse(data) as Record<string, number>;
   return Object.fromEntries(
@@ -41,45 +43,40 @@ function leggiIncassi(): Record<number, number> {
 
 /** Precarica i valori noti al primo avvio, senza sovrascrivere scelte esistenti. */
 function seedIniziale(): void {
-  if (localStorage.getItem(INCASSI_SEED_KEY)) return;
+  if (localStorage.getItem(RETTIFICHE_SEED_KEY)) return;
 
-  const attuali = leggiIncassi();
-  for (const [anno, importo] of Object.entries(INCASSI_DICHIARATI_INIZIALI)) {
+  const attuali = leggiRettifiche();
+  for (const [anno, importo] of Object.entries(RETTIFICHE_INCASSI_INIZIALI)) {
     if (attuali[Number(anno)] === undefined) attuali[Number(anno)] = importo;
   }
-  localStorage.setItem(INCASSI_OVERRIDE_KEY, JSON.stringify(attuali));
-  localStorage.setItem(INCASSI_SEED_KEY, "1");
+  localStorage.setItem(RETTIFICHE_KEY, JSON.stringify(attuali));
+  localStorage.setItem(RETTIFICHE_SEED_KEY, "1");
 }
 
-export function caricaIncassiOverride(): Record<number, number> {
+export function caricaRettificheIncassi(): Record<number, number> {
   try {
     seedIniziale();
-    return leggiIncassi();
+    return leggiRettifiche();
   } catch (error) {
-    console.error("Errore nel caricamento degli incassi dichiarati:", error);
+    console.error("Errore nel caricamento delle rettifiche incassi:", error);
     return {};
   }
 }
 
-export function salvaIncassoOverride(anno: number, importo: number): void {
+export function salvaRettificaIncassi(anno: number, importo: number): void {
   try {
-    const attuali = caricaIncassiOverride();
-    attuali[anno] = importo;
-    localStorage.setItem(INCASSI_OVERRIDE_KEY, JSON.stringify(attuali));
+    const attuali = caricaRettificheIncassi();
+    if (importo === 0) delete attuali[anno];
+    else attuali[anno] = importo;
+    localStorage.setItem(RETTIFICHE_KEY, JSON.stringify(attuali));
   } catch (error) {
-    console.error("Errore nel salvataggio dell'incasso dichiarato:", error);
+    console.error("Errore nel salvataggio della rettifica incassi:", error);
   }
 }
 
-/** Rimuove l'override: l'anno torna a essere calcolato dalle fatture. */
-export function rimuoviIncassoOverride(anno: number): void {
-  try {
-    const attuali = caricaIncassiOverride();
-    delete attuali[anno];
-    localStorage.setItem(INCASSI_OVERRIDE_KEY, JSON.stringify(attuali));
-  } catch (error) {
-    console.error("Errore nella rimozione dell'incasso dichiarato:", error);
-  }
+/** Azzera la rettifica: l'anno torna a contare solo le fatture registrate. */
+export function rimuoviRettificaIncassi(anno: number): void {
+  salvaRettificaIncassi(anno, 0);
 }
 
 // ===== DESCRIZIONI SALVATE =====

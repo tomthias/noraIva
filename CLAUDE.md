@@ -97,21 +97,36 @@ Non esiste (per scelta) un campo separato per la data di emissione: se in futuro
 servisse, va aggiunta una colonna `data_emissione` lasciando `data` come incasso,
 mai il contrario.
 
-### Override degli incassi annuali
+### Rettifiche degli incassi annuali
 
-Quando le fatture registrate non rispecchiano l'incassato reale (date sbagliate,
-o anni non presenti in database), l'incassato di un anno si può **dichiarare a
-mano** da Dashboard → card "Incassi" → matita.
+Quando le fatture registrate non rispecchiano l'incassato reale (date di
+emissione invece che di incasso, o anni non presenti in database), si applica
+una **rettifica** da Dashboard → card "Incassi" → matita.
 
-- Storage: `localStorage` (`incassi-override`), gestito da `utils/storage.ts`.
+```
+incassi anno = somma fatture dell'anno + rettifica[anno]
+```
+
+**La rettifica si SOMMA, non sostituisce.** È la differenza fra i due modelli:
+con un valore che sostituisce il totale, ogni fattura aggiunta dopo smetteva di
+contare e andava riaggiornato tutto a mano. Sommando, il totale resta
+progressivo.
+
+- In UI si digita il **totale incassato**; il codice salva `totale − sommaFatture`.
+- Storage: `localStorage` (`rettifiche-incassi`), gestito da `utils/storage.ts`.
   **Legato al browser, non sincronizzato.** Se serve su più dispositivi va
-  spostato su Supabase in una tabella `incassi_annuali`.
-- L'override sostituisce l'imponibile **solo ai fini fiscali** (tasse, acconti,
-  limite 85k). Il **cash disponibile continua a derivare dai movimenti reali**:
-  dichiarare un incasso diverso non fa comparire soldi sul conto.
-- È per anno, quindi vale anche per l'anno precedente: è così che si alimentano
-  gli acconti quando le fatture dell'anno prima non ci sono.
-- `incassiOverride[anno] === 0` è un valore valido, non "assente".
+  spostato su Supabase in una tabella `rettifiche_incassi`.
+- Corregge l'imponibile **solo ai fini fiscali** (tasse, acconti, limite 85k).
+  Il **cash disponibile continua a derivare dai movimenti reali**: rettificare
+  non fa comparire soldi sul conto.
+- Vale per qualsiasi anno, incluso il precedente: è così che si alimentano gli
+  acconti quando le fatture dell'anno prima non ci sono. L'anno precedente può
+  non essere selezionabile nel filtro, quindi la si inserisce dall'avviso rosso
+  in Dashboard.
+- Va **ridotta man mano che le fatture vengono ridatate per cassa**, altrimenti
+  quell'importo viene contato due volte. La UI mostra sempre la scomposizione
+  "X da fatture + Y di rettifica".
+- Rettifica `0` = assente (viene rimossa dallo storage).
 
 ## Tax Calculation Formula
 

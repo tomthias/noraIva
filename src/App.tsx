@@ -24,9 +24,8 @@ import { Plus, X } from "lucide-react";
 import {
   caricaDescrizioniSalvate,
   salvaDescrizione,
-  caricaIncassiOverride,
-  salvaIncassoOverride,
-  rimuoviIncassoOverride,
+  caricaRettificheIncassi,
+  salvaRettificaIncassi,
 } from "./utils/storage";
 import { calcolaTotaleFatture } from "./utils/calcoliFisco";
 
@@ -61,18 +60,13 @@ function App() {
   // (lazy initializer, non un effect: evita il render a vuoto iniziale).
   const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>(caricaDescrizioniSalvate);
 
-  // Incassi dichiarati a mano, per anno: sostituiscono il totale delle fatture
-  // ai fini fiscali quando le fatture registrate non rispecchiano l'incassato.
-  const [incassiOverride, setIncassiOverride] = useState(caricaIncassiOverride);
+  // Rettifiche degli incassi per anno: incassato che le fatture registrate non
+  // rappresentano. Si SOMMA al totale calcolato, così le fatture nuove contano.
+  const [rettifiche, setRettifiche] = useState(caricaRettificheIncassi);
 
-  const impostaIncassi = (anno: number, importo: number) => {
-    salvaIncassoOverride(anno, importo);
-    setIncassiOverride(caricaIncassiOverride());
-  };
-
-  const azzeraIncassi = (anno: number) => {
-    rimuoviIncassoOverride(anno);
-    setIncassiOverride(caricaIncassiOverride());
+  const impostaRettifica = (anno: number, importo: number) => {
+    salvaRettificaIncassi(anno, importo);
+    setRettifiche(caricaRettificheIncassi());
   };
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
@@ -166,23 +160,22 @@ function App() {
                 />
               </div>
               <SogliaForfettario
-                incassi={incassiOverride[annoDashboard] ?? calcolaTotaleFatture(fattureAnnoSelezionato)}
-                dichiarato={incassiOverride[annoDashboard] !== undefined}
                 incassiDaFatture={calcolaTotaleFatture(fattureAnnoSelezionato)}
+                rettifica={rettifiche[annoDashboard] ?? 0}
                 anno={annoDashboard}
-                onSalvaIncassi={(importo) => impostaIncassi(annoDashboard, importo)}
-                onRimuoviIncassi={() => azzeraIncassi(annoDashboard)}
+                onSalvaRettifica={(importo) => impostaRettifica(annoDashboard, importo)}
+                onAzzeraRettifica={() => impostaRettifica(annoDashboard, 0)}
               />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} incassiDichiarati={incassiOverride[annoDashboard]} />
+                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} rettifica={rettifiche[annoDashboard] ?? 0} />
                 <NettoDisponibile
                   fatture={fatture}
                   prelievi={prelievi}
                   uscite={uscite}
                   entrate={entrate}
                   annoSelezionato={annoDashboard}
-                  incassiOverride={incassiOverride}
-                  onSalvaIncassiAnnoPrecedente={(importo) => impostaIncassi(annoDashboard - 1, importo)}
+                  rettifiche={rettifiche}
+                  onSalvaRettificaAnnoPrecedente={(importo) => impostaRettifica(annoDashboard - 1, importo)}
                 />
               </div>
 
@@ -271,7 +264,7 @@ function App() {
               uscite={uscite}
               entrate={entrate}
               prelievi={prelievi}
-              incassiOverride={incassiOverride}
+              rettifiche={rettifiche}
             />
           )}
 

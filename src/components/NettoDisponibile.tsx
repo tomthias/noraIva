@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Fattura, Prelievo, Uscita, Entrata } from "../types/fattura";
-import { calcolaAccantonamento, type IncassiPerAnno } from "../utils/calcoliFisco";
+import { calcolaAccantonamento, type RettifichePerAnno } from "../utils/calcoliFisco";
 import { calcolaEspressione } from "../utils/calcolaEspressione";
 import { Button } from "@/components/ui/button";
 import { ImportoInput } from "@/components/ui/importo-input";
@@ -36,13 +36,13 @@ interface Props {
   uscite: Uscita[];
   entrate?: Entrata[];
   annoSelezionato: number;
-  /** Incassi dichiarati a mano per anno, che sostituiscono il totale fatture. */
-  incassiOverride?: IncassiPerAnno;
+  /** Incassato non rappresentato dalle fatture, per anno. Si somma. */
+  rettifiche?: RettifichePerAnno;
   /**
    * Permette di dichiarare l'incassato dell'anno PRECEDENTE senza cambiare
    * filtro: quell'anno può non essere selezionabile, ma serve per gli acconti.
    */
-  onSalvaIncassiAnnoPrecedente?: (importo: number) => void;
+  onSalvaRettificaAnnoPrecedente?: (importo: number) => void;
 }
 
 export function NettoDisponibile({
@@ -51,8 +51,8 @@ export function NettoDisponibile({
   uscite,
   entrate = [],
   annoSelezionato,
-  incassiOverride = {},
-  onSalvaIncassiAnnoPrecedente,
+  rettifiche = {},
+  onSalvaRettificaAnnoPrecedente,
 }: Props) {
   const [bozzaAnnoPrecedente, setBozzaAnnoPrecedente] = useState("");
   // Tutta la logica fiscale vive in calcoliFisco.ts: qui si consuma soltanto.
@@ -63,7 +63,7 @@ export function NettoDisponibile({
     uscite,
     entrate,
     annoSelezionato,
-    incassiOverride
+    rettifiche
   );
 
   const d = a.dettaglioCash;
@@ -238,7 +238,7 @@ export function NettoDisponibile({
                   fatturato: sono diversi) e scrivilo qui.
                 </p>
               </div>
-              {onSalvaIncassiAnnoPrecedente && (
+              {onSalvaRettificaAnnoPrecedente && (
                 <div className="flex gap-2 items-start pl-6">
                   <div className="flex-1 max-w-[220px]">
                     <ImportoInput
@@ -255,10 +255,14 @@ export function NettoDisponibile({
                         toast.error(errore ?? "Inserisci un importo valido");
                         return;
                       }
-                      onSalvaIncassiAnnoPrecedente(valore);
+                      // Si salva la differenza rispetto alle fatture già presenti,
+                      // così eventuali fatture aggiunte dopo continuano a contare.
+                      onSalvaRettificaAnnoPrecedente(
+                        valore - a.incassiDaFattureAnnoPrecedente
+                      );
                       setBozzaAnnoPrecedente("");
                       toast.success(
-                        `Incassi ${annoPrecedente} impostati a ${formatCurrency(valore)}`
+                        `Incassi ${annoPrecedente} allineati a ${formatCurrency(valore)}`
                       );
                     }}
                   >
@@ -269,13 +273,13 @@ export function NettoDisponibile({
             </div>
           )}
 
-          {(a.incassiSovrascrittiAnnoCorrente || a.incassiSovrascrittiAnnoPrecedente) && (
+          {(a.rettificaAnnoCorrente !== 0 || a.rettificaAnnoPrecedente !== 0) && (
             <p className="text-xs text-blue-500/90">
-              Tasse calcolate su incassi dichiarati a mano:
-              {a.incassiSovrascrittiAnnoCorrente &&
+              Tasse calcolate su incassi rettificati:
+              {a.rettificaAnnoCorrente !== 0 &&
                 ` ${annoSelezionato} ${formatCurrency(a.incassiAnnoCorrente)}`}
-              {a.incassiSovrascrittiAnnoCorrente && a.incassiSovrascrittiAnnoPrecedente && ","}
-              {a.incassiSovrascrittiAnnoPrecedente &&
+              {a.rettificaAnnoCorrente !== 0 && a.rettificaAnnoPrecedente !== 0 && ","}
+              {a.rettificaAnnoPrecedente !== 0 &&
                 ` ${annoPrecedente} ${formatCurrency(a.incassiAnnoPrecedente)}`}
               .
             </p>
