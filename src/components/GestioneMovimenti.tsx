@@ -113,6 +113,7 @@ export function GestioneMovimenti({
   const [editCategoria, setEditCategoria] = useState("");
   const [editImporto, setEditImporto] = useState("");
   const [editTipo, setEditTipo] = useState<TipoMovimento | null>(null);
+  const [editData, setEditData] = useState("");
 
   // Form state
   const [formData, setFormData] = useState(new Date().toISOString().split("T")[0]);
@@ -332,6 +333,7 @@ export function GestioneMovimenti({
     setEditCategoria(movimento.categoria || "");
     setEditImporto(String(movimento.importo));
     setEditTipo(movimento.tipo);
+    setEditData(movimento.data);
   };
 
   const tipoMovimentoToDbType = (tipo: TipoMovimento): 'prelievo' | 'uscita' | 'entrata' => {
@@ -355,18 +357,21 @@ export function GestioneMovimenti({
         onModificaPrelievo(originalId, {
           descrizione: editDescrizione,
           importo: nuovoImporto,
+          data: editData,
         });
       } else if (movimento.tipo === "uscita") {
         onModificaUscita(originalId, {
           descrizione: editDescrizione,
           categoria: editCategoria || undefined,
           importo: nuovoImporto,
+          data: editData,
         });
       } else {
         onModificaEntrata(originalId, {
           descrizione: editDescrizione,
           categoria: editCategoria || undefined,
           importo: nuovoImporto,
+          data: editData,
         });
       }
     }
@@ -530,7 +535,7 @@ export function GestioneMovimenti({
                     }}
                     itemStyle={{ color: "hsl(var(--foreground))" }}
                     labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                    formatter={(value: any) => [`${formatCurrency(value)}`, "Importo"]}
+                    formatter={(value: any, name: string) => [`${formatCurrency(value)}`, name]}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -658,7 +663,12 @@ export function GestioneMovimenti({
                 >
                   {editingId === movimento.id ? (
                     <div className="flex-1 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        <Input
+                          type="date"
+                          value={editData}
+                          onChange={(e) => setEditData(e.target.value)}
+                        />
                         <Select
                           value={editTipo || movimento.tipo}
                           onValueChange={(value) => setEditTipo(value as TipoMovimento)}
