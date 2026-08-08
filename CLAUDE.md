@@ -57,9 +57,23 @@ This app is for Italian freelancers under the "Regime Forfettario" (flat-rate ta
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | Coefficiente Redditività | 78% | For ATECO 74.12.01 (graphic design) |
-| INPS Gestione Separata | 26.07% | Social security contribution |
-| Imposta Sostitutiva | 5% | Flat tax (startup rate, first 5 years) |
-| Imposta Sostitutiva | 15% | Flat tax (standard rate after 5 years) |
+| INPS Gestione Separata | 26.07% | 2024–2026 (25% IVS + 0.72% maternità/ANF + 0.35% ISCRO) |
+| Imposta Sostitutiva | 5% | Startup rate — periodi d'imposta **2022–2026** |
+| Imposta Sostitutiva | 15% | Standard rate — **dal 2027** |
+
+**⚠️ Le aliquote NON sono costanti globali.** Attività iniziata il **23/06/2022**, quindi
+il 5% copre i primi 5 periodi d'imposta (2022–2026) e dal 2027 diventa 15%.
+Usa SEMPRE i getter di `constants/fiscali.ts`, mai i valori nudi:
+
+```ts
+getAliquotaSostitutiva(anno)  // 0.05 fino al 2026, 0.15 dal 2027
+getAliquotaInps(anno)         // per anno, con fallback stimato sugli anni futuri
+aliquoteStimate(anno)         // true se l'aliquota INPS di quell'anno è una stima
+```
+
+Tutte le funzioni di `calcoliFisco.ts` accettano un parametro `anno`.
+La Gestione Separata **non ha minimale** per i professionisti, e il massimale
+(122.295 € nel 2026) è sopra il tetto forfettario di 85.000 €: mai vincolante.
 
 ## Tax Calculation Formula
 
@@ -106,15 +120,18 @@ YEAR N+1 (e.g., 2026):
 
 ### Advance Percentages
 
-**Imposta Sostitutiva (Substitute Tax):**
+**Imposta Sostitutiva (Substitute Tax) — total 100%:**
 - 1° Acconto: **40%** of previous year's tax (June)
 - 2° Acconto: **60%** of previous year's tax (November)
-- Total: 100%
+- Soglie: sotto **51,65 €** nessun acconto; fra 51,65 € e **257,52 €** unica rata a novembre
 
-**INPS Gestione Separata:**
+**INPS Gestione Separata — total 80%:**
 - 1° Acconto: **40%** of previous year's contribution (June)
 - 2° Acconto: **40%** of previous year's contribution (November)
-- Total: 80%
+
+**⚠️ I due tributi hanno acconti DIVERSI.** Applicare 40%/60% al *totale* delle tasse
+sovrastima l'acconto INPS del 20%. Usa `calcolaAccontiInps()` e `calcolaAccontiImposta()`
+di `calcoliFisco.ts`, mai una percentuale sul totale.
 
 ### How Saldo (Balance) is Calculated
 
@@ -245,10 +262,16 @@ The "Totale da Tenere da Parte" must include BOTH:
 
 | File | Purpose |
 |------|---------|
-| `src/components/NettoDisponibile.tsx` | Main fiscal calculations for dashboard |
-| `src/components/analisi/Analisi.tsx` | Analytics page (should mirror NettoDisponibile) |
-| `src/utils/calcoliFisco.ts` | Pure calculation functions |
-| `src/constants/fiscali.ts` | Tax rates and parameters |
+| `src/utils/calcoliFisco.ts` | **Unica fonte di verità.** `calcolaAccantonamento()` + funzioni pure |
+| `src/constants/fiscali.ts` | Aliquote per anno, percentuali acconto, soglie, limiti |
+| `src/components/NettoDisponibile.tsx` | Dashboard: solo presentazione, consuma `calcolaAccantonamento()` |
+| `src/components/analisi/Analisi.tsx` | Analisi: consuma la **stessa** funzione |
+| `src/components/SogliaForfettario.tsx` | Avviso limiti 85.000 € / 100.000 € |
+
+**⚠️ NON reimplementare la logica di accantonamento nei componenti.** Prima era
+copia-incollata fra Dashboard e Analisi e divergeva a ogni modifica (5 commit
+consecutivi di "align Analisi with Dashboard"). Ogni cambiamento fiscale va fatto
+in `calcolaAccantonamento()` e coperto da `tests/accantonamento.test.ts`.
 
 ---
 
@@ -261,6 +284,9 @@ The "Totale da Tenere da Parte" must include BOTH:
 3. **Year with NO invoices** (but previous year had invoices): Verify current year deadlines are still shown
 4. **Adding first invoice to empty year**: Verify NO sudden jumps in calculations
 5. **Year switching**: Values should be consistent, no discontinuities
+
+Questi scenari sono coperti da `tests/accantonamento.test.ts`: se cambi la logica
+fiscale, i test devono restare verdi o vanno aggiornati consapevolmente.
 
 ### Verification Process
 

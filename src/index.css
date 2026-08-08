@@ -35,6 +35,15 @@
   --radius: 0.5rem;
 }
 
+:root {
+  /* Il tema è interamente scuro. Senza questa dichiarazione i controlli NATIVI
+     del browser (input type="date", scrollbar, datepicker) vengono disegnati con
+     i colori dello schema chiaro: su sfondo quasi nero il valore della data e
+     l'icona del calendario risultavano invisibili, dando l'impressione che il
+     campo data non fosse modificabile. */
+  color-scheme: dark;
+}
+
 * {
   @apply border-border;
 }

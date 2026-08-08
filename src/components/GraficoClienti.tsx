@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import type { Fattura } from "../types/fattura";
 import { formatCurrency } from "../utils/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 import {
   BarChart,
   Bar,
@@ -28,7 +29,8 @@ const COLORS = [
   "hsl(142.1 50% 50%)",
   "hsl(142.1 40% 55%)",
   "hsl(142.1 30% 60%)",
-  "hsl(var(--muted))",
+  // era `hsl(var(--muted))`: variabile inesistente nel tema Tailwind v4 → barra invisibile
+  "var(--color-muted)",
 ];
 
 export function GraficoClienti({ fatture, anno }: Props) {
@@ -62,23 +64,7 @@ export function GraficoClienti({ fatture, anno }: Props) {
   }, [fatture, anno]);
 
   const migliorCliente = datiClienti[0];
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-medium text-popover-foreground">{data.nomeCompleto}</p>
-          <p className="text-green-500 font-semibold">{formatCurrency(data.totale)}</p>
-          <p className="text-xs text-muted-foreground">
-            {data.count} {data.count === 1 ? "fattura" : "fatture"}
-          </p>
-        </div>
-      );
-    }
-    return null;
-  };
+  const totaleFatturato = datiClienti.reduce((sum, c) => sum + c.totale, 0);
 
   if (datiClienti.length === 0) {
     return null;
@@ -119,7 +105,18 @@ export function GraficoClienti({ fatture, anno }: Props) {
                 className="text-muted-foreground"
                 width={100}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                cursor={{ fill: "var(--color-muted)", fillOpacity: 0.3 }}
+                content={
+                  <ChartTooltip
+                    titoloKey="nomeCompleto"
+                    totale={totaleFatturato}
+                    dettaglio={(d) =>
+                      `${d.count} ${d.count === 1 ? "fattura" : "fatture"}`
+                    }
+                  />
+                }
+              />
               <Bar dataKey="totale" radius={[0, 4, 4, 0]}>
                 {datiClienti.map((_, index) => (
                   <Cell

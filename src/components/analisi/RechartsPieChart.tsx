@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { formatCurrency } from "../../utils/format";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 interface DataPoint {
   label: string;
@@ -19,6 +19,8 @@ interface DataPoint {
 interface Props {
   data: DataPoint[];
   colors?: string[];
+  /** Cosa rappresentano le fette, mostrato nel tooltip (es. "Entrate"). */
+  etichetta?: string;
 }
 
 const DEFAULT_COLORS = [
@@ -32,7 +34,7 @@ const DEFAULT_COLORS = [
   "#f97316", // orange-500
 ];
 
-export function RechartsPieChart({ data, colors = DEFAULT_COLORS }: Props) {
+export function RechartsPieChart({ data, colors = DEFAULT_COLORS, etichetta }: Props) {
   // Trasforma i dati per recharts
   const chartData = data.map((d) => ({
     name: d.label,
@@ -71,20 +73,7 @@ export function RechartsPieChart({ data, colors = DEFAULT_COLORS }: Props) {
                 />
               ))}
             </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#000000",
-                borderColor: "#333333",
-                borderRadius: "8px",
-                color: "#ffffff",
-              }}
-              itemStyle={{ color: "#ffffff" }}
-              labelStyle={{ color: "#a1a1aa" }}
-              formatter={(value, name) => [
-                formatCurrency(Number(value)),
-                String(name),
-              ]}
-            />
+            <Tooltip content={<ChartTooltip etichetta={etichetta} totale={total} />} />
           </PieChart>
         </ResponsiveContainer>
       </div>

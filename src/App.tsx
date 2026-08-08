@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { toast } from "sonner";
 import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
@@ -7,6 +7,7 @@ import { AuthForm } from "./components/AuthForm";
 import { Sidebar, type SidebarSection } from "./components/Sidebar";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
+import { SogliaForfettario } from "./components/SogliaForfettario";
 
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
@@ -17,7 +18,7 @@ import { YearFilter } from "./components/YearFilter";
 import { Analisi } from "./components/analisi/Analisi";
 import { Toaster } from "./components/ui/sonner";
 
-import { ANNO } from "./constants/fiscali";
+import { ANNO, ANNO_MINIMO_VISIBILE } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
@@ -49,12 +50,9 @@ function App() {
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [annoDashboard, setAnnoDashboard] = useState<number>(ANNO);
-  const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>([]);
-
-  // Carica descrizioni salvate da localStorage
-  useEffect(() => {
-    setDescrizioniSalvate(caricaDescrizioniSalvate());
-  }, []);
+  // Descrizioni salvate in localStorage: lette una sola volta al primo render
+  // (lazy initializer, non un effect: evita il render a vuoto iniziale).
+  const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>(caricaDescrizioniSalvate);
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
   // Nascondi anni precedenti al 2026 (dati resettati)
@@ -63,7 +61,7 @@ function App() {
     // Aggiungi sempre anno corrente
     anni.add(ANNO);
     return Array.from(anni)
-      .filter((anno) => anno >= 2026)
+      .filter((anno) => anno >= ANNO_MINIMO_VISIBILE)
       .sort((a, b) => b - a);
   }, [fatture]);
 
@@ -146,6 +144,7 @@ function App() {
                   onChange={(anno) => setAnnoDashboard(anno ?? ANNO)}
                 />
               </div>
+              <SogliaForfettario fatture={fattureAnnoSelezionato} anno={annoDashboard} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                 <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} />
                 <NettoDisponibile fatture={fatture} prelievi={prelievi} uscite={uscite} entrate={entrate} annoSelezionato={annoDashboard} />

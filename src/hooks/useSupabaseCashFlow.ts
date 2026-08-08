@@ -13,6 +13,21 @@ type PrelievoRow = Database['public']['Tables']['prelievi']['Row'];
 type UscitaRow = Database['public']['Tables']['uscite']['Row'];
 type EntrataRow = Database['public']['Tables']['entrate']['Row'];
 
+/** Movimenti e fatture sono sempre mostrati dal più recente al più vecchio. */
+const ordinaPerData = <T extends { data: string }>(items: T[]): T[] =>
+  [...items].sort((a, b) => b.data.localeCompare(a.data));
+
+const TABELLA_PER_TIPO = {
+  prelievo: 'prelievi',
+  uscita: 'uscite',
+  entrata: 'entrate',
+} as const;
+
+type FatturaUpdate = Database['public']['Tables']['fatture']['Update'];
+type PrelievoUpdate = Database['public']['Tables']['prelievi']['Update'];
+type UscitaUpdate = Database['public']['Tables']['uscite']['Update'];
+type EntrataUpdate = Database['public']['Tables']['entrate']['Update'];
+
 // Funzioni per convertire tra tipi DB e tipi app
 const dbToFattura = (row: FatturaRow): Fattura => ({
   id: row.id,
@@ -171,9 +186,7 @@ export function useSupabaseCashFlow() {
       if (error) throw error;
       if (data) {
         const nuovaFattura = dbToFattura(data);
-        setFatture(prev => [nuovaFattura, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
+        setFatture(prev => ordinaPerData([nuovaFattura, ...prev]));
       }
     } catch (err) {
       console.error('Error adding fattura:', err);
@@ -183,7 +196,7 @@ export function useSupabaseCashFlow() {
 
   const modificaFattura = async (id: string, dati: Partial<Fattura>) => {
     try {
-      const updateData: any = {};
+      const updateData: FatturaUpdate = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
       if (dati.cliente !== undefined) updateData.cliente = dati.cliente;
@@ -197,7 +210,7 @@ export function useSupabaseCashFlow() {
 
       if (error) throw error;
 
-      setFatture(prev => prev.map(f => f.id === id ? { ...f, ...dati } : f));
+      setFatture(prev => ordinaPerData(prev.map(f => f.id === id ? { ...f, ...dati } : f)));
     } catch (err) {
       console.error('Error updating fattura:', err);
       setError(err instanceof Error ? err.message : 'Errore nella modifica della fattura');
@@ -236,9 +249,7 @@ export function useSupabaseCashFlow() {
       if (error) throw error;
       if (data) {
         const nuovoPrelievo = dbToPrelievo(data);
-        setPrelievi(prev => [nuovoPrelievo, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
+        setPrelievi(prev => ordinaPerData([nuovoPrelievo, ...prev]));
       }
     } catch (err) {
       console.error('Error adding prelievo:', err);
@@ -248,7 +259,7 @@ export function useSupabaseCashFlow() {
 
   const modificaPrelievo = async (id: string, dati: Partial<Prelievo>) => {
     try {
-      const updateData: any = {};
+      const updateData: PrelievoUpdate = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
       if (dati.importo !== undefined) updateData.importo = dati.importo;
@@ -261,7 +272,7 @@ export function useSupabaseCashFlow() {
 
       if (error) throw error;
 
-      setPrelievi(prev => prev.map(p => p.id === id ? { ...p, ...dati } : p));
+      setPrelievi(prev => ordinaPerData(prev.map(p => p.id === id ? { ...p, ...dati } : p)));
     } catch (err) {
       console.error('Error updating prelievo:', err);
       setError(err instanceof Error ? err.message : 'Errore nella modifica del prelievo');
@@ -300,9 +311,7 @@ export function useSupabaseCashFlow() {
       if (error) throw error;
       if (data) {
         const nuovaUscita = dbToUscita(data);
-        setUscite(prev => [nuovaUscita, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
+        setUscite(prev => ordinaPerData([nuovaUscita, ...prev]));
       }
     } catch (err) {
       console.error('Error adding uscita:', err);
@@ -312,7 +321,7 @@ export function useSupabaseCashFlow() {
 
   const modificaUscita = async (id: string, dati: Partial<Uscita>) => {
     try {
-      const updateData: any = {};
+      const updateData: UscitaUpdate = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
       if (dati.categoria !== undefined) updateData.categoria = dati.categoria ? normalizzaCategoria(dati.categoria) : null;
@@ -327,7 +336,7 @@ export function useSupabaseCashFlow() {
 
       if (error) throw error;
 
-      setUscite(prev => prev.map(u => u.id === id ? { ...u, ...dati } : u));
+      setUscite(prev => ordinaPerData(prev.map(u => u.id === id ? { ...u, ...dati } : u)));
     } catch (err) {
       console.error('Error updating uscita:', err);
       setError(err instanceof Error ? err.message : 'Errore nella modifica dell\'uscita');
@@ -366,9 +375,7 @@ export function useSupabaseCashFlow() {
       if (error) throw error;
       if (data) {
         const nuovaEntrata = dbToEntrata(data);
-        setEntrate(prev => [nuovaEntrata, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
+        setEntrate(prev => ordinaPerData([nuovaEntrata, ...prev]));
       }
     } catch (err) {
       console.error('Error adding entrata:', err);
@@ -378,7 +385,7 @@ export function useSupabaseCashFlow() {
 
   const modificaEntrata = async (id: string, dati: Partial<Entrata>) => {
     try {
-      const updateData: any = {};
+      const updateData: EntrataUpdate = {};
       if (dati.data !== undefined) updateData.data = dati.data;
       if (dati.descrizione !== undefined) updateData.descrizione = dati.descrizione;
       if (dati.categoria !== undefined) updateData.categoria = dati.categoria ? normalizzaCategoria(dati.categoria) : null;
@@ -393,7 +400,7 @@ export function useSupabaseCashFlow() {
 
       if (error) throw error;
 
-      setEntrate(prev => prev.map(e => e.id === id ? { ...e, ...dati } : e));
+      setEntrate(prev => ordinaPerData(prev.map(e => e.id === id ? { ...e, ...dati } : e)));
     } catch (err) {
       console.error('Error updating entrata:', err);
       setError(err instanceof Error ? err.message : 'Errore nella modifica dell\'entrata');
@@ -440,59 +447,68 @@ export function useSupabaseCashFlow() {
         escludiDaGrafico: (movimento as Uscita | Entrata).escludiDaGrafico,
       };
 
-      // Crea il payload per la tabella di destinazione
-      let targetPayload: any;
+      // Step 1: Inserisci nella tabella di destinazione.
+      // L'insert avviene dentro ciascun ramo così il tipo della riga restituita
+      // resta concreto (niente payload `any` né cast sulla riga inserita).
+      let inserisci: () => Promise<void>;
       if (targetType === 'prelievo') {
         // Stipendio: rimuovi categoria e escludiDaGrafico
-        targetPayload = prelievoToDb(
-          {
-            data: movimentoComune.data,
-            descrizione: movimentoComune.descrizione,
-            importo: movimentoComune.importo,
-            note: movimentoComune.note,
-          },
-          user.id
-        );
+        inserisci = async () => {
+          const { data, error } = await supabase
+            .from('prelievi')
+            .insert(prelievoToDb({
+              data: movimentoComune.data,
+              descrizione: movimentoComune.descrizione,
+              importo: movimentoComune.importo,
+              note: movimentoComune.note,
+            }, user.id))
+            .select()
+            .single();
+          if (error) throw error;
+          setPrelievi(prev => ordinaPerData([dbToPrelievo(data), ...prev]));
+        };
       } else if (targetType === 'uscita') {
         // Uscita: mantieni categoria (se da entrata) o imposta a null (se da stipendio)
-        targetPayload = uscitaToDb(
-          {
-            data: movimentoComune.data,
-            descrizione: movimentoComune.descrizione,
-            categoria: movimentoComune.categoria || undefined,
-            importo: movimentoComune.importo,
-            note: movimentoComune.note,
-            escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
-          },
-          user.id
-        );
+        inserisci = async () => {
+          const { data, error } = await supabase
+            .from('uscite')
+            .insert(uscitaToDb({
+              data: movimentoComune.data,
+              descrizione: movimentoComune.descrizione,
+              categoria: movimentoComune.categoria || undefined,
+              importo: movimentoComune.importo,
+              note: movimentoComune.note,
+              escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
+            }, user.id))
+            .select()
+            .single();
+          if (error) throw error;
+          setUscite(prev => ordinaPerData([dbToUscita(data), ...prev]));
+        };
       } else {
         // Entrata: mantieni categoria (se da uscita) o imposta a null (se da stipendio)
-        targetPayload = entrataToDb(
-          {
-            data: movimentoComune.data,
-            descrizione: movimentoComune.descrizione,
-            categoria: movimentoComune.categoria || undefined,
-            importo: movimentoComune.importo,
-            note: movimentoComune.note,
-            escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
-          },
-          user.id
-        );
+        inserisci = async () => {
+          const { data, error } = await supabase
+            .from('entrate')
+            .insert(entrataToDb({
+              data: movimentoComune.data,
+              descrizione: movimentoComune.descrizione,
+              categoria: movimentoComune.categoria || undefined,
+              importo: movimentoComune.importo,
+              note: movimentoComune.note,
+              escludiDaGrafico: movimentoComune.escludiDaGrafico || false,
+            }, user.id))
+            .select()
+            .single();
+          if (error) throw error;
+          setEntrate(prev => ordinaPerData([dbToEntrata(data), ...prev]));
+        };
       }
 
-      // Step 1: Inserisci nella tabella di destinazione
-      const targetTable = targetType === 'prelievo' ? 'prelievi' : targetType === 'uscita' ? 'uscite' : 'entrate';
-      const { data: insertedData, error: insertError } = await supabase
-        .from(targetTable)
-        .insert(targetPayload)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
+      await inserisci();
 
       // Step 2: Elimina dalla tabella di origine (solo se insert è riuscito)
-      const sourceTable = sourceType === 'prelievo' ? 'prelievi' : sourceType === 'uscita' ? 'uscite' : 'entrate';
+      const sourceTable = TABELLA_PER_TIPO[sourceType];
       const { error: deleteError } = await supabase
         .from(sourceTable)
         .delete()
@@ -505,32 +521,13 @@ export function useSupabaseCashFlow() {
         return;
       }
 
-      // Step 3: Aggiorna gli stati locali
-      // Rimuovi dall'array di origine
+      // Step 3: Rimuovi dall'array di origine
       if (sourceType === 'prelievo') {
         setPrelievi(prev => prev.filter(p => p.id !== id));
       } else if (sourceType === 'uscita') {
         setUscite(prev => prev.filter(u => u.id !== id));
       } else {
         setEntrate(prev => prev.filter(e => e.id !== id));
-      }
-
-      // Aggiungi all'array di destinazione
-      if (targetType === 'prelievo') {
-        const nuovoPrelievo = dbToPrelievo(insertedData as PrelievoRow);
-        setPrelievi(prev => [nuovoPrelievo, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
-      } else if (targetType === 'uscita') {
-        const nuovaUscita = dbToUscita(insertedData as UscitaRow);
-        setUscite(prev => [nuovaUscita, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
-      } else {
-        const nuovaEntrata = dbToEntrata(insertedData as EntrataRow);
-        setEntrate(prev => [nuovaEntrata, ...prev].sort(
-          (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
-        ));
       }
     } catch (err) {
       console.error('Error converting movement type:', err);

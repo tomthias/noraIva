@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { formatCurrency } from "../../utils/format";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 interface DataPoint {
   label: string;
@@ -22,12 +22,15 @@ interface Props {
   data: DataPoint[];
   color?: string;
   gradientId?: string;
+  /** Cosa rappresentano i valori, mostrato nel tooltip (es. "Saldo cumulativo"). */
+  etichetta?: string;
 }
 
 export function RechartsLineChart({
   data,
   color = "#8b5cf6",
   gradientId = "lineGradientDefault",
+  etichetta,
 }: Props) {
   // Trasforma i dati per recharts
   const chartData = data.map((d) => ({
@@ -55,7 +58,7 @@ export function RechartsLineChart({
           </defs>
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="hsl(var(--border))"
+            stroke="var(--color-border)"
             opacity={0.4}
           />
           <XAxis
@@ -75,15 +78,7 @@ export function RechartsLineChart({
           />
           <Tooltip
             cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "3 3" }}
-            contentStyle={{
-              backgroundColor: "#000000",
-              borderColor: "#333333",
-              borderRadius: "8px",
-              color: "#ffffff",
-            }}
-            itemStyle={{ color: "#ffffff" }}
-            labelStyle={{ color: "#a1a1aa" }}
-            formatter={(value) => [formatCurrency(Number(value)), "Saldo"]}
+            content={<ChartTooltip etichetta={etichetta} />}
           />
           <Area
             type="monotone"

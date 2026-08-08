@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { formatCurrency } from "../utils/format";
+import { calcolaEspressione } from "../utils/calcolaEspressione";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ImportoInput } from "@/components/ui/importo-input";
 import { Label } from "@/components/ui/label";
 import { COEFFICIENTE_REDDITIVITA, ALIQUOTA_CONTRIBUTI_GS, ALIQUOTA_IMPOSTA_SOSTITUTIVA } from "../constants/fiscali";
 
 export function ScenarioSimulator() {
   const [importo, setImporto] = useState("");
 
-  const importoNum = parseFloat(importo) || 0;
+  // L'importo può essere un'espressione (es. "3*250"): parseFloat si fermerebbe
+  // al primo operatore.
+  const importoNum = calcolaEspressione(importo).valore ?? 0;
 
   // Calcoli per la singola fattura
   const redditoImponibile = importoNum * COEFFICIENTE_REDDITIVITA;
@@ -31,20 +34,19 @@ export function ScenarioSimulator() {
         <div className="space-y-2">
           <Label htmlFor="nuova-fattura">Importo fattura</Label>
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            <span className="absolute left-3 top-[19px] -translate-y-1/2 text-muted-foreground pointer-events-none">
               €
             </span>
-            <Input
-              type="number"
-              id="nuova-fattura"
+            <ImportoInput
               value={importo}
-              onChange={(e) => setImporto(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
+              onChange={setImporto}
+              placeholder="0,00  oppure  3*250"
               className="pl-8"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Puoi scrivere anche un calcolo, es. <code>1000+500</code> o <code>3*250</code>.
+          </p>
         </div>
 
         {importoNum > 0 && (

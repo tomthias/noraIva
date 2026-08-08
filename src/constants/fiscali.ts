@@ -14,18 +14,74 @@ export const ANNO = ANNO_CORRENTE;
 // Tipo di regime fiscale
 export const REGIME = "forfettario" as const;
 
-/**
- * Aliquota imposta sostitutiva: 5%
- * Applicata ai primi 5 anni di attività (regime startup)
- * Altrimenti sarebbe 15% per il regime ordinario forfettario
- */
-export const ALIQUOTA_IMPOSTA_SOSTITUTIVA = 0.05;
+// ============================================================================
+// ALIQUOTE PER ANNO FISCALE
+// ============================================================================
+// Le aliquote NON sono costanti nel tempo: l'INPS le rivede ogni anno e
+// l'imposta sostitutiva agevolata scade dopo i primi 5 periodi d'imposta.
+// Usare sempre i getter, mai i valori nudi.
 
 /**
- * Aliquota contributi INPS Gestione Separata 2025: 26,07%
- * Per professionisti senza cassa previdenziale propria
+ * Anno di inizio attività (P.IVA aperta il 23/06/2022).
+ * Determina quando scade l'aliquota agevolata del regime startup.
  */
-export const ALIQUOTA_CONTRIBUTI_GS = 0.2607;
+export const ANNO_INIZIO_ATTIVITA = 2022;
+
+/** Il 5% vale per i primi 5 periodi d'imposta; dal 6° si passa al 15%. */
+export const ANNI_REGIME_STARTUP = 5;
+
+export const ALIQUOTA_STARTUP = 0.05;
+export const ALIQUOTA_ORDINARIA = 0.15;
+
+/**
+ * Aliquota imposta sostitutiva per anno fiscale.
+ *
+ * Inizio attività 2022 → 5% per i periodi 2022-2026, 15% dal 2027.
+ * Fonte: art. 1 c.65 L.190/2014 (regime forfettario start-up).
+ */
+export function getAliquotaSostitutiva(anno: number): number {
+  return anno < ANNO_INIZIO_ATTIVITA + ANNI_REGIME_STARTUP
+    ? ALIQUOTA_STARTUP
+    : ALIQUOTA_ORDINARIA;
+}
+
+/**
+ * Aliquota INPS Gestione Separata per anno, professionisti senza altra
+ * copertura previdenziale.
+ *
+ * 2026: 26,07% = 25% IVS + 0,72% maternità/ANF + 0,35% ISCRO (invariata dal 2025).
+ * Nessun minimale contributivo per i professionisti in GS; il massimale
+ * (122.295 € nel 2026) è sopra il tetto forfettario di 85.000 €, quindi
+ * non è mai vincolante qui.
+ */
+const ALIQUOTE_INPS_GS: Record<number, number> = {
+  2024: 0.2607,
+  2025: 0.2607,
+  2026: 0.2607,
+};
+
+/** Ultimo anno con aliquota INPS confermata: oltre, si stima. */
+export const ULTIMO_ANNO_ALIQUOTE_NOTE = Math.max(
+  ...Object.keys(ALIQUOTE_INPS_GS).map(Number)
+);
+
+export function getAliquotaInps(anno: number): number {
+  return ALIQUOTE_INPS_GS[anno] ?? ALIQUOTE_INPS_GS[ULTIMO_ANNO_ALIQUOTE_NOTE];
+}
+
+/** true se per quell'anno l'aliquota INPS è una stima, non un dato ufficiale. */
+export function aliquoteStimate(anno: number): boolean {
+  return !(anno in ALIQUOTE_INPS_GS);
+}
+
+// ---------------------------------------------------------------------------
+// Retrocompatibilità: valori dell'anno corrente.
+// Preferire sempre i getter sopra nei calcoli che dipendono dall'anno.
+// ---------------------------------------------------------------------------
+export const ALIQUOTA_IMPOSTA_SOSTITUTIVA = getAliquotaSostitutiva(
+  new Date().getFullYear()
+);
+export const ALIQUOTA_CONTRIBUTI_GS = getAliquotaInps(new Date().getFullYear());
 
 /**
  * Coefficiente di redditività: 78%
@@ -65,3 +121,42 @@ export const CATEGORIE_TASSE_LISTA = [
   CATEGORIE_TASSE.INPS,
   CATEGORIE_TASSE.IMPOSTA_SOSTITUTIVA,
 ] as const;
+
+// ============================================================================
+// ACCONTI
+// ============================================================================
+// I due tributi seguono regole DIVERSE: applicare 40%/60% al totale delle
+// tasse sovrastima l'acconto INPS del 20%.
+
+/** INPS Gestione Separata: acconto totale 80%, in due rate uguali. */
+export const ACCONTO_INPS_1 = 0.4; // scadenza 30 giugno
+export const ACCONTO_INPS_2 = 0.4; // scadenza 30 novembre
+
+/** Imposta sostitutiva: acconto totale 100%, 40% a giugno e 60% a novembre. */
+export const ACCONTO_IMPOSTA_1 = 0.4;
+export const ACCONTO_IMPOSTA_2 = 0.6;
+
+/** Sotto questa imposta dell'anno precedente non è dovuto alcun acconto. */
+export const SOGLIA_ACCONTO_MINIMA = 51.65;
+
+/**
+ * Fra SOGLIA_ACCONTO_MINIMA e questa soglia l'acconto dell'imposta sostitutiva
+ * si versa in un'unica rata a novembre (niente rata di giugno).
+ */
+export const SOGLIA_ACCONTO_RATA_UNICA = 257.52;
+
+// ============================================================================
+// LIMITI DEL REGIME FORFETTARIO
+// ============================================================================
+
+/** Oltre 85.000 € di ricavi si esce dal forfettario dall'anno SUCCESSIVO. */
+export const LIMITE_RICAVI_FORFETTARIO = 85_000;
+
+/** Oltre 100.000 € si esce dal regime nell'anno STESSO, con IVA dovuta. */
+export const LIMITE_USCITA_IMMEDIATA = 100_000;
+
+/**
+ * Anni precedenti a questo non sono selezionabili nei filtri: i dati sono
+ * stati resettati e quelli storici non sono attendibili.
+ */
+export const ANNO_MINIMO_VISIBILE = 2026;

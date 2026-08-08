@@ -56,9 +56,14 @@ export interface RiepilogoAnnuale {
 }
 
 export interface SituazioneCashFlow {
-  nettoFatture: number; // Dal riepilogo annuale
+  /**
+   * Somma degli importi LORDI fatturati.
+   * (Si chiamava `nettoFatture` pur contenendo un lordo: nome corretto perché
+   * qui la distinzione lordo/netto decide quanto si può prelevare.)
+   */
+  totaleFatturato: number;
   totalePrelievi: number;
   totaleUscite: number;
   totaleEntrate: number; // Entrate extra (non fatture)
-  nettoDisponibile: number; // nettoFatture + entrate - prelievi - uscite
+  nettoDisponibile: number; // totaleFatturato + entrate - prelievi - uscite
 }

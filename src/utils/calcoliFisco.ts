@@ -16,9 +16,16 @@
  */
 
 import {
-  ALIQUOTA_IMPOSTA_SOSTITUTIVA,
-  ALIQUOTA_CONTRIBUTI_GS,
+  ANNO_CORRENTE,
   COEFFICIENTE_REDDITIVITA,
+  getAliquotaInps,
+  getAliquotaSostitutiva,
+  ACCONTO_INPS_1,
+  ACCONTO_INPS_2,
+  ACCONTO_IMPOSTA_1,
+  ACCONTO_IMPOSTA_2,
+  SOGLIA_ACCONTO_MINIMA,
+  SOGLIA_ACCONTO_RATA_UNICA,
 } from "../constants/fiscali";
 import type {
   Fattura,
@@ -48,40 +55,57 @@ export function calcolaRedditoImponibileLordo(fatture: Fattura[]): number {
 
 /**
  * Calcola i contributi INPS Gestione Separata
- * Formula: Reddito Imponibile Lordo × Aliquota GS (26,07%)
+ * Formula: Reddito Imponibile Lordo × Aliquota GS dell'anno
+ *
+ * `anno` determina l'aliquota applicata: le aliquote INPS cambiano ogni anno.
+ * Passare sempre l'anno delle fatture; il default all'anno corrente serve solo
+ * ai chiamanti che lavorano su un singolo anno implicito.
  */
-export function calcolaContributi(fatture: Fattura[]): number {
+export function calcolaContributi(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): number {
   const redditoImponibileLordo = calcolaRedditoImponibileLordo(fatture);
-  return redditoImponibileLordo * ALIQUOTA_CONTRIBUTI_GS;
+  return redditoImponibileLordo * getAliquotaInps(anno);
 }
 
 /**
  * Calcola il reddito imponibile netto (base per l'imposta sostitutiva)
  * Formula: Reddito Imponibile Lordo - Contributi INPS
  */
-export function calcolaRedditoImponibileNetto(fatture: Fattura[]): number {
+export function calcolaRedditoImponibileNetto(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): number {
   const redditoImponibileLordo = calcolaRedditoImponibileLordo(fatture);
-  const contributi = calcolaContributi(fatture);
+  const contributi = calcolaContributi(fatture, anno);
   return redditoImponibileLordo - contributi;
 }
 
 /**
  * Calcola l'imposta sostitutiva
- * Formula: Reddito Imponibile Netto × Aliquota Imposta (5%)
+ * Formula: Reddito Imponibile Netto × Aliquota Imposta dell'anno
+ *
+ * ATTENZIONE: l'aliquota NON è fissa al 5%. Il 5% vale solo per i primi 5
+ * periodi d'imposta (2022-2026 per questa P.IVA); dal 2027 diventa 15%.
  */
-export function calcolaImposta(fatture: Fattura[]): number {
-  const redditoImponibileNetto = calcolaRedditoImponibileNetto(fatture);
-  return redditoImponibileNetto * ALIQUOTA_IMPOSTA_SOSTITUTIVA;
+export function calcolaImposta(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): number {
+  const redditoImponibileNetto = calcolaRedditoImponibileNetto(fatture, anno);
+  return redditoImponibileNetto * getAliquotaSostitutiva(anno);
 }
 
 /**
  * Calcola il totale tasse e contributi
  * Formula: Contributi INPS + Imposta Sostitutiva
  */
-export function calcolaTasseTotali(fatture: Fattura[]): number {
-  const contributi = calcolaContributi(fatture);
-  const imposta = calcolaImposta(fatture);
-  return contributi + imposta;
+export function calcolaTasseTotali(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): number {
+  return calcolaContributi(fatture, anno) + calcolaImposta(fatture, anno);
 }
 
 /**
@@ -101,11 +125,14 @@ export function calcolaTasseTotali(fatture: Fattura[]): number {
  * - Imposta: 5.766,54 × 5% = 288,33€
  * - NETTO: 10.000 - 2.033,46 - 288,33 = 7.678,21€
  */
-export function calcolaNettoDisponibileDaFattura(importoLordo: number): number {
+export function calcolaNettoDisponibileDaFattura(
+  importoLordo: number,
+  anno: number = ANNO_CORRENTE
+): number {
   const reddito = importoLordo * COEFFICIENTE_REDDITIVITA; // 78%
-  const inps = reddito * ALIQUOTA_CONTRIBUTI_GS; // 26.07%
+  const inps = reddito * getAliquotaInps(anno);
   const redditoNetto = reddito - inps;
-  const impostaSostitutiva = redditoNetto * ALIQUOTA_IMPOSTA_SOSTITUTIVA; // 5%
+  const impostaSostitutiva = redditoNetto * getAliquotaSostitutiva(anno);
 
   return importoLordo - inps - impostaSostitutiva;
 }
@@ -114,10 +141,11 @@ export function calcolaNettoDisponibileDaFattura(importoLordo: number): number {
  * Calcola il netto derivante dalle fatture (prima di prelievi e uscite)
  * Formula: Fatturato Totale - Totale Tasse
  */
-export function calcolaNettoFatture(fatture: Fattura[]): number {
-  const fatturatoTotale = calcolaTotaleFatture(fatture);
-  const tasseTotali = calcolaTasseTotali(fatture);
-  return fatturatoTotale - tasseTotali;
+export function calcolaNettoFatture(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): number {
+  return calcolaTotaleFatture(fatture) - calcolaTasseTotali(fatture, anno);
 }
 
 /**
@@ -126,10 +154,12 @@ export function calcolaNettoFatture(fatture: Fattura[]): number {
  */
 export function calcolaRiepilogoPerFattura(fatture: Fattura[]): RiepilogoFattura[] {
   return fatture.map((f) => {
+    // Ogni fattura usa le aliquote del proprio anno di emissione.
+    const annoFattura = parseInt(f.data.substring(0, 4)) || ANNO_CORRENTE;
     const redditoImponibile = f.importoLordo * COEFFICIENTE_REDDITIVITA;
-    const inps = redditoImponibile * ALIQUOTA_CONTRIBUTI_GS;
+    const inps = redditoImponibile * getAliquotaInps(annoFattura);
     const imponibileNetto = redditoImponibile - inps;
-    const imposta = imponibileNetto * ALIQUOTA_IMPOSTA_SOSTITUTIVA;
+    const imposta = imponibileNetto * getAliquotaSostitutiva(annoFattura);
     const tasseContributi = inps + imposta;
     const netto = f.importoLordo - tasseContributi;
 
@@ -145,14 +175,17 @@ export function calcolaRiepilogoPerFattura(fatture: Fattura[]): RiepilogoFattura
 /**
  * Calcola il riepilogo annuale completo
  */
-export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
+export function calcolaRiepilogoAnnuale(
+  fatture: Fattura[],
+  anno: number = ANNO_CORRENTE
+): RiepilogoAnnuale {
   return {
     totaleFatture: calcolaTotaleFatture(fatture),
     redditoImponibileLordo: calcolaRedditoImponibileLordo(fatture),
-    contributiINPS: calcolaContributi(fatture),
-    impostaSostitutiva: calcolaImposta(fatture),
-    tasseTotali: calcolaTasseTotali(fatture),
-    nettoFatture: calcolaNettoFatture(fatture),
+    contributiINPS: calcolaContributi(fatture, anno),
+    impostaSostitutiva: calcolaImposta(fatture, anno),
+    tasseTotali: calcolaTasseTotali(fatture, anno),
+    nettoFatture: calcolaNettoFatture(fatture, anno),
   };
 }
 
@@ -163,7 +196,12 @@ export function calcolaRiepilogoAnnuale(fatture: Fattura[]): RiepilogoAnnuale {
  * NOTA: Usa il fatturato lordo meno prelievi e uscite (che includono tasse già pagate)
  * Le tasse sono già incluse nelle uscite con categoria "Tasse"
  * Le entrate extra (rimborsi, bonus) vengono sommate al disponibile
- * ESCLUDI: Saldo Iniziale e movimenti con escludiDaGrafico
+ * ESCLUDI: Saldo Iniziale (sommato a parte dal chiamante) e Fatture (già contate)
+ *
+ * `escludiDaGrafico` NON viene applicato qui: è un flag di sola presentazione
+ * (vedi types/fattura.ts). Prima veniva applicato alle entrate ma non alle
+ * uscite, così un'entrata marcata spariva dal cash reale e dal Netto
+ * Prelevabile Sicuro pur essendo soldi effettivamente sul conto.
  */
 export function calcolaSituazioneCashFlow(
   fatture: Fattura[],
@@ -187,7 +225,7 @@ export function calcolaSituazioneCashFlow(
       const cat = e.categoria?.toLowerCase() || '';
       const isSaldoIniziale = cat === 'saldo iniziale' || cat === 'saldo_iniziale';
       const isFatture = cat === 'fatture';
-      return !isSaldoIniziale && !isFatture && !e.escludiDaGrafico;
+      return !isSaldoIniziale && !isFatture;
     })
     .reduce((sum, e) => sum + e.importo, 0);
 
@@ -195,11 +233,266 @@ export function calcolaSituazioneCashFlow(
   const nettoDisponibile = totaleFatturato + totaleEntrate - totalePrelievi - totaleUscite;
 
   return {
-    nettoFatture: totaleFatturato, // Fatturato LORDO
+    totaleFatturato,
     totalePrelievi,
     totaleUscite,
     totaleEntrate,
     nettoDisponibile,
+  };
+}
+
+// ============================================================================
+// ACCANTONAMENTO — quanto tenere da parte per il fisco
+// ============================================================================
+// Unica fonte di verità per Dashboard (NettoDisponibile) e Analisi.
+// Prima questa logica era copia-incollata nei due componenti e divergeva a ogni
+// modifica: ogni fix andava applicato due volte e i due schermi mostravano
+// numeri diversi.
+
+/** Rate di acconto dovute per un singolo tributo. */
+export interface RateAcconto {
+  primo: number; // scadenza giugno
+  secondo: number; // scadenza novembre
+  totale: number;
+}
+
+/**
+ * Acconti INPS Gestione Separata: 80% del contributo dell'anno precedente,
+ * in due rate uguali del 40% (30 giugno e 30 novembre).
+ */
+export function calcolaAccontiInps(contributiAnnoPrecedente: number): RateAcconto {
+  const primo = contributiAnnoPrecedente * ACCONTO_INPS_1;
+  const secondo = contributiAnnoPrecedente * ACCONTO_INPS_2;
+  return { primo, secondo, totale: primo + secondo };
+}
+
+/**
+ * Acconti imposta sostitutiva: 100% dell'imposta dell'anno precedente,
+ * 40% a giugno e 60% a novembre — ma con due soglie:
+ * - sotto 51,65 € non è dovuto alcun acconto;
+ * - fra 51,65 € e 257,52 € si versa tutto in un'unica rata a novembre.
+ */
+export function calcolaAccontiImposta(impostaAnnoPrecedente: number): RateAcconto {
+  if (impostaAnnoPrecedente < SOGLIA_ACCONTO_MINIMA) {
+    return { primo: 0, secondo: 0, totale: 0 };
+  }
+  if (impostaAnnoPrecedente < SOGLIA_ACCONTO_RATA_UNICA) {
+    return {
+      primo: 0,
+      secondo: impostaAnnoPrecedente,
+      totale: impostaAnnoPrecedente,
+    };
+  }
+  const primo = impostaAnnoPrecedente * ACCONTO_IMPOSTA_1;
+  const secondo = impostaAnnoPrecedente * ACCONTO_IMPOSTA_2;
+  return { primo, secondo, totale: primo + secondo };
+}
+
+const contieneParola = (categoria: string | undefined, parola: string): boolean =>
+  (categoria?.toLowerCase() ?? "").includes(parola);
+
+const eTassa = (categoria: string | undefined): boolean =>
+  (categoria?.toLowerCase() ?? "").startsWith("tasse");
+
+/**
+ * Somma i pagamenti di tasse fatti in un dato anno.
+ *
+ * `soloAcconti`: esclude i movimenti categorizzati come SALDO. Serve per
+ * calcolare quanto è stato versato *in acconto* per l'anno N-1: i pagamenti di
+ * giugno N-1 comprendono anche il saldo dell'anno N-2, che non va scomputato
+ * dal debito N-1.
+ *
+ * I movimenti storici categorizzati genericamente "Tasse" (né saldo né acconto)
+ * vengono contati come acconti: è il comportamento precedente, mantenuto per non
+ * far saltare i numeri di chi non ha ancora usato le categorie specifiche.
+ */
+function sommaTassePagate(
+  uscite: Uscita[],
+  anno: number,
+  soloAcconti = false
+): number {
+  return uscite
+    .filter((u) => {
+      if (!u.data.startsWith(String(anno))) return false;
+      if (!eTassa(u.categoria)) return false;
+      if (soloAcconti && contieneParola(u.categoria, "saldo")) return false;
+      return true;
+    })
+    .reduce((sum, u) => sum + u.importo, 0);
+}
+
+export interface Accantonamento {
+  anno: number;
+  annoPrecedente: number;
+
+  /** Cash realmente disponibile: saldo iniziale + movimenti dell'anno. */
+  saldoIniziale: number;
+  cashDisponibileReale: number;
+
+  contributiAnnoCorrente: number;
+  impostaAnnoCorrente: number;
+  tasseAnnoCorrente: number;
+
+  contributiAnnoPrecedente: number;
+  impostaAnnoPrecedente: number;
+  tasseAnnoPrecedente: number;
+
+  /** Scadenze dell'anno selezionato, calcolate sulle tasse dell'anno prima. */
+  saldoAnnoPrecedente: number;
+  accontiInpsAnnoCorrente: RateAcconto;
+  accontiImpostaAnnoCorrente: RateAcconto;
+  primoAccontoAnnoCorrente: number;
+  secondoAccontoAnnoCorrente: number;
+  accontiVersatiNellAnno: number;
+  scadenzeAnnoCorrente: number;
+
+  /** Proiezione per l'anno prossimo, calcolata sulle tasse dell'anno selezionato. */
+  saldoAnnoCorrente: number;
+  accontiInpsAnnoProssimo: RateAcconto;
+  accontiImpostaAnnoProssimo: RateAcconto;
+  primoAccontoAnnoProssimo: number;
+  secondoAccontoAnnoProssimo: number;
+  proiezioneAnnoProssimo: number;
+
+  totaleDaAccantonare: number;
+  nettoSicuro: number;
+}
+
+/**
+ * Calcola tutto ciò che serve per rispondere a "quanto posso prelevare".
+ *
+ * Il totale da accantonare somma due blocchi:
+ * 1. le scadenze dell'anno selezionato (saldo N-1 + acconti N, su tasse N-1),
+ *    al netto di quanto già versato nell'anno;
+ * 2. la proiezione per l'anno prossimo (saldo N + 1° acconto N+1, su tasse N).
+ *    Il 2° acconto N+1 è escluso perché scade a novembre dell'anno prossimo.
+ */
+export function calcolaAccantonamento(
+  fatture: Fattura[],
+  prelievi: Prelievo[],
+  uscite: Uscita[],
+  entrate: Entrata[],
+  anno: number
+): Accantonamento {
+  const annoPrecedente = anno - 1;
+  const dellAnno = <T extends { data: string }>(items: T[]) =>
+    items.filter((i) => i.data.startsWith(String(anno)));
+
+  // --- CASH REALE ---
+  // Solo i movimenti dell'anno: quelli precedenti sono già nel saldo iniziale.
+  const cashFlow = calcolaSituazioneCashFlow(
+    dellAnno(fatture),
+    dellAnno(prelievi),
+    dellAnno(uscite),
+    dellAnno(entrate)
+  );
+
+  // Il saldo iniziale si cerca in TUTTE le entrate: può essere datato in un
+  // anno precedente ma rappresentare comunque il punto di partenza del conto.
+  const saldoIniziale = entrate
+    .filter((e) => {
+      const cat = e.categoria?.toLowerCase() ?? "";
+      return cat === "saldo iniziale" || cat === "saldo_iniziale";
+    })
+    .reduce((sum, e) => sum + e.importo, 0);
+
+  const cashDisponibileReale = saldoIniziale + cashFlow.nettoDisponibile;
+
+  // --- TASSE TEORICHE, ognuna con le aliquote del proprio anno ---
+  const fattureAnnoCorrente = dellAnno(fatture);
+  const contributiAnnoCorrente = calcolaContributi(fattureAnnoCorrente, anno);
+  const impostaAnnoCorrente = calcolaImposta(fattureAnnoCorrente, anno);
+  const tasseAnnoCorrente = contributiAnnoCorrente + impostaAnnoCorrente;
+
+  const fattureAnnoPrecedente = fatture.filter((f) =>
+    f.data.startsWith(String(annoPrecedente))
+  );
+  const contributiAnnoPrecedente = calcolaContributi(
+    fattureAnnoPrecedente,
+    annoPrecedente
+  );
+  const impostaAnnoPrecedente = calcolaImposta(
+    fattureAnnoPrecedente,
+    annoPrecedente
+  );
+  const tasseAnnoPrecedente = contributiAnnoPrecedente + impostaAnnoPrecedente;
+
+  // --- SCADENZE DELL'ANNO SELEZIONATO (su tasse N-1) ---
+  // Saldo N-1 = tasse N-1 meno gli acconti versati DURANTE N-1 (non il saldo N-2).
+  const accontiVersatiAnnoPrecedente = sommaTassePagate(
+    uscite,
+    annoPrecedente,
+    true
+  );
+  const saldoAnnoPrecedente = Math.max(
+    0,
+    tasseAnnoPrecedente - accontiVersatiAnnoPrecedente
+  );
+
+  const accontiInpsAnnoCorrente = calcolaAccontiInps(contributiAnnoPrecedente);
+  const accontiImpostaAnnoCorrente = calcolaAccontiImposta(impostaAnnoPrecedente);
+  const primoAccontoAnnoCorrente =
+    accontiInpsAnnoCorrente.primo + accontiImpostaAnnoCorrente.primo;
+  const secondoAccontoAnnoCorrente =
+    accontiInpsAnnoCorrente.secondo + accontiImpostaAnnoCorrente.secondo;
+
+  // Qui servono TUTTI i pagamenti dell'anno (saldo N-1 incluso), perché
+  // scadenzeAnnoCorrente comprende anche saldoAnnoPrecedente.
+  const accontiVersatiNellAnno = sommaTassePagate(uscite, anno);
+
+  const scadenzeAnnoCorrente = Math.max(
+    0,
+    saldoAnnoPrecedente +
+      primoAccontoAnnoCorrente +
+      secondoAccontoAnnoCorrente -
+      accontiVersatiNellAnno
+  );
+
+  // --- PROIEZIONE ANNO PROSSIMO (su tasse N) ---
+  // Saldo N = tasse N meno gli acconti che verranno versati durante N.
+  const saldoAnnoCorrente = Math.max(
+    0,
+    tasseAnnoCorrente -
+      (accontiInpsAnnoCorrente.totale + accontiImpostaAnnoCorrente.totale)
+  );
+
+  const accontiInpsAnnoProssimo = calcolaAccontiInps(contributiAnnoCorrente);
+  const accontiImpostaAnnoProssimo = calcolaAccontiImposta(impostaAnnoCorrente);
+  const primoAccontoAnnoProssimo =
+    accontiInpsAnnoProssimo.primo + accontiImpostaAnnoProssimo.primo;
+  const secondoAccontoAnnoProssimo =
+    accontiInpsAnnoProssimo.secondo + accontiImpostaAnnoProssimo.secondo;
+
+  const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
+
+  const totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
+
+  return {
+    anno,
+    annoPrecedente,
+    saldoIniziale,
+    cashDisponibileReale,
+    contributiAnnoCorrente,
+    impostaAnnoCorrente,
+    tasseAnnoCorrente,
+    contributiAnnoPrecedente,
+    impostaAnnoPrecedente,
+    tasseAnnoPrecedente,
+    saldoAnnoPrecedente,
+    accontiInpsAnnoCorrente,
+    accontiImpostaAnnoCorrente,
+    primoAccontoAnnoCorrente,
+    secondoAccontoAnnoCorrente,
+    accontiVersatiNellAnno,
+    scadenzeAnnoCorrente,
+    saldoAnnoCorrente,
+    accontiInpsAnnoProssimo,
+    accontiImpostaAnnoProssimo,
+    primoAccontoAnnoProssimo,
+    secondoAccontoAnnoProssimo,
+    proiezioneAnnoProssimo,
+    totaleDaAccantonare,
+    nettoSicuro: cashDisponibileReale - totaleDaAccantonare,
   };
 }
 

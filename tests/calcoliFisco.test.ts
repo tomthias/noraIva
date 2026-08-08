@@ -201,7 +201,7 @@ describe("calcolaSituazioneCashFlow", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, prelievi, uscite);
 
     // Fatture LORDO
-    expect(cashFlow.nettoFatture).toBe(3500);
+    expect(cashFlow.totaleFatturato).toBe(3500);
     expect(cashFlow.totalePrelievi).toBe(1000);
     expect(cashFlow.totaleUscite).toBe(500);
 
@@ -213,7 +213,7 @@ describe("calcolaSituazioneCashFlow", () => {
     const cashFlow = calcolaSituazioneCashFlow(fattureSample, [], []);
 
     // Senza prelievi e uscite, netto disponibile = fatturato LORDO
-    expect(cashFlow.nettoDisponibile).toBe(cashFlow.nettoFatture);
+    expect(cashFlow.nettoDisponibile).toBe(cashFlow.totaleFatturato);
   });
 });
 

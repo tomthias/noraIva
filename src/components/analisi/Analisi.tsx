@@ -24,8 +24,8 @@ import {
   calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import { calcolaTasseTotali, calcolaSituazioneCashFlow } from "../../utils/calcoliFisco";
-import { ANNO } from "../../constants/fiscali";
+import { calcolaAccantonamento } from "../../utils/calcoliFisco";
+import { ANNO, ANNO_MINIMO_VISIBILE } from "../../constants/fiscali";
 
 interface Props {
   fatture: Fattura[];
@@ -49,7 +49,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     // Aggiungi sempre anno corrente
     anni.add(ANNO);
     return Array.from(anni)
-      .filter((anno) => anno >= 2026)
+      .filter((anno) => anno >= ANNO_MINIMO_VISIBILE)
       .sort((a, b) => b - a);
   }, [fatture, uscite, entrate, prelievi]);
 
@@ -80,16 +80,14 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
     [prelievi, annoSelezionato]
   );
 
-  // Saldo Iniziale (cerca in TUTTE le entrate per CATEGORIA, non filtrate per anno)
-  // Stessa logica di NettoDisponibile.tsx
-  const saldoIniziale = useMemo(() => {
-    return entrate
-      .filter((e) => {
-        const cat = e.categoria?.toLowerCase() || "";
-        return cat === "saldo iniziale" || cat === "saldo_iniziale";
-      })
-      .reduce((sum, e) => sum + e.importo, 0);
-  }, [entrate]);
+  // Accantonamento fiscale: STESSA funzione usata dalla Dashboard.
+  // Prima questa logica era copia-incollata qui e i due schermi divergevano a
+  // ogni modifica (5 commit consecutivi di "align Analisi with Dashboard").
+  const accantonamento = useMemo(
+    () =>
+      calcolaAccantonamento(fatture, prelievi, uscite, entrate, annoSelezionato),
+    [fatture, prelievi, uscite, entrate, annoSelezionato]
+  );
 
   // Aggregazioni per grafici
   const entratePerCategoria = useMemo(
@@ -149,7 +147,9 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
       usciteAnno,
       entrateAnno,
       prelieviAnno,
-      annoSelezionato
+      annoSelezionato,
+      // Parte dal saldo iniziale, così la curva coincide col cash reale
+      accantonamento.saldoIniziale
     );
 
     const perMese: Record<string, number> = {};
@@ -172,108 +172,46 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
         };
       })
       .sort((a, b) => mesiNomi.indexOf(a.label) - mesiNomi.indexOf(b.label));
-  }, [fattureAnno, usciteAnno, entrateAnno, prelieviAnno, annoSelezionato]);
+  }, [fattureAnno, usciteAnno, entrateAnno, prelieviAnno, annoSelezionato, accantonamento.saldoIniziale]);
 
   const ultimiMovimenti = useMemo(
     () => getUltimiMovimenti(fatture, uscite, entrate, prelievi, 7),
     [fatture, uscite, entrate, prelievi]
   );
 
-  // Calcoli per consigli finanziari - usa stessa logica della Dashboard (solo anno corrente + saldo iniziale)
+  // Medie e derivati per i consigli finanziari.
   const calcoliFinanziari = useMemo(() => {
-    // Cash flow anno corrente (come Dashboard)
-    const cashFlow = calcolaSituazioneCashFlow(
-      fattureAnno,
-      prelieviAnno,
-      usciteAnno,
-      entrateAnno
-    );
-
-    // Netto disponibile = Saldo Iniziale + cash flow anno corrente
-    const nettoDisponibile = saldoIniziale + cashFlow.nettoDisponibile;
-
-    // --- CALCOLO TASSE DA ACCANTONARE (stessa logica di NettoDisponibile.tsx) ---
-
-    // Tasse anno corrente e anno precedente
-    const tasseTeoricheAnnoCorrente = calcolaTasseTotali(fattureAnno);
-    const annoPrecedente = annoSelezionato - 1;
-    const fattureAnnoPrecedente = fatture.filter((f) =>
-      f.data.startsWith(String(annoPrecedente))
-    );
-    const tasseTeoricheAnnoPrecedente = calcolaTasseTotali(fattureAnnoPrecedente);
-
-    // Tasse già pagate nell'anno precedente (cerca in TUTTE le uscite)
-    const tasseVersateAnnoPrecedente = uscite
-      .filter((u) => {
-        const isAnnoPrecedente = u.data.startsWith(String(annoPrecedente));
-        const cat = u.categoria?.toLowerCase() || "";
-        return isAnnoPrecedente && cat.startsWith("tasse");
-      })
-      .reduce((sum, u) => sum + u.importo, 0);
-
-    // Saldo anno precedente (da pagare a giugno anno corrente)
-    const saldoAnnoPrecedente = Math.max(0, tasseTeoricheAnnoPrecedente - tasseVersateAnnoPrecedente);
-
-    // Acconti anno corrente (basati su tasse anno precedente)
-    const primoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.4;
-    const secondoAccontoAnnoCorrente = tasseTeoricheAnnoPrecedente * 0.6;
-
-    // Acconti già versati nell'anno corrente (cerca in TUTTE le uscite)
-    const accontiVersatiNellAnno = uscite
-      .filter((u) => {
-        const annoUscita = parseInt(u.data.substring(0, 4));
-        const isAnnoCorrente = annoUscita === annoSelezionato;
-        const cat = u.categoria?.toLowerCase() || "";
-        return isAnnoCorrente && cat.startsWith("tasse");
-      })
-      .reduce((sum, u) => sum + u.importo, 0);
-
-    // Proiezione anno prossimo
-    const primoAccontoAnnoProssimo = tasseTeoricheAnnoCorrente * 0.4;
-    const saldoAnnoCorrente = Math.max(0,
-      tasseTeoricheAnnoCorrente - (primoAccontoAnnoCorrente + secondoAccontoAnnoCorrente)
-    );
-
-    // SCADENZE ANNO CORRENTE (saldo + acconti - già versati)
-    const scadenzeAnnoCorrente = Math.max(0,
-      saldoAnnoPrecedente
-      + primoAccontoAnnoCorrente
-      + secondoAccontoAnnoCorrente
-      - accontiVersatiNellAnno
-    );
-
-    // PROIEZIONE ANNO PROSSIMO
-    const proiezioneAnnoProssimo = saldoAnnoCorrente + primoAccontoAnnoProssimo;
-
-    // TOTALE DA ACCANTONARE
-    const tasseDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo;
-
     // Media stipendio mensile (dell'anno corrente)
     const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
     const mesiConPrelievi = new Set(prelieviAnno.map(p => p.data.substring(0, 7))).size || 1;
     const mediaStipendioMensile = totalePrelievi / mesiConPrelievi;
 
-    // Media uscite mensili (escluse tasse, dell'anno corrente)
+    // Media uscite mensili (escluse tasse). Si divide per i mesi TRASCORSI, non
+    // per 12: a metà anno dividere per 12 dimezzava la media e gonfiava di
+    // conseguenza i "mesi di copertura" del fondo emergenza.
     const usciteNonTasse = usciteAnno
       .filter(u => !u.categoria?.toLowerCase().startsWith('tasse'))
       .reduce((sum, u) => sum + u.importo, 0);
-    const mediaUsciteMensili = usciteNonTasse / 12;
+    const oggi = new Date();
+    const mesiTrascorsi =
+      annoSelezionato === oggi.getFullYear() ? oggi.getMonth() + 1 : 12;
+    const mediaUsciteMensili = usciteNonTasse / mesiTrascorsi;
 
     // Mese prossimo
     const mesiNomi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
       "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
-    const meseProssimo = mesiNomi[(new Date().getMonth() + 1) % 12];
+    const meseProssimo = mesiNomi[(oggi.getMonth() + 1) % 12];
 
     return {
-      nettoDisponibile,
-      tasseDaAccantonare,
+      nettoDisponibile: accantonamento.cashDisponibileReale,
+      tasseDaAccantonare: accantonamento.totaleDaAccantonare,
       mediaStipendioMensile,
       mediaUsciteMensili,
       meseProssimo,
       mediaFatturatoMensile: kpi.mediaFatturatoMensile,
       numeroClienti: kpi.numeroClienti,
     };
-  }, [saldoIniziale, fattureAnno, usciteAnno, entrateAnno, prelieviAnno, kpi, fatture, uscite, annoSelezionato]);
+  }, [accantonamento, usciteAnno, prelieviAnno, kpi, annoSelezionato]);
 
   return (
     <div className="space-y-6">
@@ -325,7 +263,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
             <CardTitle className="text-base">Entrate per Categoria</CardTitle>
           </CardHeader>
           <CardContent>
-            <RechartsPieChart data={entratePerCategoria} />
+            <RechartsPieChart data={entratePerCategoria} etichetta="Entrate" />
           </CardContent>
         </Card>
 
@@ -336,6 +274,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
           <CardContent>
             <RechartsPieChart
               data={uscitePerCategoria}
+              etichetta="Uscite"
               colors={[
                 "#ef4444",
                 "#f97316",
@@ -382,6 +321,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
               data={fatturatoMensile}
               color="#22c55e"
               gradientId="barGradientFatturato"
+              etichetta="Fatturato del mese"
             />
           </CardContent>
         </Card>
@@ -395,6 +335,8 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
               data={topClienti}
               color="#3b82f6"
               gradientId="barGradientClienti"
+              etichetta="Fatturato cliente"
+              mostraPercentuale
             />
           </CardContent>
         </Card>
@@ -410,6 +352,7 @@ export function Analisi({ fatture, uscite, entrate, prelievi }: Props) {
             data={saldoCumulativo}
             color="#8b5cf6"
             gradientId="lineGradientSaldo"
+            etichetta="Saldo a fine mese"
           />
         </CardContent>
       </Card>

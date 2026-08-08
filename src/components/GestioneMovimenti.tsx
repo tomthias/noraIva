@@ -15,6 +15,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Trash2, Plus, Pencil, Check, X, Search, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Combobox } from "@/components/ui/combobox";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
+import { ImportoInput } from "@/components/ui/importo-input";
+import { calcolaEspressione } from "../utils/calcolaEspressione";
 import {
   Select,
   SelectContent,
@@ -278,9 +281,25 @@ export function GestioneMovimenti({
     return { datiMensili, datiCategorie };
   }, [movimentiUnificati, annoSelezionato]);
 
+  const totaleCategorie = useMemo(
+    () => datiCategorie.reduce((sum, c) => sum + c.value, 0),
+    [datiCategorie]
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const importo = parseFloat(formImporto) || 0;
+
+    // L'importo può essere un'espressione (es. "1000+500"): niente parseFloat,
+    // che si fermerebbe al primo operatore e salverebbe 1000.
+    const { valore: importo, errore } = calcolaEspressione(formImporto);
+    if (importo === null) {
+      toast.error(errore ?? "Inserisci un importo valido");
+      return;
+    }
+    if (importo < 0) {
+      toast.error("L'importo non può essere negativo");
+      return;
+    }
 
     if (formTipo === "stipendio") {
       onAggiungiPrelievo({
@@ -344,13 +363,32 @@ export function GestioneMovimenti({
   const saveEdit = (movimento: MovimentoUnificato) => {
     const originalId = getOriginalId(movimento.id);
     const tipoChanged = editTipo !== null && editTipo !== movimento.tipo;
-    const nuovoImporto = parseFloat(editImporto) || movimento.importo;
+
+    const { valore: importoCalcolato, errore } = calcolaEspressione(editImporto);
+    if (importoCalcolato === null && editImporto.trim() !== "") {
+      toast.error(errore ?? "Importo non valido");
+      return;
+    }
+    if (importoCalcolato !== null && importoCalcolato < 0) {
+      toast.error("L'importo non può essere negativo");
+      return;
+    }
+    const nuovoImporto = importoCalcolato ?? movimento.importo;
 
     if (tipoChanged && editTipo) {
-      // Conversione di tipo
+      // Conversione di tipo. Va passato il movimento CON le modifiche appena fatte:
+      // passando `movimento.originale` si perdevano data, importo, descrizione e
+      // categoria modificati nella stessa sessione di edit.
       const sourceType = tipoMovimentoToDbType(movimento.tipo);
       const targetType = tipoMovimentoToDbType(editTipo);
-      onConvertiTipoMovimento(sourceType, targetType, originalId, movimento.originale);
+      const movimentoAggiornato = {
+        ...movimento.originale,
+        data: editData,
+        descrizione: editDescrizione,
+        importo: nuovoImporto,
+        ...(editTipo !== "stipendio" && { categoria: editCategoria || undefined }),
+      };
+      onConvertiTipoMovimento(sourceType, targetType, originalId, movimentoAggiornato);
     } else {
       // Modifica normale (stesso tipo)
       if (movimento.tipo === "stipendio") {
@@ -376,7 +414,17 @@ export function GestioneMovimenti({
       }
     }
     setEditingId(null);
-    toast.success("Movimento modificato");
+
+    // Se la nuova data cade fuori dall'anno filtrato il movimento sparisce dalla
+    // lista: senza avviso sembrerebbe che il salvataggio non abbia funzionato.
+    const annoNuovaData = parseInt(editData.substring(0, 4));
+    if (annoSelezionato !== null && annoNuovaData !== annoSelezionato) {
+      toast.success(
+        `Movimento spostato al ${annoNuovaData}: non visibile con il filtro ${annoSelezionato}`
+      );
+    } else {
+      toast.success("Movimento modificato");
+    }
   };
 
   return (
@@ -467,7 +515,7 @@ export function GestioneMovimenti({
                     <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.4} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" opacity={0.4} />
                 <XAxis
                   dataKey="mese"
                   fontSize={12}
@@ -484,16 +532,8 @@ export function GestioneMovimenti({
                   tick={{ fill: "#9ca3af" }}
                 />
                 <Tooltip
-                  cursor={{ fill: "hsl(var(--muted)/0.2)" }}
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--popover))",
-                    borderColor: "hsl(var(--border))",
-                    borderRadius: "var(--radius)",
-                    color: "hsl(var(--popover-foreground))",
-                  }}
-                  itemStyle={{ color: "hsl(var(--foreground))" }}
-                  labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                  formatter={(value: any) => [`${formatCurrency(value)}`, "Uscite"]}
+                  cursor={{ fill: "var(--color-muted)", fillOpacity: 0.3 }}
+                  content={<ChartTooltip etichetta="Uscite del mese" />}
                 />
                 <Bar
                   dataKey="importo"
@@ -527,15 +567,12 @@ export function GestioneMovimenti({
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--popover))",
-                      borderColor: "hsl(var(--border))",
-                      borderRadius: "var(--radius)",
-                      color: "hsl(var(--popover-foreground))",
-                    }}
-                    itemStyle={{ color: "hsl(var(--foreground))" }}
-                    labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                    formatter={(value: any, name: string) => [`${formatCurrency(value)}`, name]}
+                    content={
+                      <ChartTooltip
+                        etichetta="Uscite per categoria"
+                        totale={totaleCategorie}
+                      />
+                    }
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -591,13 +628,10 @@ export function GestioneMovimenti({
                 </div>
                 <div className="space-y-2">
                   <Label>Importo (€)</Label>
-                  <Input
-                    type="number"
+                  <ImportoInput
                     value={formImporto}
-                    onChange={(e) => setFormImporto(e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0"
+                    onChange={setFormImporto}
+                    placeholder="0,00  oppure  1000+500"
                     required
                   />
                 </div>
@@ -682,13 +716,10 @@ export function GestioneMovimenti({
                             <SelectItem value="entrata">Entrata</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Input
-                          type="number"
+                        <ImportoInput
                           value={editImporto}
-                          onChange={(e) => setEditImporto(e.target.value)}
+                          onChange={setEditImporto}
                           placeholder="Importo"
-                          step="0.01"
-                          min="0"
                         />
                       </div>
                       <Input

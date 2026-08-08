@@ -75,29 +75,42 @@ export interface KPI {
   numeroClienti: number;
 }
 
+/** Sigle che vanno restituite in maiuscolo, non in Title Case. */
+const ACRONIMI = new Set(['inps', 'iva', 'irpef', 'inail', 'f24']);
+
+/** Singolari normalizzati al plurale, per non avere due fette uguali nei grafici. */
+const MAPPATURE_CATEGORIA: Record<string, string> = {
+  Fattura: 'Fatture',
+  Rimborso: 'Rimborsi',
+  Stipendio: 'Stipendi',
+  Interesse: 'Interessi',
+};
+
 /**
- * Normalizza una categoria: Title Case, trim, e mappature speciali
+ * Normalizza una categoria: Title Case parola per parola, trim, mappature.
+ *
+ * Va applicata PAROLA PER PAROLA: la versione precedente maiuscolava solo la
+ * prima lettera dell'intera stringa e minuscolava tutto il resto, così
+ * "Tasse - Acconto" diventava "Tasse - acconto". Le costanti CATEGORIE_TASSE
+ * non facevano quindi round-trip e il menu a tendina dei movimenti mostrava
+ * entrambe le varianti come categorie distinte.
  */
 export function normalizzaCategoria(categoria: string | undefined): string {
   if (!categoria) return 'Altro';
-  const trimmed = categoria.trim();
+  const trimmed = categoria.trim().replace(/\s+/g, ' ');
+  if (!trimmed) return 'Altro';
 
-  // Se già in formato Title Case, restituisci così com'è
-  if (trimmed.charAt(0) === trimmed.charAt(0).toUpperCase() &&
-      trimmed.slice(1) === trimmed.slice(1).toLowerCase()) {
-    return trimmed;
-  }
+  const titleCase = trimmed
+    .split(' ')
+    .map((parola) => {
+      if (ACRONIMI.has(parola.toLowerCase())) return parola.toUpperCase();
+      // I separatori ("-", "/", …) restano come sono
+      if (!/[a-zA-ZÀ-ÿ]/.test(parola)) return parola;
+      return parola.charAt(0).toUpperCase() + parola.slice(1).toLowerCase();
+    })
+    .join(' ');
 
-  // Converti in Title Case
-  const titleCase = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-
-  // Mappature speciali per uniformità
-  if (titleCase === 'Fattura') return 'Fatture';
-  if (titleCase === 'Rimborso') return 'Rimborsi';
-  if (titleCase === 'Stipendio') return 'Stipendi';
-  if (titleCase === 'Interesse') return 'Interessi';
-
-  return titleCase;
+  return MAPPATURE_CATEGORIA[titleCase] ?? titleCase;
 }
 
 /**
@@ -234,7 +247,12 @@ export function calcolaSaldoCumulativo(
   uscite: Uscita[],
   entrate: Entrata[],
   prelievi: Prelievo[],
-  anno?: number
+  anno?: number,
+  /**
+   * Punto di partenza del grafico. Senza questo la curva parte da 0 e non
+   * corrisponde al cash reale mostrato in Dashboard.
+   */
+  saldoIniziale = 0
 ): SaldoCumulativo[] {
   // ✅ Filtra entrate e uscite valide
   const entrateValide = filtraEntrateValide(entrate);
@@ -257,7 +275,7 @@ export function calcolaSaldoCumulativo(
   movimentiFiltrati.sort((a, b) => a.data.localeCompare(b.data));
 
   // Calcola saldo progressivo
-  let saldoCorrente = 0;
+  let saldoCorrente = saldoIniziale;
   const saldi: SaldoCumulativo[] = [];
 
   movimentiFiltrati.forEach((mov) => {

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import { formatCurrency } from "../../utils/format";
+import { ChartTooltip } from "@/components/ui/chart-tooltip";
 
 interface DataPoint {
   label: string;
@@ -22,18 +22,26 @@ interface Props {
   data: DataPoint[];
   color?: string;
   gradientId?: string;
+  /** Cosa rappresentano i valori, mostrato nel tooltip (es. "Fatturato"). */
+  etichetta?: string;
+  /** Se true il tooltip mostra anche la percentuale sul totale delle barre. */
+  mostraPercentuale?: boolean;
 }
 
 export function RechartsBarChart({
   data,
   color = "#22c55e",
   gradientId = "barGradientDefault",
+  etichetta,
+  mostraPercentuale = false,
 }: Props) {
   // Trasforma i dati per recharts
   const chartData = data.map((d) => ({
     name: d.label,
     value: d.value,
   }));
+
+  const totale = data.reduce((sum, d) => sum + d.value, 0);
 
   if (data.length === 0) {
     return (
@@ -56,7 +64,7 @@ export function RechartsBarChart({
           <CartesianGrid
             strokeDasharray="3 3"
             vertical={false}
-            stroke="hsl(var(--border))"
+            stroke="var(--color-border)"
             opacity={0.4}
           />
           <XAxis
@@ -76,15 +84,12 @@ export function RechartsBarChart({
           />
           <Tooltip
             cursor={{ fill: "rgba(255,255,255,0.1)" }}
-            contentStyle={{
-              backgroundColor: "#000000",
-              borderColor: "#333333",
-              borderRadius: "8px",
-              color: "#ffffff",
-            }}
-            itemStyle={{ color: "#ffffff" }}
-            labelStyle={{ color: "#a1a1aa" }}
-            formatter={(value) => [formatCurrency(Number(value)), "Importo"]}
+            content={
+              <ChartTooltip
+                etichetta={etichetta}
+                totale={mostraPercentuale ? totale : undefined}
+              />
+            }
           />
           <Bar
             dataKey="value"
