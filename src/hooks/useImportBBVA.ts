@@ -21,6 +21,7 @@ import {
   type RegolaCategoria,
 } from "../utils/categorizzazione";
 import { normalizzaCategoria } from "../utils/analisiCalcoli";
+import { marcaDuplicati, type TipoDuplicato } from "../utils/dedupImport";
 
 /** Una riga dell'anteprima: quello che è stato letto più quello che sarà scritto. */
 export interface RigaAnteprima {
@@ -28,8 +29,19 @@ export interface RigaAnteprima {
   importHash: string;
   categoria: string;
   proposta: Proposta;
-  /** true se un movimento con lo stesso hash è già in database. */
-  duplicato: boolean;
+  /**
+   * Perché la riga è considerata un duplicato:
+   *   'hash'     → identica a un movimento già importato: certa, non discutibile
+   *   'sospetto' → stesso importo e data ravvicinata di un movimento già in
+   *                archivio (inserito a mano o migrato): probabile, ma può
+   *                essere un pagamento ricorrente vero
+   *   null       → movimento nuovo
+   */
+  duplicato: TipoDuplicato;
+  /** Cosa ha fatto scattare il sospetto, da mostrare nell'anteprima. */
+  corrispondenza?: { data: string; importo: number };
+  /** L'utente ha deciso di importarla comunque (solo per i sospetti). */
+  importaComunque: boolean;
   /** true se l'utente ha cambiato la categoria proposta. */
   corretta: boolean;
   /** true per salvare una regola dalla correzione fatta. */
@@ -97,29 +109,47 @@ export function useImportBBVA() {
     async (file: File): Promise<{ estratto: EstrattoLetto; anteprima: RigaAnteprima[] }> => {
       const estratto = leggiEstrattoBBVA(await file.arrayBuffer());
 
+      // TUTTI i movimenti, non solo quelli importati: al primo import
+      // l'estratto copre mesi già registrati a mano, e quelli non hanno hash.
       const { data: esistenti, error } = await supabase
         .from("movimenti")
-        .select("import_hash")
-        .not("import_hash", "is", null);
+        .select("data, importo, import_hash");
       if (error) throw error;
 
-      const gia = new Set((esistenti ?? []).map((m) => m.import_hash as string));
-
-      const anteprima = await Promise.all(
-        estratto.righe.map(async (riga): Promise<RigaAnteprima> => {
-          const proposta = proponiCategoria(riga, regole);
-          const importHash = await calcolaImportHash(riga);
-          return {
-            riga,
-            importHash,
-            categoria: proposta.categoria,
-            proposta,
-            duplicato: gia.has(importHash),
-            corretta: false,
-            imparaRegola: false,
-          };
-        })
+      const conHash = await Promise.all(
+        estratto.righe.map(async (riga) => ({
+          riga,
+          importHash: await calcolaImportHash(riga),
+          dataValuta: riga.dataValuta,
+          importo: riga.importo,
+        }))
       );
+
+      const esiti = marcaDuplicati(
+        conHash,
+        (esistenti ?? []).map((m) => ({
+          data: m.data,
+          importo: Number(m.importo),
+          importHash: m.import_hash,
+        }))
+      );
+
+      const anteprima: RigaAnteprima[] = esiti.map(({ riga: r, duplicato, corrispondenza }) => {
+        const proposta = proponiCategoria(r.riga, regole);
+        return {
+          riga: r.riga,
+          importHash: r.importHash,
+          categoria: proposta.categoria,
+          proposta,
+          duplicato,
+          corrispondenza: corrispondenza
+            ? { data: corrispondenza.data, importo: corrispondenza.importo }
+            : undefined,
+          importaComunque: false,
+          corretta: false,
+          imparaRegola: false,
+        };
+      });
 
       return { estratto, anteprima };
     },
@@ -148,7 +178,11 @@ export function useImportBBVA() {
         } = await supabase.auth.getUser();
         if (!user) throw new Error("Sessione scaduta: rientra e riprova");
 
-        const daScrivere = anteprima.filter((r) => !r.duplicato);
+        // Un duplicato per hash non si scrive mai. Un sospetto si scrive solo
+        // se l'utente l'ha sbloccato di proposito nell'anteprima.
+        const daScrivere = anteprima.filter(
+          (r) => r.duplicato === null || (r.duplicato === "sospetto" && r.importaComunque)
+        );
         const saltati = anteprima.length - daScrivere.length;
 
         if (daScrivere.length > 0) {

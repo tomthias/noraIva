@@ -69,8 +69,12 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
     return Array.from(new Set(proposte)).sort();
   }, [categorieEsistenti]);
 
-  const nuovi = anteprima.filter((r) => !r.duplicato);
-  const duplicati = anteprima.length - nuovi.length;
+  // Un sospetto sbloccato torna a contare come movimento nuovo.
+  const nuovi = anteprima.filter(
+    (r) => r.duplicato === null || (r.duplicato === "sospetto" && r.importaComunque)
+  );
+  const giaImportati = anteprima.filter((r) => r.duplicato === "hash").length;
+  const sospetti = anteprima.filter((r) => r.duplicato === "sospetto" && !r.importaComunque).length;
   const daGuardare = nuovi.filter((r) => r.proposta.daConfermare && !r.corretta).length;
 
   const azzera = () => {
@@ -117,6 +121,12 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
 
   const cambiaRegola = (indice: number, impara: boolean) => {
     setAnteprima((prev) => prev.map((r, i) => (i === indice ? { ...r, imparaRegola: impara } : r)));
+  };
+
+  const sbloccaSospetto = (indice: number, importa: boolean) => {
+    setAnteprima((prev) =>
+      prev.map((r, i) => (i === indice ? { ...r, importaComunque: importa } : r))
+    );
   };
 
   const salva = async () => {
@@ -234,14 +244,23 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
             <CardHeader>
               <CardTitle className="text-lg">{nomeFile}</CardTitle>
               <CardDescription>
-                {anteprima.length} movimenti letti · {nuovi.length} da importare · {duplicati} già
-                presenti
+                {anteprima.length} movimenti letti · {nuovi.length} da importare ·{" "}
+                {giaImportati} già importati · {sospetti} sembrano già in archivio
                 {estratto.saldoFinale &&
                   ` · saldo ${formatCurrency(estratto.saldoFinale.saldo)} al ${formatDate(estratto.saldoFinale.data)}`}
               </CardDescription>
             </CardHeader>
-            {(daGuardare > 0 || estratto.scartate.length > 0) && (
+            {(daGuardare > 0 || sospetti > 0 || estratto.scartate.length > 0) && (
               <CardContent className="space-y-2 pt-0 text-sm">
+                {sospetti > 0 && (
+                  <p className="flex items-start gap-2 text-amber-400">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    {sospetti} movimenti hanno lo stesso importo e una data vicinissima a
+                    movimenti che hai già in archivio: quasi certamente li avevi già
+                    registrati a mano, quindi restano fuori. Se uno è un pagamento
+                    ricorrente vero, spunta “importa comunque” su quella riga.
+                  </p>
+                )}
                 {daGuardare > 0 && (
                   <p className="flex items-start gap-2 text-amber-400">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -276,16 +295,29 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
               </TableHeader>
               <TableBody>
                 {anteprima.map((r, i) => (
-                  <TableRow key={r.importHash} className={r.duplicato ? "opacity-50" : undefined}>
+                  <TableRow
+                    key={r.importHash}
+                    className={
+                      r.duplicato && !(r.duplicato === "sospetto" && r.importaComunque)
+                        ? "opacity-50"
+                        : undefined
+                    }
+                  >
                     <TableCell className="whitespace-nowrap">{formatDate(r.riga.dataValuta)}</TableCell>
                     <TableCell>
                       <div className="flex flex-col">
                         <span>{r.riga.descrizione}</span>
                         <span className="text-xs text-muted-foreground">
                           {r.riga.parolaChiave}
-                          {r.duplicato && (
+                          {r.duplicato === "hash" && (
                             <Badge variant="outline" className="ml-2 text-xs">
                               già importato
+                            </Badge>
+                          )}
+                          {r.duplicato === "sospetto" && (
+                            <Badge variant="outline" className="ml-2 text-xs text-amber-400">
+                              già in archivio
+                              {r.corrispondenza && ` (${formatDate(r.corrispondenza.data)})`}
                             </Badge>
                           )}
                           {!r.duplicato && r.proposta.daConfermare && !r.corretta && (
@@ -311,7 +343,16 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
                       />
                     </TableCell>
                     <TableCell>
-                      {r.corretta && !r.duplicato ? (
+                      {r.duplicato === "sospetto" ? (
+                        <label className="flex cursor-pointer items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={r.importaComunque}
+                            onChange={(e) => sbloccaSospetto(i, e.target.checked)}
+                          />
+                          <span>importa comunque</span>
+                        </label>
+                      ) : r.corretta && !r.duplicato ? (
                         <label className="flex cursor-pointer items-center gap-2 text-xs">
                           <input
                             type="checkbox"
