@@ -24,6 +24,10 @@ Invoice management webapp for Italian "Partita IVA" (freelance VAT) under the fl
 - **Constants** (`src/constants/fiscali.ts`): Tax parameters (78% profitability coefficient, 26.07% INPS, 5% substitute tax)
 - **Calculations** (`src/utils/calcoliFisco.ts`): Pure functions implementing Italian tax formulas
 - **State** (`src/hooks/useSupabaseCashFlow.ts`): Central hook managing invoice CRUD + Supabase persistence
+- **Movimenti** (`src/utils/movimenti.ts`): tabella unica `movimenti` (importo CON SEGNO)
+  ⇄ le tre viste storiche `prelievi` / `uscite` / `entrate` (importi positivi)
+- **Import BBVA** (`src/utils/importBBVA.ts`, `categorizzazione.ts`, `hooks/useImportBBVA.ts`):
+  lettura dell'estratto Excel, dedup, categoria proposta
 - **Storage** (`src/utils/storage.ts`): localStorage wrapper for local data (descriptions, etc.)
 
 ### Components
@@ -97,7 +101,51 @@ Non esiste (per scelta) un campo separato per la data di emissione: se in futuro
 servisse, va aggiunta una colonna `data_emissione` lasciando `data` come incasso,
 mai il contrario.
 
+### Import BBVA e ancora del saldo
+
+**Il cash NON si ricostruisce più dal basso.** L'export mensile di BBVA porta
+la colonna "Disponibile", cioè il saldo del conto dopo ogni movimento: la banca
+sa già quanto c'è. Dal primo import in poi vale
+
+```
+cashDisponibileReale = saldo dell'ultimo estratto
+                     + movimenti MANUALI con data > data dell'estratto
+```
+
+- L'ancora sta in `import_estratti` (una riga per import), non si deduce
+  riordinando i movimenti: due movimenti dello stesso giorno non hanno ordine.
+- I movimenti con `fonte = 'import_bbva'` NON si sommano all'ancora: sono già
+  dentro il saldo. Sommarli lo raddoppierebbe.
+- La vecchia somma dal basso resta calcolata come `cashRicostruito`: se
+  diverge oltre 1 € la dashboard mostra lo scostamento. **Uno scostamento non
+  sposta il netto prelevabile**, dice solo che un movimento manca o è doppio.
+- Finché non c'è nessun import il comportamento è quello di prima.
+- Il dedup è `sha256(data | importo | disponibile | osservazioni)`. Il
+  `disponibile` è indispensabile: due movimenti identici nello stesso giorno
+  (due caffè da 1,50 €) hanno saldi progressivi diversi, senza quello il
+  secondo verrebbe scartato come duplicato.
+- `data` di un movimento importato è la **data valuta** (colonna B), non la
+  contabile (colonna C, che può essere futura): stesso principio di cassa di
+  `fatture.data`.
+
+### Categorie strutturali
+
+Con la tabella unica il "tipo" di un movimento è la sua categoria, e alcune
+categorie pilotano i calcoli, non solo i grafici. Vanno riconosciute con i
+predicati di `constants/fiscali.ts` (`eStipendio`, `eSaldoIniziale`,
+`eIncassoFattura`, `eInteressi`), mai con un confronto di stringhe: esistono
+varianti storiche in database (`Stipendio` singolare, `Fatture`,
+`saldo_iniziale`) e un `===` le manca.
+
+`Incasso Fattura` è escluso dal cash ricostruito: i compensi entrano già dalla
+tabella `fatture`, contarli anche come movimento li conterebbe due volte.
+
 ### Rettifiche degli incassi annuali
+
+> **Meccanismo legacy, per gli anni storici.** Con l'import gli incassi
+> arrivano con la data valuta del bonifico, cioè per costruzione la data di
+> incasso: le rettifiche servono sempre meno e per gli anni nuovi non
+> dovrebbero servire affatto.
 
 Quando le fatture registrate non rispecchiano l'incassato reale (date di
 emissione invece che di incasso, o anni non presenti in database), si applica

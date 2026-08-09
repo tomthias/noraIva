@@ -32,6 +32,9 @@ import {
   marcaRettificheMigrate,
   rettificheGiaMigrate,
 } from "../utils/storage";
+import { entrateDa, prelieviDa, usciteDa } from "../utils/movimenti";
+import type { AncoraSaldo } from "../utils/calcoliFisco";
+import type { StimaFiscozen } from "../utils/spieFiscozen";
 
 type FatturaRow = Database["public"]["Tables"]["fatture"]["Row"];
 type MovimentoRow = Database["public"]["Tables"]["movimenti"]["Row"];
@@ -95,46 +98,23 @@ export const movimentoToDb = (
   fattura_id: movimento.fatturaId ?? null,
 });
 
-// ===== viste retrocompatibili =====
-// Le tre liste storiche sono derivate dal segno e dalla categoria. Uno
-// stipendio è un'uscita anche per la banca, ma nei calcoli è sempre stato
-// contato a parte: la partizione qui sotto riproduce esattamente la vecchia
-// aritmetica `fatture + entrate − prelievi − uscite`.
-
-const eUscita = (m: Movimento) => m.importo < 0;
-
-const aPrelievo = (m: Movimento): Prelievo => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  importo: -m.importo,
-  note: m.note,
-});
-
-const aUscita = (m: Movimento): Uscita => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  categoria: m.categoria,
-  importo: -m.importo,
-  note: m.note,
-  escludiDaGrafico: m.escludiDaGrafico,
-});
-
-const aEntrata = (m: Movimento): Entrata => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  categoria: m.categoria,
-  importo: m.importo,
-  note: m.note,
-  escludiDaGrafico: m.escludiDaGrafico,
-});
+// Le tre liste storiche sono derivate dal segno e dalla categoria: la
+// partizione vive in `utils/movimenti.ts` (dove i test la raggiungono) e
+// riproduce esattamente la vecchia aritmetica `fatture + entrate − prelievi
+// − uscite`.
 
 export function useSupabaseCashFlow() {
   const [fatture, setFatture] = useState<Fattura[]>([]);
   const [movimenti, setMovimenti] = useState<Movimento[]>([]);
   const [rettifiche, setRettifiche] = useState<Record<number, number>>({});
+  /** Saldo dell'ultimo estratto importato: l'ancora del cash (piano §3.6). */
+  const [ultimoSaldoBanca, setUltimoSaldoBanca] = useState<{ data: string; saldo: number } | null>(
+    null
+  );
+  /** Stime Fiscozen: alimentano le spie di coerenza, non i calcoli. */
+  const [stimeFiscozen, setStimeFiscozen] = useState<StimaFiscozen[]>([]);
+  /** Riserva personale da non prelevare, oltre a quella per il fisco. */
+  const [cuscinetto, setCuscinetto] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -155,9 +135,16 @@ export function useSupabaseCashFlow() {
         return;
       }
 
-      const [fattureRes, movimentiRes] = await Promise.all([
+      const [fattureRes, movimentiRes, importRes, stimeRes, preferenzeRes] = await Promise.all([
         supabase.from("fatture").select("*").order("data", { ascending: false }),
         supabase.from("movimenti").select("*").order("data", { ascending: false }),
+        supabase
+          .from("import_estratti")
+          .select("data_saldo, saldo")
+          .order("data_saldo", { ascending: false })
+          .limit(1),
+        supabase.from("stime_fiscozen").select("*"),
+        supabase.from("preferenze").select("chiave, valore"),
       ]);
 
       if (fattureRes.error) throw fattureRes.error;
@@ -165,6 +152,32 @@ export function useSupabaseCashFlow() {
 
       setFatture(fattureRes.data?.map(dbToFattura) ?? []);
       setMovimenti(movimentiRes.data?.map(dbToMovimento) ?? []);
+
+      // L'assenza di import non è un errore: finché non se ne fa uno il cash
+      // continua a essere ricostruito dal basso, come prima.
+      const ultimo = importRes.error ? null : importRes.data?.[0];
+      setUltimoSaldoBanca(
+        ultimo ? { data: ultimo.data_saldo, saldo: Number(ultimo.saldo) } : null
+      );
+
+      setStimeFiscozen(
+        stimeRes.error
+          ? []
+          : (stimeRes.data ?? []).map((r) => ({
+              annoPagamento: Number(r.anno_pagamento),
+              tasseMin: r.tasse_min === null ? undefined : Number(r.tasse_min),
+              tasseMax: r.tasse_max === null ? undefined : Number(r.tasse_max),
+              incassatoDichiarato:
+                r.incassato_dichiarato === null ? undefined : Number(r.incassato_dichiarato),
+              aggiornatoIl: r.aggiornato_il ?? undefined,
+            }))
+      );
+
+      const preferenzaCuscinetto = preferenzeRes.error
+        ? undefined
+        : preferenzeRes.data?.find((p) => p.chiave === "cuscinetto")?.valore;
+      setCuscinetto(Number(preferenzaCuscinetto ?? 0) || 0);
+
       setRettifiche(await caricaRettifiche(user.id));
     } catch (err) {
       console.error("Error loading data:", err);
@@ -432,20 +445,45 @@ export function useSupabaseCashFlow() {
 
   // ===== VISTE DERIVATE (retrocompatibilità) =====
 
-  const prelievi = useMemo<Prelievo[]>(
-    () => movimenti.filter((m) => eUscita(m) && eStipendio(m.categoria)).map(aPrelievo),
-    [movimenti]
+  const prelievi = useMemo<Prelievo[]>(() => prelieviDa(movimenti), [movimenti]);
+  const uscite = useMemo<Uscita[]>(() => usciteDa(movimenti), [movimenti]);
+  const entrate = useMemo<Entrata[]>(() => entrateDa(movimenti), [movimenti]);
+
+  // L'ancora è pronta all'uso per `calcolaAccantonamento`: null finché non è
+  // stato importato nessun estratto.
+  const ancoraSaldo = useMemo<AncoraSaldo | undefined>(
+    () =>
+      ultimoSaldoBanca
+        ? { data: ultimoSaldoBanca.data, saldo: ultimoSaldoBanca.saldo, movimenti }
+        : undefined,
+    [ultimoSaldoBanca, movimenti]
   );
 
-  const uscite = useMemo<Uscita[]>(
-    () => movimenti.filter((m) => eUscita(m) && !eStipendio(m.categoria)).map(aUscita),
-    [movimenti]
-  );
+  /**
+   * Il cuscinetto si scrive subito a schermo e poi in database: la card del
+   * netto prelevabile deve rispondere al momento, non dopo il round-trip.
+   */
+  const salvaCuscinetto = useCallback(async (valore: number) => {
+    const importo = Math.max(0, valore);
+    setCuscinetto(importo);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-  const entrate = useMemo<Entrata[]>(
-    () => movimenti.filter((m) => !eUscita(m)).map(aEntrata),
-    [movimenti]
-  );
+      const { error } = await supabase
+        .from("preferenze")
+        .upsert(
+          { user_id: user.id, chiave: "cuscinetto", valore: importo },
+          { onConflict: "user_id,chiave" }
+        );
+      if (error) throw error;
+    } catch (err) {
+      console.error("Error saving cuscinetto:", err);
+      setError(err instanceof Error ? err.message : "Errore nel salvataggio del cuscinetto");
+    }
+  }, []);
 
   return {
     fatture,
@@ -454,6 +492,10 @@ export function useSupabaseCashFlow() {
     uscite,
     entrate,
     rettifiche,
+    ancoraSaldo,
+    stimeFiscozen,
+    cuscinetto,
+    salvaCuscinetto,
     isLoading,
     error,
     aggiungiFattura,

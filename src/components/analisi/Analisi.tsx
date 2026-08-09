@@ -24,8 +24,13 @@ import {
   calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import { calcolaAccantonamento, type RettifichePerAnno } from "../../utils/calcoliFisco";
-import { ANNO, ANNO_MINIMO_VISIBILE } from "../../constants/fiscali";
+import {
+  calcolaAccantonamento,
+  type AncoraSaldo,
+  type RettifichePerAnno,
+} from "../../utils/calcoliFisco";
+import { ANNO, ANNO_MINIMO_VISIBILE, eInteressi } from "../../constants/fiscali";
+import { formatCurrency } from "../../utils/format";
 
 interface Props {
   fatture: Fattura[];
@@ -34,9 +39,18 @@ interface Props {
   prelievi: Prelievo[];
   /** Rettifiche degli incassi per anno (vedi Dashboard → Incassi). */
   rettifiche?: RettifichePerAnno;
+  /** Saldo dichiarato dalla banca all'ultimo import: quando c'è, comanda lui. */
+  ancoraSaldo?: AncoraSaldo;
 }
 
-export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }: Props) {
+export function Analisi({
+  fatture,
+  uscite,
+  entrate,
+  prelievi,
+  rettifiche = {},
+  ancoraSaldo,
+}: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number>(ANNO);
 
   // Estrai anni disponibili, includendo sempre anno corrente
@@ -54,6 +68,15 @@ export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }:
       .filter((anno) => anno >= ANNO_MINIMO_VISIBILE)
       .sort((a, b) => b - a);
   }, [fatture, uscite, entrate, prelievi]);
+
+  // Interessi accreditati nell'anno: solo quelli realmente arrivati.
+  const interessiAnno = useMemo(
+    () =>
+      entrate
+        .filter((e) => e.data.startsWith(String(annoSelezionato)) && eInteressi(e.categoria))
+        .reduce((somma, e) => somma + e.importo, 0),
+    [entrate, annoSelezionato]
+  );
 
   // Calcola KPI
   const kpi = useMemo(
@@ -93,9 +116,10 @@ export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }:
         uscite,
         entrate,
         annoSelezionato,
-        rettifiche
+        rettifiche,
+        ancoraSaldo
       ),
-    [fatture, prelievi, uscite, entrate, annoSelezionato, rettifiche]
+    [fatture, prelievi, uscite, entrate, annoSelezionato, rettifiche, ancoraSaldo]
   );
 
   // Aggregazioni per grafici
@@ -264,6 +288,26 @@ export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }:
           saldoNetto={kpi.saldoNetto}
         />
       </div>
+
+      {/* Interessi maturati: nessuna previsione, solo la somma di quello che
+          la banca ha accreditato davvero. */}
+      {interessiAnno > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Interessi maturati nel {annoSelezionato}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-emerald-500">
+              {formatCurrency(interessiAnno)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Somma degli accrediti già arrivati sul conto (≈ 2,1% lordo sulla
+              liquidità BBVA). Non è una previsione: gli interessi futuri
+              compaiono qui quando la banca li versa.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pie Charts - 2 colonne */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

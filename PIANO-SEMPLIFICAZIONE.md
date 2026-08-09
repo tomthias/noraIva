@@ -173,7 +173,18 @@ al centesimo), test verdi.
 
 ---
 
-## 3. Fase 2 — Import Excel BBVA (cuore del refactor)
+## 3. Fase 2 — Import Excel BBVA (cuore del refactor) — ✅ FATTA (09/08/2026)
+
+> Parser (`utils/importBBVA.ts`), categorizzazione (`utils/categorizzazione.ts`),
+> hook (`hooks/useImportBBVA.ts`), sezione UI (`components/ImportBBVA.tsx`),
+> ancora del saldo in `calcoliFisco.ts`. 47 test.
+>
+> **Da verificare sul file vero**: il parser è stato scritto sulla specifica
+> §3.1 e provato su fogli costruiti con la stessa forma (intestazione cercata,
+> non a riga fissa; date italiane, seriali Excel; importi con le migliaia).
+> Il primo import dell'export reale di agosto è il collaudo: attesi saldo
+> 25.855,97 €, interessi di luglio 28,87 € e "Tasse luglio" 6.961,24 €
+> proposta come categoria Tasse.
 
 Obiettivo: l'inserimento manuale diventa l'eccezione. Una volta al mese si
 trascina l'Excel e l'app si aggiorna da sola.
@@ -271,7 +282,11 @@ reale (anonimizzata).
 
 ---
 
-## 4. Fase 3 — Fiscozen come verifica, cuscinetto, interessi
+## 4. Fase 3 — Fiscozen come verifica, cuscinetto, interessi — ✅ FATTA (09/08/2026)
+
+> Spie in `utils/spieFiscozen.ts` + `components/SpieFiscozen.tsx`, cuscinetto
+> in `preferenze` (sincronizzato), interessi maturati in Analisi. Le stime
+> 2026/2027 sono già seminate nel database.
 
 ### 4.1 Fiscozen = check, non override
 
@@ -317,7 +332,17 @@ liquidità" senza alcun calcolo previsionale.
 
 ---
 
-## 5. Fase 4 — Dieta della UI
+## 5. Fase 4 — Dieta della UI — 🟡 PARZIALE (09/08/2026)
+
+> Fatto: sezione Import in sidebar, spie in dashboard, riga del cuscinetto,
+> riconciliazione mostrata solo quando c'è scostamento, CLAUDE.md aggiornato
+> (import, ancora del saldo, categorie strutturali, rettifiche marcate legacy).
+>
+> Non fatto di proposito: la rimozione del warning multi-“Saldo Iniziale” e
+> della logica speciale della categoria "Fatture". Il piano le lega all'ancora
+> "una volta stabile", e l'ancora si attiva col primo import vero. Toglierle
+> adesso significherebbe rimuovere le protezioni del vecchio modello prima che
+> il nuovo abbia girato una volta.
 
 - **Dashboard** (unica schermata che conta, ordine dall'alto):
   1. hero "Netto prelevabile sicuro" (invariato ma alimentato dal saldo BBVA,
@@ -342,7 +367,15 @@ liquidità" senza alcun calcolo previsionale.
 
 ---
 
-## 6. Fase 5 — Test e verifica finale
+## 6. Fase 5 — Test e verifica finale — 🟡 PARZIALE (09/08/2026)
+
+> Fatto: 178 test verdi, di cui 74 nuovi (parser, dedup, categorizzazione,
+> ancora del saldo, spie, traduzione movimenti ⇄ viste). I test fiscali
+> preesistenti non sono stati toccati.
+>
+> Da fare a mano: la deprecazione delle tabelle legacy è pronta in
+> `supabase/deprecazione-tabelle-legacy.sql`, **fuori** dalle migrazioni
+> automatiche perché non parta da sola. Rinomina, non elimina.
 
 1. Test nuovi: parser BBVA (fixture reale), dedup su import ripetuto,
    regole di categorizzazione, ancora del saldo + movimenti manuali
