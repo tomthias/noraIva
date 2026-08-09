@@ -481,6 +481,11 @@ export interface Accantonamento {
   proiezioneAnnoProssimo: number;
 
   totaleDaAccantonare: number;
+  /**
+   * Cuscinetto di emergenza: quanto NON prelevare comunque, oltre alle tasse.
+   * Zero se l'utente non ne ha impostato uno.
+   */
+  cuscinetto: number;
   nettoSicuro: number;
 }
 
@@ -502,7 +507,9 @@ export function calcolaAccantonamento(
   /** Incassi non rappresentati dalle fatture, sommati all'imponibile. */
   rettifiche: RettifichePerAnno = {},
   /** Ancora del saldo di banca: quando c'è, il cash smette di essere ricostruito. */
-  ancora?: AncoraSaldo
+  ancora?: AncoraSaldo,
+  /** Riserva personale da non toccare, oltre a quella per il fisco. */
+  cuscinetto = 0
 ): Accantonamento {
   const annoPrecedente = anno - 1;
   const dellAnno = <T extends { data: string }>(items: T[]) =>
@@ -682,7 +689,11 @@ export function calcolaAccantonamento(
     secondoAccontoAnnoProssimo,
     proiezioneAnnoProssimo,
     totaleDaAccantonare,
-    nettoSicuro: cashDisponibileReale - totaleDaAccantonare,
+    cuscinetto,
+    // Il cuscinetto si toglie dal prelevabile come fosse una scadenza in più:
+    // è la stessa domanda ("quanto posso togliere senza pentirmene"), solo che
+    // la risposta la dà l'utente invece del fisco.
+    nettoSicuro: cashDisponibileReale - totaleDaAccantonare - cuscinetto,
   };
 }
 

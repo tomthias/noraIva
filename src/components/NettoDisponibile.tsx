@@ -49,6 +49,9 @@ interface Props {
   onSalvaRettificaAnnoPrecedente?: (importo: number) => void;
   /** Saldo dichiarato dalla banca all'ultimo import: quando c'è, comanda lui. */
   ancoraSaldo?: AncoraSaldo;
+  /** Riserva personale da non prelevare, oltre a quella per il fisco. */
+  cuscinetto?: number;
+  onSalvaCuscinetto?: (importo: number) => void;
 }
 
 export function NettoDisponibile({
@@ -60,8 +63,27 @@ export function NettoDisponibile({
   rettifiche = {},
   onSalvaRettificaAnnoPrecedente,
   ancoraSaldo,
+  cuscinetto = 0,
+  onSalvaCuscinetto,
 }: Props) {
   const [bozzaAnnoPrecedente, setBozzaAnnoPrecedente] = useState("");
+  const [modificaCuscinetto, setModificaCuscinetto] = useState(false);
+  const [bozzaCuscinetto, setBozzaCuscinetto] = useState("");
+
+  const salvaCuscinetto = () => {
+    const { valore, errore } = calcolaEspressione(bozzaCuscinetto || "0");
+    if (valore === null) {
+      toast.error(errore ?? "Importo non valido");
+      return;
+    }
+    if (valore < 0) {
+      toast.error("Il cuscinetto non può essere negativo");
+      return;
+    }
+    onSalvaCuscinetto?.(valore);
+    setModificaCuscinetto(false);
+  };
+
   // Tutta la logica fiscale vive in calcoliFisco.ts: qui si consuma soltanto.
   // Analisi.tsx usa la stessa funzione, così i due schermi non possono divergere.
   const a = calcolaAccantonamento(
@@ -71,7 +93,8 @@ export function NettoDisponibile({
     entrate,
     annoSelezionato,
     rettifiche,
-    ancoraSaldo
+    ancoraSaldo,
+    cuscinetto
   );
 
   const d = a.dettaglioCash;
@@ -421,6 +444,47 @@ export function NettoDisponibile({
                 {formatCurrency(a.totaleDaAccantonare)}
               </span>
             </div>
+
+            {/* Il cuscinetto non è una tassa: è quanto vuoi comunque non
+                toccare. Si somma all'accantonamento perché risponde alla
+                stessa domanda — quanto posso togliere senza pentirmene. */}
+            {onSalvaCuscinetto && (
+              <div className="flex justify-between items-center pt-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Cuscinetto di emergenza</span>
+                  <InfoTooltip text="Riserva personale, decisa da te: viene tolta dal netto prelevabile insieme alle tasse. Metti 0 per non averne." />
+                </div>
+                {modificaCuscinetto ? (
+                  <div className="flex items-center gap-2">
+                    <ImportoInput
+                      value={bozzaCuscinetto}
+                      onChange={setBozzaCuscinetto}
+                      className="w-28 h-8"
+                      autoFocus
+                    />
+                    <Button size="sm" onClick={salvaCuscinetto}>OK</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setModificaCuscinetto(false)}
+                    >
+                      Annulla
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="font-mono tabular-nums hover:underline"
+                    onClick={() => {
+                      setBozzaCuscinetto(cuscinetto ? String(cuscinetto) : "");
+                      setModificaCuscinetto(true);
+                    }}
+                  >
+                    −{formatCurrency(cuscinetto)}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

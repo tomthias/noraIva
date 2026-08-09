@@ -7,6 +7,7 @@ import { AuthForm } from "./components/AuthForm";
 import { Sidebar, type SidebarSection } from "./components/Sidebar";
 import { RiepilogoCard } from "./components/RiepilogoCard";
 import { NettoDisponibile } from "./components/NettoDisponibile";
+import { SpieFiscozen } from "./components/SpieFiscozen";
 import { SogliaForfettario } from "./components/SogliaForfettario";
 
 import { TabellaFatture } from "./components/TabellaFatture";
@@ -23,7 +24,7 @@ import { ANNO, ANNO_MINIMO_VISIBILE } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
-import { calcolaTotaleFatture } from "./utils/calcoliFisco";
+import { calcolaAccantonamento, calcolaTotaleFatture } from "./utils/calcoliFisco";
 
 function App() {
   const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
@@ -50,6 +51,9 @@ function App() {
     rettifiche,
     impostaRettifica,
     ancoraSaldo,
+    stimeFiscozen,
+    cuscinetto,
+    salvaCuscinetto,
     refresh,
   } = useSupabaseCashFlow();
 
@@ -92,6 +96,23 @@ function App() {
 
   // Filtra fatture per anno selezionato (per il riepilogo)
   const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
+
+  // Stesso calcolo della card del netto: le spie confrontano quei numeri,
+  // non una loro riedizione.
+  const accantonamentoDashboard = useMemo(
+    () =>
+      calcolaAccantonamento(
+        fatture,
+        prelievi,
+        uscite,
+        entrate,
+        annoDashboard,
+        rettifiche,
+        ancoraSaldo,
+        cuscinetto
+      ),
+    [fatture, prelievi, uscite, entrate, annoDashboard, rettifiche, ancoraSaldo, cuscinetto]
+  );
 
 
 
@@ -177,10 +198,13 @@ function App() {
                   annoSelezionato={annoDashboard}
                   rettifiche={rettifiche}
                   ancoraSaldo={ancoraSaldo}
+                  cuscinetto={cuscinetto}
+                  onSalvaCuscinetto={salvaCuscinetto}
                   onSalvaRettificaAnnoPrecedente={(importo) => impostaRettifica(annoDashboard - 1, importo)}
                 />
               </div>
 
+              <SpieFiscozen accantonamento={accantonamentoDashboard} stime={stimeFiscozen} />
             </div>
           )}
 
