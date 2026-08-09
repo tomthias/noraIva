@@ -33,3 +33,7 @@ yarn-error.log*
 
 # Impostazioni locali degli agenti
 .claude/settings.local.json
+backups/
+
+# Stato locale della CLI Supabase
+supabase/.temp
