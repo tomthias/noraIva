@@ -152,6 +152,77 @@ export interface Database {
           updated_at?: string
         }
       }
+      movimenti: {
+        Row: {
+          id: string
+          user_id: string
+          data: string
+          descrizione: string
+          categoria: string | null
+          /** CON SEGNO: entrate > 0, uscite < 0. */
+          importo: number
+          fonte: string
+          import_hash: string | null
+          saldo_dopo: number | null
+          note: string | null
+          escludi_da_grafico: boolean | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          data: string
+          descrizione: string
+          categoria?: string | null
+          importo: number
+          fonte?: string
+          import_hash?: string | null
+          saldo_dopo?: number | null
+          note?: string | null
+          escludi_da_grafico?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          data?: string
+          descrizione?: string
+          categoria?: string | null
+          importo?: number
+          fonte?: string
+          import_hash?: string | null
+          saldo_dopo?: number | null
+          note?: string | null
+          escludi_da_grafico?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      rettifiche_incassi: {
+        Row: {
+          user_id: string
+          anno: number
+          importo: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          anno: number
+          importo: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          anno?: number
+          importo?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

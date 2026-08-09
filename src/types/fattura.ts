@@ -21,6 +21,31 @@ export interface Fattura {
   note?: string;
 }
 
+/**
+ * Una riga del conto, così come sta nella tabella unificata `movimenti`.
+ *
+ * A differenza di `Prelievo`/`Uscita`/`Entrata` (che tengono l'importo sempre
+ * positivo e affidano il segno al tipo di lista) qui l'importo è CON SEGNO:
+ * entrate positive, uscite negative. È il formato in cui arrivano i movimenti
+ * dell'export BBVA, ed è ciò che rende superflua la conversione fra tabelle.
+ */
+export interface Movimento {
+  id: string;
+  /** Data valuta (ISO YYYY-MM-DD). */
+  data: string;
+  descrizione: string;
+  /** es. "Stipendio", "Tasse - Acconto", "Interessi BBVA". */
+  categoria?: string;
+  /** CON SEGNO: entrate > 0, uscite < 0. */
+  importo: number;
+  /** 'manuale' | 'import_bbva' | 'migrazione'. */
+  fonte: string;
+  /** Saldo del conto dopo il movimento (colonna "Disponibile" dell'export BBVA). */
+  saldoDopo?: number;
+  note?: string;
+  escludiDaGrafico?: boolean;
+}
+
 export interface Prelievo {
   id: string;
   data: string; // ISO date format (YYYY-MM-DD)

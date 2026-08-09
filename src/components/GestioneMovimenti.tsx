@@ -76,11 +76,14 @@ interface Props {
   onAggiungiEntrata: (dati: Omit<Entrata, "id">) => void;
   onModificaEntrata: (id: string, dati: Partial<Entrata>) => void;
   onEliminaEntrata: (id: string) => void;
-  onConvertiTipoMovimento: (
-    sourceType: 'prelievo' | 'uscita' | 'entrata',
-    targetType: 'prelievo' | 'uscita' | 'entrata',
+  /**
+   * Cambia il tipo di un movimento. Con la tabella unica è un solo update:
+   * non serve più dire da dove viene, solo dove deve andare.
+   */
+  onCambiaTipoMovimento: (
     id: string,
-    movimento: Prelievo | Uscita | Entrata
+    nuovoTipo: 'prelievo' | 'uscita' | 'entrata',
+    dati: Omit<Uscita, "id">
   ) => void;
 }
 
@@ -104,7 +107,7 @@ export function GestioneMovimenti({
   onAggiungiEntrata,
   onModificaEntrata,
   onEliminaEntrata,
-  onConvertiTipoMovimento,
+  onCambiaTipoMovimento,
 }: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
   const [searchQuery, setSearchQuery] = useState("");
@@ -376,19 +379,16 @@ export function GestioneMovimenti({
     const nuovoImporto = importoCalcolato ?? movimento.importo;
 
     if (tipoChanged && editTipo) {
-      // Conversione di tipo. Va passato il movimento CON le modifiche appena fatte:
-      // passando `movimento.originale` si perdevano data, importo, descrizione e
-      // categoria modificati nella stessa sessione di edit.
-      const sourceType = tipoMovimentoToDbType(movimento.tipo);
-      const targetType = tipoMovimentoToDbType(editTipo);
-      const movimentoAggiornato = {
-        ...movimento.originale,
+      // Cambio di tipo. Vanno passate anche le modifiche fatte nella stessa
+      // sessione di edit: prima si perdevano data, importo, descrizione e
+      // categoria perché si spediva il movimento originale.
+      onCambiaTipoMovimento(originalId, tipoMovimentoToDbType(editTipo), {
         data: editData,
         descrizione: editDescrizione,
         importo: nuovoImporto,
-        ...(editTipo !== "stipendio" && { categoria: editCategoria || undefined }),
-      };
-      onConvertiTipoMovimento(sourceType, targetType, originalId, movimentoAggiornato);
+        categoria: editTipo === "stipendio" ? undefined : editCategoria || undefined,
+        note: movimento.originale.note,
+      });
     } else {
       // Modifica normale (stesso tipo)
       if (movimento.tipo === "stipendio") {
