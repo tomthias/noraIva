@@ -21,12 +21,7 @@ import { Toaster } from "./components/ui/sonner";
 import { ANNO, ANNO_MINIMO_VISIBILE } from "./constants/fiscali";
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
-import {
-  caricaDescrizioniSalvate,
-  salvaDescrizione,
-  caricaRettificheIncassi,
-  salvaRettificaIncassi,
-} from "./utils/storage";
+import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
 import { calcolaTotaleFatture } from "./utils/calcoliFisco";
 
 function App() {
@@ -51,6 +46,8 @@ function App() {
     modificaEntrata,
     eliminaEntrata,
     convertiTipoMovimento,
+    rettifiche,
+    impostaRettifica,
   } = useSupabaseCashFlow();
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
@@ -59,15 +56,6 @@ function App() {
   // Descrizioni salvate in localStorage: lette una sola volta al primo render
   // (lazy initializer, non un effect: evita il render a vuoto iniziale).
   const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>(caricaDescrizioniSalvate);
-
-  // Rettifiche degli incassi per anno: incassato che le fatture registrate non
-  // rappresentano. Si SOMMA al totale calcolato, così le fatture nuove contano.
-  const [rettifiche, setRettifiche] = useState(caricaRettificheIncassi);
-
-  const impostaRettifica = (anno: number, importo: number) => {
-    salvaRettificaIncassi(anno, importo);
-    setRettifiche(caricaRettificheIncassi());
-  };
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
   // Nascondi anni precedenti al 2026 (dati resettati)

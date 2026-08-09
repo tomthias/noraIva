@@ -21,6 +21,44 @@ export interface Fattura {
   note?: string;
 }
 
+/**
+ * Un movimento di conto corrente. Tabella unica: entrate, uscite e stipendi
+ * sono lo stesso oggetto, distinto solo dal segno dell'importo e dalla
+ * categoria.
+ *
+ * Prima esistevano tre tabelle (`prelievi`, `uscite`, `entrate`) e cambiare il
+ * tipo di un movimento significava cancellarlo da una e reinserirlo in
+ * un'altra. Con una tabella sola cambiare tipo = cambiare categoria o segno.
+ */
+export interface Movimento {
+  id: string;
+  /**
+   * Data VALUTA (ISO YYYY-MM-DD): il giorno in cui i soldi sono realmente
+   * entrati o usciti dal conto. Per gli import BBVA è la colonna B, non la
+   * data contabile.
+   */
+  data: string;
+  descrizione: string;
+  categoria?: string;
+  /** CON SEGNO: entrate positive, uscite negative. */
+  importo: number;
+  /** Da dove arriva il dato: inserito a mano, importato, o migrato. */
+  fonte: FonteMovimento;
+  /** Chiave di dedup degli import; assente sui movimenti manuali. */
+  importHash?: string;
+  /** Saldo del conto dopo il movimento (colonna "Disponibile" dell'estratto). */
+  saldoDopo?: number;
+  /** Data contabile dell'estratto: può essere futura, serve solo all'ordine. */
+  dataContabile?: string;
+  /** Flag di sola presentazione: esclude dai grafici, mai dai totali. */
+  escludiDaGrafico?: boolean;
+  note?: string;
+  /** Se è l'incasso di una fattura registrata, il suo id. */
+  fatturaId?: string;
+}
+
+export type FonteMovimento = "manuale" | "import_bbva" | "migrazione";
+
 export interface Prelievo {
   id: string;
   data: string; // ISO date format (YYYY-MM-DD)

@@ -33,3 +33,12 @@ yarn-error.log*
 
 # Impostazioni locali degli agenti
 .claude/settings.local.json
+
+# Backup del database (contengono dati personali)
+scripts/backup/
+
+# Stato locale della CLI Supabase
+supabase/.temp/
+
+# File di lavoro temporanei
+scripts/_tmp-*.mjs

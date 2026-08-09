@@ -123,6 +123,50 @@ export const CATEGORIE_TASSE_LISTA = [
 ] as const;
 
 // ============================================================================
+// CATEGORIE STRUTTURALI DEI MOVIMENTI
+// ============================================================================
+// Con la tabella unica `movimenti` il "tipo" di un movimento è la sua
+// categoria. Queste tre hanno significato per i calcoli, non solo per i
+// grafici, quindi vanno riconosciute in modo tollerante (maiuscole, singolare
+// o plurale) e scritte sempre nella forma normalizzata.
+
+/**
+ * Stipendio verso il conto personale. Forma plurale perché è quella prodotta
+ * da `normalizzaCategoria` ("Stipendio" → "Stipendi"): scrivere il singolare
+ * creerebbe due categorie distinte nei grafici.
+ */
+export const CATEGORIA_STIPENDIO = "Stipendi";
+
+/**
+ * Bonifico ricevuto che salda una fattura. Escluso dal cash bottom-up: i
+ * compensi entrano già dalla tabella `fatture`, contarli anche come movimento
+ * li conterebbe due volte.
+ */
+export const CATEGORIA_INCASSO_FATTURA = "Incasso Fattura";
+
+/** Punto di partenza del conto, non denaro fresco. */
+export const CATEGORIA_SALDO_INIZIALE = "Saldo Iniziale";
+
+/** Accredito mensile degli interessi sulla liquidità BBVA. */
+export const CATEGORIA_INTERESSI = "Interessi BBVA";
+
+/** true per "Stipendio", "Stipendi", "STIPENDI"… */
+export const eStipendio = (categoria: string | null | undefined): boolean =>
+  /^stipendi/i.test((categoria ?? "").trim());
+
+/** true per "Saldo Iniziale" e per la variante DB "saldo_iniziale". */
+export const eSaldoIniziale = (categoria: string | null | undefined): boolean =>
+  /^saldo[ _]iniziale/i.test((categoria ?? "").trim());
+
+/** true per "Incasso Fattura" e per la vecchia categoria "Fatture". */
+export const eIncassoFattura = (categoria: string | null | undefined): boolean =>
+  /^(incasso fattura|fatture?)$/i.test((categoria ?? "").trim());
+
+/** true per "Interessi" (storico) e "Interessi BBVA" (import). */
+export const eInteressi = (categoria: string | null | undefined): boolean =>
+  /^interessi/i.test((categoria ?? "").trim());
+
+// ============================================================================
 // ACCONTI
 // ============================================================================
 // I due tributi seguono regole DIVERSE: applicare 40%/60% al totale delle

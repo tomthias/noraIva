@@ -76,7 +76,7 @@ export interface KPI {
 }
 
 /** Sigle che vanno restituite in maiuscolo, non in Title Case. */
-const ACRONIMI = new Set(['inps', 'iva', 'irpef', 'inail', 'f24']);
+const ACRONIMI = new Set(['inps', 'iva', 'irpef', 'inail', 'f24', 'bbva']);
 
 /** Singolari normalizzati al plurale, per non avere due fette uguali nei grafici. */
 const MAPPATURE_CATEGORIA: Record<string, string> = {

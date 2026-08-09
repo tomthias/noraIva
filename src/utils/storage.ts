@@ -1,82 +1,57 @@
 /**
- * Gestione localStorage per le preferenze locali (descrizioni salvate,
- * incassi dichiarati a mano)
+ * Gestione localStorage per le preferenze puramente locali a questo browser.
+ *
+ * I dati (fatture, movimenti, rettifiche) vivono su Supabase.
  */
 
-import { RETTIFICHE_INCASSI_INIZIALI } from "../constants/fiscali";
-
-// I dati (fatture, prelievi, uscite, entrate) vivono su Supabase: qui resta
-// solo ciò che è puramente locale a questo browser.
-
-// ===== RETTIFICHE INCASSI (per anno) =====
+// ===== RETTIFICHE INCASSI — solo residuo storico =====
+//
+// Le rettifiche stavano qui, quindi erano legate a un singolo browser e non si
+// sincronizzavano. Ora vivono nella tabella `rettifiche_incassi` di Supabase.
+// Queste funzioni restano per una cosa sola: recuperare i valori già salvati
+// nel browser dell'utente e portarli su Supabase al primo avvio dopo la
+// migrazione. Fatto quello, non si legge più da qui.
 
 const RETTIFICHE_KEY = "rettifiche-incassi";
+const RETTIFICHE_MIGRATE_KEY = "rettifiche-incassi-migrate-supabase";
 
-/**
- * Incassato che le fatture registrate NON rappresentano, per anno fiscale.
- *
- * Serve quando le fatture hanno date di emissione invece che di incasso, o
- * quando un anno non è in database. Si somma al totale calcolato:
- *
- *     incassi anno = somma fatture + rettifica
- *
- * NOTA: stanno in localStorage, quindi sono legate a QUESTO browser e non
- * sono sincronizzate fra dispositivi. Se questo diventa un problema vanno
- * spostate su Supabase in una tabella `rettifiche_incassi`.
- */
-/**
- * Chiave del seed: garantisce che i valori iniziali vengano scritti UNA volta
- * sola. Senza, azzerare una rettifica la farebbe ricomparire al reload.
- */
-const RETTIFICHE_SEED_KEY = "rettifiche-incassi-seed-v1";
-
-function leggiRettifiche(): Record<number, number> {
-  const data = localStorage.getItem(RETTIFICHE_KEY);
-  if (!data) return {};
-  const parsed = JSON.parse(data) as Record<string, number>;
-  return Object.fromEntries(
-    Object.entries(parsed)
-      .map(([anno, importo]) => [Number(anno), Number(importo)])
-      .filter(([anno, importo]) => Number.isFinite(anno) && Number.isFinite(importo))
-  );
-}
-
-/** Precarica i valori noti al primo avvio, senza sovrascrivere scelte esistenti. */
-function seedIniziale(): void {
-  if (localStorage.getItem(RETTIFICHE_SEED_KEY)) return;
-
-  const attuali = leggiRettifiche();
-  for (const [anno, importo] of Object.entries(RETTIFICHE_INCASSI_INIZIALI)) {
-    if (attuali[Number(anno)] === undefined) attuali[Number(anno)] = importo;
-  }
-  localStorage.setItem(RETTIFICHE_KEY, JSON.stringify(attuali));
-  localStorage.setItem(RETTIFICHE_SEED_KEY, "1");
-}
-
-export function caricaRettificheIncassi(): Record<number, number> {
+/** Rettifiche eventualmente rimaste in questo browser, per la migrazione. */
+export function caricaRettificheLocali(): Record<number, number> {
   try {
-    seedIniziale();
-    return leggiRettifiche();
+    const data = localStorage.getItem(RETTIFICHE_KEY);
+    if (!data) return {};
+    const parsed = JSON.parse(data) as Record<string, number>;
+    return Object.fromEntries(
+      Object.entries(parsed)
+        .map(([anno, importo]) => [Number(anno), Number(importo)])
+        .filter(([anno, importo]) => Number.isFinite(anno) && Number.isFinite(importo))
+    );
   } catch (error) {
-    console.error("Errore nel caricamento delle rettifiche incassi:", error);
+    console.error("Errore nella lettura delle rettifiche locali:", error);
     return {};
   }
 }
 
-export function salvaRettificaIncassi(anno: number, importo: number): void {
+/**
+ * true se la migrazione verso Supabase è già avvenuta su questo browser.
+ *
+ * Senza questo marcatore, azzerare tutte le rettifiche su Supabase le farebbe
+ * ricomparire al reload successivo, ripescate da localStorage o dal seed.
+ */
+export function rettificheGiaMigrate(): boolean {
   try {
-    const attuali = caricaRettificheIncassi();
-    if (importo === 0) delete attuali[anno];
-    else attuali[anno] = importo;
-    localStorage.setItem(RETTIFICHE_KEY, JSON.stringify(attuali));
-  } catch (error) {
-    console.error("Errore nel salvataggio della rettifica incassi:", error);
+    return localStorage.getItem(RETTIFICHE_MIGRATE_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 
-/** Azzera la rettifica: l'anno torna a contare solo le fatture registrate. */
-export function rimuoviRettificaIncassi(anno: number): void {
-  salvaRettificaIncassi(anno, 0);
+export function marcaRettificheMigrate(): void {
+  try {
+    localStorage.setItem(RETTIFICHE_MIGRATE_KEY, "1");
+  } catch (error) {
+    console.error("Errore nel marcare le rettifiche come migrate:", error);
+  }
 }
 
 // ===== DESCRIZIONI SALVATE =====

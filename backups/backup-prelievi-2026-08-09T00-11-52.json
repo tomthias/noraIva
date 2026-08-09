@@ -1,0 +1,312 @@
+[
+  {
+    "id": "03899cc3-51fa-4323-ab9a-d5ae91beb206",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-02-16",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:49.320564+00:00",
+    "updated_at": "2025-12-31T17:59:49.320564+00:00"
+  },
+  {
+    "id": "f7791d77-c2b3-4d25-9b92-2cf06585a077",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-02-23",
+    "descrizione": "Mattia marinangeli",
+    "importo": 150,
+    "note": null,
+    "created_at": "2025-12-31T17:59:49.187463+00:00",
+    "updated_at": "2025-12-31T17:59:49.187463+00:00"
+  },
+  {
+    "id": "0ca7928f-e5d2-4ce9-b445-56c90abb2211",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-03-05",
+    "descrizione": "Mattia marinangeli",
+    "importo": 150,
+    "note": null,
+    "created_at": "2025-12-31T17:59:48.981258+00:00",
+    "updated_at": "2025-12-31T17:59:48.981258+00:00"
+  },
+  {
+    "id": "72bee026-88d9-4f68-b53b-9eb8aba4127c",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-03-14",
+    "descrizione": "Viaggio in norvegia 6-13aprile mattia marinangeli",
+    "importo": 800,
+    "note": null,
+    "created_at": "2025-12-31T17:59:48.739181+00:00",
+    "updated_at": "2025-12-31T17:59:48.739181+00:00"
+  },
+  {
+    "id": "702a5c0d-4003-482f-acbb-d0eee1d78488",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-04-02",
+    "descrizione": "Stipendio parziale aprile",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:48.009765+00:00",
+    "updated_at": "2025-12-31T17:59:48.009765+00:00"
+  },
+  {
+    "id": "95652fe6-8e5c-4252-acff-6172fa16d41d",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-05-06",
+    "descrizione": "Mattia marinangeli",
+    "importo": 300,
+    "note": null,
+    "created_at": "2025-12-31T17:59:47.243433+00:00",
+    "updated_at": "2025-12-31T17:59:47.243433+00:00"
+  },
+  {
+    "id": "f7fdce5b-d945-4829-a673-f3284ed35ee5",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-05-20",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:47.073556+00:00",
+    "updated_at": "2025-12-31T17:59:47.073556+00:00"
+  },
+  {
+    "id": "ec7c50dc-649b-4b96-bb06-897536e7b25c",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-06-13",
+    "descrizione": "Versamento aggiuntivo - marinangeli mattia",
+    "importo": 2000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:46.675031+00:00",
+    "updated_at": "2025-12-31T17:59:46.675031+00:00"
+  },
+  {
+    "id": "55f993dc-381a-4cda-bc0c-12b662b2e2ed",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-07-01",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:46.445691+00:00",
+    "updated_at": "2025-12-31T17:59:46.445691+00:00"
+  },
+  {
+    "id": "f499e4b2-0079-4d01-ba79-462f2d86058b",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-07-22",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:45.981902+00:00",
+    "updated_at": "2025-12-31T17:59:45.981902+00:00"
+  },
+  {
+    "id": "46d8fab2-ab84-4595-b383-681b81bc94d0",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-08-12",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:45.81667+00:00",
+    "updated_at": "2025-12-31T17:59:45.81667+00:00"
+  },
+  {
+    "id": "bcd33df8-d7fa-4b5c-9301-9074f3a39ad2",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-09-02",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:45.101302+00:00",
+    "updated_at": "2025-12-31T17:59:45.101302+00:00"
+  },
+  {
+    "id": "e6fd080e-7480-41b2-9c1f-972f5898b3b5",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-09-23",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:44.802178+00:00",
+    "updated_at": "2025-12-31T17:59:44.802178+00:00"
+  },
+  {
+    "id": "3c5eba50-12a8-48f0-b0bd-4f0ed06a710a",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-10-24",
+    "descrizione": "Mattia marinangeli",
+    "importo": 850,
+    "note": null,
+    "created_at": "2025-12-31T17:59:44.282164+00:00",
+    "updated_at": "2025-12-31T17:59:44.282164+00:00"
+  },
+  {
+    "id": "7a8679a0-a0a8-42fa-8bea-59c74392a060",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-11-04",
+    "descrizione": "41473 marinangeli mattia",
+    "importo": 2705,
+    "note": null,
+    "created_at": "2025-12-31T17:59:44.047009+00:00",
+    "updated_at": "2025-12-31T17:59:44.047009+00:00"
+  },
+  {
+    "id": "cafe5565-30b7-4f3d-8bff-b31aa781c3c7",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-11-05",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:43.737037+00:00",
+    "updated_at": "2025-12-31T17:59:43.737037+00:00"
+  },
+  {
+    "id": "357267d3-7a55-46da-9957-6db48a6eeafd",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-11-05",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:43.805761+00:00",
+    "updated_at": "2025-12-31T17:59:43.805761+00:00"
+  },
+  {
+    "id": "9f21813c-c763-4a63-80b5-36d012a4c1f6",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-12-10",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:43.103813+00:00",
+    "updated_at": "2025-12-31T17:59:43.103813+00:00"
+  },
+  {
+    "id": "5cba62c1-ada3-4e16-9d81-ceee7906fd14",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-12-23",
+    "descrizione": "Mattia marinangeli",
+    "importo": 500,
+    "note": null,
+    "created_at": "2025-12-31T17:59:42.990793+00:00",
+    "updated_at": "2025-12-31T17:59:42.990793+00:00"
+  },
+  {
+    "id": "e187af8c-e563-4b82-83a6-120ef15e9bf2",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-12-23",
+    "descrizione": "Mattia marinangeli",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2025-12-31T17:59:43.045521+00:00",
+    "updated_at": "2025-12-31T17:59:43.045521+00:00"
+  },
+  {
+    "id": "ce503632-6e95-4221-90dd-c904c8c79e48",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2024-12-30",
+    "descrizione": "Caparra per ski touring georgia 2025 mattia marinangeli",
+    "importo": 700,
+    "note": null,
+    "created_at": "2025-12-31T17:59:42.683195+00:00",
+    "updated_at": "2025-12-31T17:59:42.683195+00:00"
+  },
+  {
+    "id": "71ad026d-e1ba-4d3e-a7ca-4e0ce7d6e128",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-01-11",
+    "descrizione": "Stipendio Gennaio ",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-01-11T19:10:52.655267+00:00",
+    "updated_at": "2026-01-11T19:12:09.109804+00:00"
+  },
+  {
+    "id": "e5628ea3-2914-4cc7-865b-7b4c37862558",
+    "user_id": "1f563579-e956-4f44-a6f7-dbbb6648fb58",
+    "data": "2026-01-12",
+    "descrizione": "gennzaio",
+    "importo": 1500,
+    "note": null,
+    "created_at": "2026-01-12T18:18:45.49799+00:00",
+    "updated_at": "2026-01-12T18:18:45.49799+00:00"
+  },
+  {
+    "id": "917b300f-11ee-4281-b8e0-736d8d69ed4a",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-02-04",
+    "descrizione": "Stipendio Febbraio",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-02-04T11:26:53.373427+00:00",
+    "updated_at": "2026-02-04T11:26:53.373427+00:00"
+  },
+  {
+    "id": "039eb6ff-9931-42ee-b03a-d80c5e436c98",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-03-08",
+    "descrizione": "Stipendio Marzo",
+    "importo": 500,
+    "note": null,
+    "created_at": "2026-03-08T08:34:15.332898+00:00",
+    "updated_at": "2026-03-08T08:34:15.332898+00:00"
+  },
+  {
+    "id": "f9cffda1-8128-4b2c-a9ca-4ca5e60907fc",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-03-21",
+    "descrizione": "Aprile",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-03-21T20:47:58.075994+00:00",
+    "updated_at": "2026-04-03T18:09:38.411971+00:00"
+  },
+  {
+    "id": "440a5e84-4136-4221-a004-6bd48a7a43fa",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-05-22",
+    "descrizione": "Maggio",
+    "importo": 1500,
+    "note": null,
+    "created_at": "2026-05-22T13:30:08.809277+00:00",
+    "updated_at": "2026-05-22T13:30:08.809277+00:00"
+  },
+  {
+    "id": "4b16d94c-2975-428a-90aa-8f963f4da9d4",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-06-11",
+    "descrizione": "Maggio",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-06-11T11:29:19.234522+00:00",
+    "updated_at": "2026-06-11T11:29:19.234522+00:00"
+  },
+  {
+    "id": "7ba22a90-27a6-42d6-a104-c95b2e25cb7b",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-06-26",
+    "descrizione": "Stipendio Giugno",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-06-26T12:21:26.46622+00:00",
+    "updated_at": "2026-06-26T12:21:26.46622+00:00"
+  },
+  {
+    "id": "fea82baa-28f6-49aa-8abf-f65c3d137b5a",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-07-27",
+    "descrizione": "Stipendio Giugno",
+    "importo": 1100,
+    "note": null,
+    "created_at": "2026-07-27T08:49:49.384951+00:00",
+    "updated_at": "2026-07-27T08:49:49.384951+00:00"
+  },
+  {
+    "id": "f66c6dfa-b0cc-4700-ba58-ba7002e2b28b",
+    "user_id": "580d9a54-9a65-4b36-a2a5-480908b1ee38",
+    "data": "2026-08-08",
+    "descrizione": "Stipendio Agosto",
+    "importo": 1000,
+    "note": null,
+    "created_at": "2026-08-08T11:53:45.785105+00:00",
+    "updated_at": "2026-08-08T11:53:45.785105+00:00"
+  }
+]
