@@ -12,6 +12,7 @@ import { SogliaForfettario } from "./components/SogliaForfettario";
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
 import { GestioneMovimenti } from "./components/GestioneMovimenti";
+import { ImportBBVA } from "./components/ImportBBVA";
 import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
 import { YearFilter } from "./components/YearFilter";
@@ -48,7 +49,19 @@ function App() {
     convertiTipoMovimento,
     rettifiche,
     impostaRettifica,
+    ancoraSaldo,
+    refresh,
   } = useSupabaseCashFlow();
+
+  // Categorie già in uso: alimentano il menu dell'anteprima di import, così le
+  // nuove righe si agganciano a quelle esistenti invece di creare doppioni.
+  const categorieEsistenti = useMemo(
+    () =>
+      Array.from(
+        new Set([...uscite, ...entrate].map((m) => m.categoria).filter((c): c is string => !!c))
+      ),
+    [uscite, entrate]
+  );
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -163,6 +176,7 @@ function App() {
                   entrate={entrate}
                   annoSelezionato={annoDashboard}
                   rettifiche={rettifiche}
+                  ancoraSaldo={ancoraSaldo}
                   onSalvaRettificaAnnoPrecedente={(importo) => impostaRettifica(annoDashboard - 1, importo)}
                 />
               </div>
@@ -246,6 +260,13 @@ function App() {
             </div>
           )}
 
+          {activeSection === "import" && (
+            <ImportBBVA
+              categorieEsistenti={categorieEsistenti}
+              onImportCompletato={refresh}
+            />
+          )}
+
           {activeSection === "analisi" && (
             <Analisi
               fatture={fatture}
@@ -253,6 +274,7 @@ function App() {
               entrate={entrate}
               prelievi={prelievi}
               rettifiche={rettifiche}
+              ancoraSaldo={ancoraSaldo}
             />
           )}
 

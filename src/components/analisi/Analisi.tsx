@@ -24,7 +24,11 @@ import {
   calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import { calcolaAccantonamento, type RettifichePerAnno } from "../../utils/calcoliFisco";
+import {
+  calcolaAccantonamento,
+  type AncoraSaldo,
+  type RettifichePerAnno,
+} from "../../utils/calcoliFisco";
 import { ANNO, ANNO_MINIMO_VISIBILE } from "../../constants/fiscali";
 
 interface Props {
@@ -34,9 +38,18 @@ interface Props {
   prelievi: Prelievo[];
   /** Rettifiche degli incassi per anno (vedi Dashboard → Incassi). */
   rettifiche?: RettifichePerAnno;
+  /** Saldo dichiarato dalla banca all'ultimo import: quando c'è, comanda lui. */
+  ancoraSaldo?: AncoraSaldo;
 }
 
-export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }: Props) {
+export function Analisi({
+  fatture,
+  uscite,
+  entrate,
+  prelievi,
+  rettifiche = {},
+  ancoraSaldo,
+}: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number>(ANNO);
 
   // Estrai anni disponibili, includendo sempre anno corrente
@@ -93,9 +106,10 @@ export function Analisi({ fatture, uscite, entrate, prelievi, rettifiche = {} }:
         uscite,
         entrate,
         annoSelezionato,
-        rettifiche
+        rettifiche,
+        ancoraSaldo
       ),
-    [fatture, prelievi, uscite, entrate, annoSelezionato, rettifiche]
+    [fatture, prelievi, uscite, entrate, annoSelezionato, rettifiche, ancoraSaldo]
   );
 
   // Aggregazioni per grafici

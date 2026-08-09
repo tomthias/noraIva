@@ -26,9 +26,12 @@ import {
   ACCONTO_IMPOSTA_2,
   SOGLIA_ACCONTO_MINIMA,
   SOGLIA_ACCONTO_RATA_UNICA,
+  eIncassoFattura,
+  eSaldoIniziale,
 } from "../constants/fiscali";
 import type {
   Fattura,
+  Movimento,
   Prelievo,
   Uscita,
   Entrata,
@@ -241,13 +244,11 @@ export function calcolaSituazioneCashFlow(
 
   // Entrate extra (rimborsi, bonus, interessi)
   // ESCLUDI: Saldo Iniziale e Fatture (già conteggiate sopra)
+  // L'import BBVA scrive gli incassi come categoria "Incasso Fattura": senza
+  // il riconoscimento tollerante venivano contati due volte, una dalla tabella
+  // `fatture` e una come movimento.
   const totaleEntrate = entrate
-    .filter(e => {
-      const cat = e.categoria?.toLowerCase() || '';
-      const isSaldoIniziale = cat === 'saldo iniziale' || cat === 'saldo_iniziale';
-      const isFatture = cat === 'fatture';
-      return !isSaldoIniziale && !isFatture;
-    })
+    .filter(e => !eSaldoIniziale(e.categoria) && !eIncassoFattura(e.categoria))
     .reduce((sum, e) => sum + e.importo, 0);
 
   // Netto disponibile = Fatturato LORDO + Entrate Extra - Prelievi - Uscite
@@ -260,6 +261,48 @@ export function calcolaSituazioneCashFlow(
     totaleEntrate,
     nettoDisponibile,
   };
+}
+
+// ============================================================================
+// ANCORA DEL SALDO — la banca dice quanto c'è
+// ============================================================================
+
+/**
+ * Il saldo dichiarato dalla banca a una certa data, più i movimenti aggiunti
+ * a mano dopo quella data.
+ *
+ * Ricostruire il cash dal basso (saldo iniziale + tutti i movimenti) è fragile:
+ * basta dimenticare una spesa e il numero è sbagliato per sempre, senza che
+ * niente lo segnali. L'export BBVA porta la colonna "Disponibile", cioè il
+ * saldo dopo ogni movimento: la banca sa già quanto c'è sul conto.
+ */
+export interface AncoraSaldo {
+  /** Data valuta del movimento più recente importato (ISO YYYY-MM-DD). */
+  data: string;
+  /** Saldo del conto a quella data, dall'export. */
+  saldo: number;
+  /**
+   * Tutti i movimenti conosciuti: servono quelli NON importati e successivi
+   * all'ancora, che la banca ancora non ha visto.
+   */
+  movimenti: Movimento[];
+}
+
+/**
+ * Cash disponibile secondo la banca.
+ *
+ *     saldo dell'ultimo import + movimenti manuali successivi
+ *
+ * I movimenti importati dopo l'ancora non esistono per definizione (l'ancora è
+ * il più recente del file), e quelli importati prima sono già dentro il saldo:
+ * sommarli lo raddoppierebbe. Contano solo quelli inseriti a mano, cioè le
+ * cose che sai tu e la banca non ha ancora registrato.
+ */
+export function calcolaCashDaBanca(ancora: AncoraSaldo): number {
+  const dopo = ancora.movimenti.filter(
+    (m) => m.fonte !== "import_bbva" && m.data > ancora.data
+  );
+  return ancora.saldo + dopo.reduce((sum, m) => sum + m.importo, 0);
 }
 
 // ============================================================================
@@ -375,9 +418,23 @@ export interface Accantonamento {
   rettificaAnnoCorrente: number;
   rettificaAnnoPrecedente: number;
 
-  /** Cash realmente disponibile: saldo iniziale + movimenti dell'anno. */
+  /** Cash realmente disponibile: saldo di banca, o ricostruito se non c'è import. */
   saldoIniziale: number;
   cashDisponibileReale: number;
+
+  /**
+   * Riconciliazione fra i due modi di sapere quanti soldi ci sono.
+   *
+   * `cashRicostruito` è la vecchia somma dal basso (saldo iniziale + movimenti).
+   * `scostamentoBanca` è quanto se ne discosta il saldo dichiarato dalla banca:
+   * diverso da zero significa che manca un movimento o che uno è doppio, non
+   * che il netto prelevabile è sbagliato. Zero quando non c'è ancora nessun
+   * import: non c'è niente da riconciliare.
+   */
+  cashRicostruito: number;
+  scostamentoBanca: number;
+  /** L'ancora usata, se c'era: serve alla dashboard per dire "saldo al …". */
+  ancoraSaldo?: AncoraSaldo;
 
   /**
    * Scomposizione del cash, riga per riga. Serve a confrontare il numero
@@ -443,7 +500,9 @@ export function calcolaAccantonamento(
   entrate: Entrata[],
   anno: number,
   /** Incassi non rappresentati dalle fatture, sommati all'imponibile. */
-  rettifiche: RettifichePerAnno = {}
+  rettifiche: RettifichePerAnno = {},
+  /** Ancora del saldo di banca: quando c'è, il cash smette di essere ricostruito. */
+  ancora?: AncoraSaldo
 ): Accantonamento {
   const annoPrecedente = anno - 1;
   const dellAnno = <T extends { data: string }>(items: T[]) =>
@@ -471,7 +530,16 @@ export function calcolaAccantonamento(
     0
   );
 
-  const cashDisponibileReale = saldoIniziale + cashFlow.nettoDisponibile;
+  // Il cash ricostruito dal basso: saldo iniziale più i movimenti dell'anno.
+  // Resta calcolato anche quando c'è l'ancora, perché è il termine di
+  // paragone della riconciliazione.
+  const cashRicostruito = saldoIniziale + cashFlow.nettoDisponibile;
+
+  // Con l'ancora il cash NON si ricostruisce più: lo dice la banca. Un
+  // movimento dimenticato sposta la riconciliazione, non il netto prelevabile.
+  const cashDaBanca = ancora ? calcolaCashDaBanca(ancora) : undefined;
+  const cashDisponibileReale = cashDaBanca ?? cashRicostruito;
+  const scostamentoBanca = cashDaBanca === undefined ? 0 : cashRicostruito - cashDaBanca;
 
   const entrateMarcateEscluse = dellAnno(entrate)
     .filter((e) => {
@@ -582,6 +650,9 @@ export function calcolaAccantonamento(
     rettificaAnnoPrecedente,
     saldoIniziale,
     cashDisponibileReale,
+    cashRicostruito,
+    scostamentoBanca,
+    ancoraSaldo: ancora,
     dettaglioCash: {
       saldoIniziale,
       fatturato: cashFlow.totaleFatturato,

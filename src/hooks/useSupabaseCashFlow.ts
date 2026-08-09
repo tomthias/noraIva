@@ -33,6 +33,7 @@ import {
   rettificheGiaMigrate,
 } from "../utils/storage";
 import { entrateDa, prelieviDa, usciteDa } from "../utils/movimenti";
+import type { AncoraSaldo } from "../utils/calcoliFisco";
 
 type FatturaRow = Database["public"]["Tables"]["fatture"]["Row"];
 type MovimentoRow = Database["public"]["Tables"]["movimenti"]["Row"];
@@ -105,6 +106,10 @@ export function useSupabaseCashFlow() {
   const [fatture, setFatture] = useState<Fattura[]>([]);
   const [movimenti, setMovimenti] = useState<Movimento[]>([]);
   const [rettifiche, setRettifiche] = useState<Record<number, number>>({});
+  /** Saldo dell'ultimo estratto importato: l'ancora del cash (piano §3.6). */
+  const [ultimoSaldoBanca, setUltimoSaldoBanca] = useState<{ data: string; saldo: number } | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -125,9 +130,14 @@ export function useSupabaseCashFlow() {
         return;
       }
 
-      const [fattureRes, movimentiRes] = await Promise.all([
+      const [fattureRes, movimentiRes, importRes] = await Promise.all([
         supabase.from("fatture").select("*").order("data", { ascending: false }),
         supabase.from("movimenti").select("*").order("data", { ascending: false }),
+        supabase
+          .from("import_estratti")
+          .select("data_saldo, saldo")
+          .order("data_saldo", { ascending: false })
+          .limit(1),
       ]);
 
       if (fattureRes.error) throw fattureRes.error;
@@ -135,6 +145,14 @@ export function useSupabaseCashFlow() {
 
       setFatture(fattureRes.data?.map(dbToFattura) ?? []);
       setMovimenti(movimentiRes.data?.map(dbToMovimento) ?? []);
+
+      // L'assenza di import non è un errore: finché non se ne fa uno il cash
+      // continua a essere ricostruito dal basso, come prima.
+      const ultimo = importRes.error ? null : importRes.data?.[0];
+      setUltimoSaldoBanca(
+        ultimo ? { data: ultimo.data_saldo, saldo: Number(ultimo.saldo) } : null
+      );
+
       setRettifiche(await caricaRettifiche(user.id));
     } catch (err) {
       console.error("Error loading data:", err);
@@ -406,6 +424,16 @@ export function useSupabaseCashFlow() {
   const uscite = useMemo<Uscita[]>(() => usciteDa(movimenti), [movimenti]);
   const entrate = useMemo<Entrata[]>(() => entrateDa(movimenti), [movimenti]);
 
+  // L'ancora è pronta all'uso per `calcolaAccantonamento`: null finché non è
+  // stato importato nessun estratto.
+  const ancoraSaldo = useMemo<AncoraSaldo | undefined>(
+    () =>
+      ultimoSaldoBanca
+        ? { data: ultimoSaldoBanca.data, saldo: ultimoSaldoBanca.saldo, movimenti }
+        : undefined,
+    [ultimoSaldoBanca, movimenti]
+  );
+
   return {
     fatture,
     movimenti,
@@ -413,6 +441,7 @@ export function useSupabaseCashFlow() {
     uscite,
     entrate,
     rettifiche,
+    ancoraSaldo,
     isLoading,
     error,
     aggiungiFattura,
