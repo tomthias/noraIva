@@ -32,6 +32,7 @@ import {
   marcaRettificheMigrate,
   rettificheGiaMigrate,
 } from "../utils/storage";
+import { entrateDa, prelieviDa, usciteDa } from "../utils/movimenti";
 
 type FatturaRow = Database["public"]["Tables"]["fatture"]["Row"];
 type MovimentoRow = Database["public"]["Tables"]["movimenti"]["Row"];
@@ -95,41 +96,10 @@ export const movimentoToDb = (
   fattura_id: movimento.fatturaId ?? null,
 });
 
-// ===== viste retrocompatibili =====
-// Le tre liste storiche sono derivate dal segno e dalla categoria. Uno
-// stipendio è un'uscita anche per la banca, ma nei calcoli è sempre stato
-// contato a parte: la partizione qui sotto riproduce esattamente la vecchia
-// aritmetica `fatture + entrate − prelievi − uscite`.
-
-const eUscita = (m: Movimento) => m.importo < 0;
-
-const aPrelievo = (m: Movimento): Prelievo => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  importo: -m.importo,
-  note: m.note,
-});
-
-const aUscita = (m: Movimento): Uscita => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  categoria: m.categoria,
-  importo: -m.importo,
-  note: m.note,
-  escludiDaGrafico: m.escludiDaGrafico,
-});
-
-const aEntrata = (m: Movimento): Entrata => ({
-  id: m.id,
-  data: m.data,
-  descrizione: m.descrizione,
-  categoria: m.categoria,
-  importo: m.importo,
-  note: m.note,
-  escludiDaGrafico: m.escludiDaGrafico,
-});
+// Le tre liste storiche sono derivate dal segno e dalla categoria: la
+// partizione vive in `utils/movimenti.ts` (dove i test la raggiungono) e
+// riproduce esattamente la vecchia aritmetica `fatture + entrate − prelievi
+// − uscite`.
 
 export function useSupabaseCashFlow() {
   const [fatture, setFatture] = useState<Fattura[]>([]);
@@ -432,20 +402,9 @@ export function useSupabaseCashFlow() {
 
   // ===== VISTE DERIVATE (retrocompatibilità) =====
 
-  const prelievi = useMemo<Prelievo[]>(
-    () => movimenti.filter((m) => eUscita(m) && eStipendio(m.categoria)).map(aPrelievo),
-    [movimenti]
-  );
-
-  const uscite = useMemo<Uscita[]>(
-    () => movimenti.filter((m) => eUscita(m) && !eStipendio(m.categoria)).map(aUscita),
-    [movimenti]
-  );
-
-  const entrate = useMemo<Entrata[]>(
-    () => movimenti.filter((m) => !eUscita(m)).map(aEntrata),
-    [movimenti]
-  );
+  const prelievi = useMemo<Prelievo[]>(() => prelieviDa(movimenti), [movimenti]);
+  const uscite = useMemo<Uscita[]>(() => usciteDa(movimenti), [movimenti]);
+  const entrate = useMemo<Entrata[]>(() => entrateDa(movimenti), [movimenti]);
 
   return {
     fatture,

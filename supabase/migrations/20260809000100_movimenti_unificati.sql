@@ -9,6 +9,16 @@
 --   tabella; con una tabella sola il segno deve stare nel dato.
 -- * `movimenti.data` è la data VALUTA (per l'import BBVA, colonna B), coerente
 --   con il principio di cassa già usato da `fatture.data`.
+--
+-- NOTA — perché questo file è stato modificato dopo il commit. La Fase 1 è
+-- stata scritta due volte in parallelo: sul database è finita l'altra versione
+-- (`20260809000000_fase1_movimenti.sql`), questa non è mai stata applicata. Il
+-- codice in produzione è però questo, e scriveva due colonne inesistenti:
+-- ogni inserimento di movimento falliva. Il file è stato reso RIESEGUIBILE
+-- (IF NOT EXISTS, DROP prima di CREATE, ALTER per le colonne mancanti) così da
+-- poter essere applicato sia su un database vuoto sia su quello reale, che le
+-- tabelle ce le ha già. Modificare una migrazione già committata si fa solo in
+-- questo caso: quando non è mai stata eseguita da nessuna parte.
 
 -- ---------------------------------------------------------------------------
 -- movimenti — sostituisce prelievi + uscite + entrate
@@ -36,6 +46,21 @@ CREATE TABLE IF NOT EXISTS public.movimenti (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT movimenti_fonte_valida CHECK (fonte IN ('manuale', 'import_bbva', 'migrazione'))
 );
+
+-- Se la tabella esisteva già (creata dall'altra migrazione), il CREATE qui
+-- sopra è stato un no-op: le colonne che le mancano vanno aggiunte a parte.
+ALTER TABLE public.movimenti
+  ADD COLUMN IF NOT EXISTS data_contabile DATE,
+  ADD COLUMN IF NOT EXISTS fattura_id UUID REFERENCES public.fatture(id) ON DELETE SET NULL;
+
+UPDATE public.movimenti SET escludi_da_grafico = false WHERE escludi_da_grafico IS NULL;
+ALTER TABLE public.movimenti ALTER COLUMN escludi_da_grafico SET DEFAULT false;
+ALTER TABLE public.movimenti ALTER COLUMN escludi_da_grafico SET NOT NULL;
+
+ALTER TABLE public.movimenti DROP CONSTRAINT IF EXISTS movimenti_fonte_valida;
+ALTER TABLE public.movimenti
+  ADD CONSTRAINT movimenti_fonte_valida
+  CHECK (fonte IN ('manuale', 'import_bbva', 'migrazione'));
 
 -- Un movimento già importato non entra due volte. NULL non collide con NULL in
 -- un indice unique, quindi i movimenti manuali (import_hash NULL) sono liberi.
@@ -130,19 +155,27 @@ BEGIN
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
 
+    -- DROP prima di CREATE: CREATE POLICY non ha IF NOT EXISTS, e su un
+    -- database che ha già le policy dell'altra migrazione fallirebbe.
     EXECUTE format($f$
+      DROP POLICY IF EXISTS "Users can view their own %1$s" ON public.%1$I;
       CREATE POLICY "Users can view their own %1$s" ON public.%1$I
         FOR SELECT USING (auth.uid() = user_id)
     $f$, t);
     EXECUTE format($f$
+      DROP POLICY IF EXISTS "Users can insert their own %1$s" ON public.%1$I;
       CREATE POLICY "Users can insert their own %1$s" ON public.%1$I
         FOR INSERT WITH CHECK (auth.uid() = user_id)
     $f$, t);
+    -- WITH CHECK oltre a USING: senza, la riga da modificare doveva essere tua
+    -- ma nulla impediva di riassegnarla a un altro utente.
     EXECUTE format($f$
+      DROP POLICY IF EXISTS "Users can update their own %1$s" ON public.%1$I;
       CREATE POLICY "Users can update their own %1$s" ON public.%1$I
         FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id)
     $f$, t);
     EXECUTE format($f$
+      DROP POLICY IF EXISTS "Users can delete their own %1$s" ON public.%1$I;
       CREATE POLICY "Users can delete their own %1$s" ON public.%1$I
         FOR DELETE USING (auth.uid() = user_id)
     $f$, t);
@@ -152,14 +185,17 @@ END $$;
 -- ---------------------------------------------------------------------------
 -- Trigger updated_at (la funzione esiste già da schema.sql)
 -- ---------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS update_movimenti_updated_at ON public.movimenti;
 CREATE TRIGGER update_movimenti_updated_at
   BEFORE UPDATE ON public.movimenti
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_rettifiche_incassi_updated_at ON public.rettifiche_incassi;
 CREATE TRIGGER update_rettifiche_incassi_updated_at
   BEFORE UPDATE ON public.rettifiche_incassi
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_preferenze_updated_at ON public.preferenze;
 CREATE TRIGGER update_preferenze_updated_at
   BEFORE UPDATE ON public.preferenze
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
