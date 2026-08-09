@@ -89,9 +89,41 @@ Direzione giusta, tre correzioni:
 
 ---
 
-## 2. Fase 1 — Fondamenta dati (Supabase)
+## 2. Fase 1 — Fondamenta dati (Supabase) — ✅ COMPLETATA (09/08/2026)
 
 Obiettivo: un modello dati pronto per l'import e sincronizzato tra dispositivi.
+
+**Come è andata.** Backup di 290 record prima di toccare qualsiasi cosa
+(`backups/`, fuori dal repo). Migrazione di 225 righe (46 entrate, 148 uscite,
+31 prelievi) nella tabella unica, riusando l'id originale: rieseguire lo script
+aggiorna invece di duplicare. Due verifiche automatiche, entrambe verdi:
+`migra-movimenti-unificati.mjs` confronta i totali per anno, tipo e categoria al
+centesimo; `verifica-fase1.mjs` confronta ogni riga campo per campo e
+ricostruisce le tre viste (31 prelievi, 148 uscite, 46 entrate — gli stessi
+numeri). Le tabelle vecchie sono intatte.
+
+Scelte prese strada facendo:
+
+- **Il tipo di un movimento è un dato, non una tabella**: `importo < 0` con
+  categoria `Stipendio` → prelievo, `importo < 0` → uscita, altrimenti entrata
+  (`utils/movimenti.ts`, coperto da `tests/movimenti.test.ts`). Le tre viste
+  restano con importi positivi: nessun componente ha cambiato formula.
+- **Un movimento di importo 0 conta come entrata.** Non esiste nei dati e
+  nessuna convenzione è "giusta": ne serviva una sola, scritta.
+- **`convertiTipoMovimento` è sparito**: cambiare tipo era insert + delete su
+  due tabelle, con il movimento duplicato se il delete falliva. Ora è un update
+  di segno e categoria.
+- **Le categorie sono state copiate come sono** (`ALTRO`, `Tasse - acconto`, …).
+  La normalizzazione resta dove era, nel livello applicativo: una migrazione che
+  trasforma i dati non è più verificabile riga per riga.
+- **Rettifiche su Supabase**, con import una-tantum del residuo localStorage
+  solo per gli anni che mancano o contengono ancora il valore di seed.
+- Seed di `stime_fiscozen` già fatto (2026: 4.600–5.200, incassi 52.924;
+  2027: 12.600–14.000) — pronto per le spie della Fase 3.
+
+**Resta da fare a mano**: aprire la dashboard e confrontare i numeri con quelli
+di prima. Le verifiche automatiche dimostrano che gli ingressi sono identici,
+ma il confronto a schermo è quello che chiude la fase.
 
 ### 2.1 Tabella unificata `movimenti`
 

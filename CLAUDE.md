@@ -24,6 +24,9 @@ Invoice management webapp for Italian "Partita IVA" (freelance VAT) under the fl
 - **Constants** (`src/constants/fiscali.ts`): Tax parameters (78% profitability coefficient, 26.07% INPS, 5% substitute tax)
 - **Calculations** (`src/utils/calcoliFisco.ts`): Pure functions implementing Italian tax formulas
 - **State** (`src/hooks/useSupabaseCashFlow.ts`): Central hook managing invoice CRUD + Supabase persistence
+- **Movimenti** (`src/utils/movimenti.ts`): tabella unica `movimenti` (importo CON SEGNO)
+  ⇄ le tre viste storiche `prelievi` / `uscite` / `entrate` (importi positivi).
+  `importo < 0` + categoria Stipendio → prelievo, `importo < 0` → uscita, altrimenti entrata.
 - **Storage** (`src/utils/storage.ts`): localStorage wrapper for local data (descriptions, etc.)
 
 ### Components
@@ -113,9 +116,10 @@ contare e andava riaggiornato tutto a mano. Sommando, il totale resta
 progressivo.
 
 - In UI si digita il **totale incassato**; il codice salva `totale − sommaFatture`.
-- Storage: `localStorage` (`rettifiche-incassi`), gestito da `utils/storage.ts`.
-  **Legato al browser, non sincronizzato.** Se serve su più dispositivi va
-  spostato su Supabase in una tabella `rettifiche_incassi`.
+- Storage: tabella Supabase `rettifiche_incassi`, gestita da
+  `hooks/useRettificheIncassi.ts`. Sincronizzata fra dispositivi. Stavano in
+  `localStorage` fino alla Fase 1: `utils/storage.ts` conserva solo la lettura
+  del residuo locale, importato una volta sola al primo avvio.
 - Corregge l'imponibile **solo ai fini fiscali** (tasse, acconti, limite 85k).
   Il **cash disponibile continua a derivare dai movimenti reali**: rettificare
   non fa comparire soldi sul conto.
