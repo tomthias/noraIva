@@ -34,8 +34,14 @@ yarn-error.log*
 # Impostazioni locali degli agenti
 .claude/settings.local.json
 
-# Backup del database (contengono dati personali)
+# Backup del database (contengono dati personali: fatture, clienti, movimenti)
 scripts/backup/
+backups/
+backup-*.json
+
+# Worktree degli agenti: git li vedrebbe come sottomoduli e il checkout in CI
+# fallirebbe con "No url found for submodule path"
+.claude/worktrees/
 
 # Stato locale della CLI Supabase
 supabase/.temp/
