@@ -24,9 +24,8 @@ import { Plus, X } from "lucide-react";
 import {
   caricaDescrizioniSalvate,
   salvaDescrizione,
-  caricaRettificheIncassi,
-  salvaRettificaIncassi,
 } from "./utils/storage";
+import { useRettificheIncassi } from "./hooks/useRettificheIncassi";
 import { calcolaTotaleFatture } from "./utils/calcoliFisco";
 
 function App() {
@@ -62,12 +61,8 @@ function App() {
 
   // Rettifiche degli incassi per anno: incassato che le fatture registrate non
   // rappresentano. Si SOMMA al totale calcolato, così le fatture nuove contano.
-  const [rettifiche, setRettifiche] = useState(caricaRettificheIncassi);
-
-  const impostaRettifica = (anno: number, importo: number) => {
-    salvaRettificaIncassi(anno, importo);
-    setRettifiche(caricaRettificheIncassi());
-  };
+  // Vivono su Supabase: sono uguali su tutti i dispositivi.
+  const { rettifiche, impostaRettifica } = useRettificheIncassi();
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
   // Nascondi anni precedenti al 2026 (dati resettati)
