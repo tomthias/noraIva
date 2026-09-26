@@ -241,11 +241,8 @@ function App() {
                 <div className="border rounded-lg p-6 bg-card">
                   <FormFattura
                     onSubmit={(dati, salvaDescrizioneFlag) => {
-                      // Una fattura già incassata porta con sé il movimento di
-                      // incasso: si crea da aperta e poi si incassa.
-                      aggiungiFattura({ ...dati, data: null }).then((nuova) => {
-                        if (nuova && dati.data) incassaFattura(nuova.id, dati.data, nuova);
-                      });
+                      // Se è già incassata, l'hook crea anche il movimento di incasso.
+                      aggiungiFattura(dati);
                       if (salvaDescrizioneFlag && dati.descrizione) {
                         salvaDescrizione(dati.descrizione);
                         setDescrizioniSalvate(caricaDescrizioniSalvate());

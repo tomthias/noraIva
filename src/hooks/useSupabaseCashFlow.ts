@@ -254,6 +254,7 @@ export function useSupabaseCashFlow() {
       if (!data) return undefined;
       const nuova = dbToFattura(data);
       setFatture((prev) => ordinaPerData([nuova, ...prev]));
+      await allineaIncasso(nuova);
       return nuova;
     } catch (err) {
       riportaErrore("Errore nell'aggiunta della fattura")(err);
@@ -276,6 +277,8 @@ export function useSupabaseCashFlow() {
       if (error) throw error;
 
       setFatture((prev) => ordinaPerData(prev.map((f) => (f.id === id ? { ...f, ...dati } : f))));
+      const prima = fatture.find((f) => f.id === id);
+      if (prima) await allineaIncasso({ ...prima, ...dati });
     } catch (err) {
       riportaErrore("Errore nella modifica della fattura")(err);
     }
@@ -283,6 +286,8 @@ export function useSupabaseCashFlow() {
 
   const eliminaFattura = async (id: string) => {
     try {
+      const prima = fatture.find((f) => f.id === id);
+      if (prima) await allineaIncasso({ ...prima, data: null });
       const { error } = await supabase.from("fatture").delete().eq("id", id);
       if (error) throw error;
       setFatture((prev) => prev.filter((f) => f.id !== id));
@@ -292,25 +297,43 @@ export function useSupabaseCashFlow() {
   };
 
   /**
-   * Segna una fattura come incassata. Se il bonifico non è già sul conto
-   * (importato e collegato), crea il movimento di incasso: così cassa e tasse
-   * si muovono insieme con un solo gesto.
+   * Tiene il conto allineato alla fattura: una fattura incassata ha il suo
+   * movimento di incasso, così la cassa sale nel momento in cui la segni.
+   *
+   * - bonifico già importato da BBVA e collegato → comanda la banca, niente da fare;
+   * - incassata senza movimento → si crea un movimento manuale;
+   * - data o importo cambiati → si aggiorna il movimento manuale;
+   * - non più incassata (o eliminata) → si toglie il movimento manuale.
+   *
+   * Quando poi arriva l'import BBVA, il bonifico vero prende il posto di quello
+   * manuale (`useImportBBVA`): nessun doppione.
    */
-  const incassaFattura = async (id: string, data: string, appenaCreata?: Fattura) => {
-    const fattura = appenaCreata ?? fatture.find((f) => f.id === id);
-    if (!fattura) return;
-    await modificaFattura(id, { data });
-    if (!movimenti.some((m) => m.fatturaId === id)) {
-      await aggiungiMovimento({
-        data,
-        descrizione: `Incasso fattura ${fattura.numero ?? ""} ${fattura.cliente}`.replace(/\s+/g, " ").trim(),
-        categoria: CATEGORIA_INCASSO_FATTURA,
-        importo: Math.abs(fattura.importoLordo),
-        fonte: "manuale",
-        fatturaId: id,
-      });
+  const allineaIncasso = async (fattura: Fattura) => {
+    const collegati = movimenti.filter((m) => m.fatturaId === fattura.id);
+    if (collegati.some((m) => m.fonte === "import_bbva")) return;
+    const manuale = collegati[0];
+
+    if (fattura.data === null) {
+      if (manuale) await eliminaMovimento(manuale.id);
+      return;
     }
+    const importo = Math.abs(fattura.importoLordo);
+    if (manuale) {
+      if (manuale.data !== fattura.data || manuale.importo !== importo)
+        await modificaMovimento(manuale.id, { data: fattura.data, importo });
+      return;
+    }
+    await aggiungiMovimento({
+      data: fattura.data,
+      descrizione: `Incasso fattura ${fattura.numero ?? ""} ${fattura.cliente}`.replace(/\s+/g, " ").trim(),
+      categoria: CATEGORIA_INCASSO_FATTURA,
+      importo,
+      fonte: "manuale",
+      fatturaId: fattura.id,
+    });
   };
+
+  const incassaFattura = (id: string, data: string) => modificaFattura(id, { data });
 
   // ===== MOVIMENTI =====
 
