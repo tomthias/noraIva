@@ -160,6 +160,8 @@ export function useSupabaseCashFlow() {
   const [cuscinetto, setCuscinetto] = useState(0);
   /** Mesi di vita da coprire prima di alimentare il fondo investimenti. */
   const [mesiRiserva, setMesiRiserva] = useState(3);
+  /** Versato su ogni strumento fuori dal conto (prima di BBVA), per id. */
+  const [versatoEsterno, setVersatoEsterno] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -227,6 +229,7 @@ export function useSupabaseCashFlow() {
       }
       setCuscinetto(Number(preferenza("cuscinetto") ?? 0) || 0);
       setMesiRiserva(Number(preferenza("mesi_riserva_vita") ?? 3) || 0);
+      setVersatoEsterno((preferenza("versato_esterno") as Record<string, number>) ?? {});
     } catch (err) {
       console.error("Error loading data:", err);
       setError(err instanceof Error ? err.message : "Errore nel caricamento dei dati");
@@ -558,6 +561,15 @@ export function useSupabaseCashFlow() {
     [salvaPreferenza]
   );
 
+  const salvaVersatoEsterno = useCallback(
+    async (strumentoId: string, importo: number) => {
+      const nuovo = { ...versatoEsterno, [strumentoId]: Math.max(0, importo) };
+      setVersatoEsterno(nuovo);
+      await salvaPreferenza("versato_esterno", nuovo);
+    },
+    [salvaPreferenza, versatoEsterno]
+  );
+
   const salvaApertura = useCallback(
     async (nuova: AperturaConto) => {
       setApertura(nuova);
@@ -650,6 +662,7 @@ export function useSupabaseCashFlow() {
     apertura,
     cuscinetto,
     mesiRiserva,
+    versatoEsterno,
     isLoading,
     error,
     aggiungiFattura,
@@ -670,6 +683,7 @@ export function useSupabaseCashFlow() {
     salvaCuscinetto,
     salvaMesiRiserva,
     salvaApertura,
+    salvaVersatoEsterno,
     aggiungiPrelievo,
     modificaPrelievo,
     eliminaPrelievo: eliminaMovimento,

@@ -47,6 +47,7 @@ function App() {
     apertura,
     cuscinetto,
     mesiRiserva,
+    versatoEsterno,
     isLoading: dataLoading,
     error,
     aggiungiFattura,
@@ -72,6 +73,7 @@ function App() {
     assegnaStrumento,
     salvaCuscinetto,
     salvaMesiRiserva,
+    salvaVersatoEsterno,
     refresh,
   } = useSupabaseCashFlow();
 
@@ -120,8 +122,8 @@ function App() {
     [fatture, movimenti, s.scadenze, oggi]
   );
   const posizioni = useMemo(
-    () => patrimonio(strumenti, valori, movimenti).posizioni,
-    [strumenti, valori, movimenti]
+    () => patrimonio(strumenti, valori, movimenti, versatoEsterno).posizioni,
+    [strumenti, valori, movimenti, versatoEsterno]
   );
 
   // Mostra schermata di caricamento durante verifica auth
@@ -323,6 +325,7 @@ function App() {
               onAggiornaValore={aggiornaValore}
               onAssegna={assegnaStrumento}
               onAggiungiStrumento={aggiungiStrumento}
+              onSalvaVersatoEsterno={salvaVersatoEsterno}
             />
           )}
 

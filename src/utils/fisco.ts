@@ -500,7 +500,10 @@ export function margineMensile(
 
 export interface PosizionePatrimonio {
   strumento: StrumentoPatrimonio;
+  /** Totale versato: fuori dal conto + versamenti dal conto collegati. */
   versato: number;
+  /** Parte versata fuori dal conto (prima di BBVA o da altri conti). */
+  versatoEsterno: number;
   valore?: number;
   valoreAl?: string;
   rendimento?: number;
@@ -509,18 +512,22 @@ export interface PosizionePatrimonio {
 export function patrimonio(
   strumenti: StrumentoPatrimonio[],
   valori: ValorePatrimonio[],
-  movimenti: Movimento[]
+  movimenti: Movimento[],
+  /** Versato fuori dal conto (es. prima di aprire BBVA), per strumento. */
+  versatoEsterno: Record<string, number> = {}
 ): { posizioni: PosizionePatrimonio[]; nonAssegnato: number } {
   const posizioni = strumenti.map((strumento) => {
-    const versato = -somma(
-      movimenti.filter((m) => m.strumentoId === strumento.id).map((m) => m.importo)
-    );
+    const esterno = versatoEsterno[strumento.id] ?? 0;
+    const versato =
+      esterno -
+      somma(movimenti.filter((m) => m.strumentoId === strumento.id).map((m) => m.importo));
     const ultimo = valori
       .filter((v) => v.strumentoId === strumento.id)
       .sort((x, y) => y.data.localeCompare(x.data))[0];
     return {
       strumento,
       versato,
+      versatoEsterno: esterno,
       valore: ultimo?.valore,
       valoreAl: ultimo?.data,
       rendimento: ultimo ? ultimo.valore - versato : undefined,

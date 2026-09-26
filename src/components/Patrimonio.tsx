@@ -28,6 +28,7 @@ interface Props {
   onAggiornaValore: (strumentoId: string, data: string, valore: number) => void;
   onAssegna: (movimentoId: string, strumentoId: string | undefined) => void;
   onAggiungiStrumento: (nome: string, tipo: TipoStrumento) => void;
+  onSalvaVersatoEsterno: (strumentoId: string, importo: number) => void;
 }
 
 export function Patrimonio({
@@ -39,6 +40,7 @@ export function Patrimonio({
   onAggiornaValore,
   onAssegna,
   onAggiungiStrumento,
+  onSalvaVersatoEsterno,
 }: Props) {
   const versato = posizioni.reduce((s, p) => s + p.versato, 0);
   const valore = posizioni.reduce((s, p) => s + (p.valore ?? p.versato), 0);
@@ -63,7 +65,13 @@ export function Patrimonio({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {posizioni.map((p) => (
-          <Strumento key={p.strumento.id} posizione={p} oggi={oggi} onAggiornaValore={onAggiornaValore} />
+          <Strumento
+            key={p.strumento.id}
+            posizione={p}
+            oggi={oggi}
+            onAggiornaValore={onAggiornaValore}
+            onSalvaVersatoEsterno={onSalvaVersatoEsterno}
+          />
         ))}
         <NuovoStrumento onAggiungi={onAggiungiStrumento} />
       </div>
@@ -125,12 +133,16 @@ function Strumento({
   posizione: p,
   oggi,
   onAggiornaValore,
+  onSalvaVersatoEsterno,
 }: {
   posizione: PosizionePatrimonio;
   oggi: string;
   onAggiornaValore: Props["onAggiornaValore"];
+  onSalvaVersatoEsterno: Props["onSalvaVersatoEsterno"];
 }) {
   const [aperto, setAperto] = useState(false);
+  const [esternoAperto, setEsternoAperto] = useState(false);
+  const [bozzaEsterno, setBozzaEsterno] = useState("");
   const [bozza, setBozza] = useState("");
   const [data, setData] = useState(oggi);
 
@@ -149,7 +161,36 @@ function Strumento({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        <Riga etichetta="Versato" valore={formatCurrency(p.versato)} />
+        <Riga etichetta="Versato in totale" valore={formatCurrency(p.versato)} />
+        {esternoAperto ? (
+          <div className="flex gap-1 items-start">
+            <ImportoInput value={bozzaEsterno} onChange={setBozzaEsterno} compatto autoFocus className="h-7" />
+            <Button
+              size="sm"
+              className="h-7"
+              onClick={() => {
+                const { valore } = calcolaEspressione(bozzaEsterno);
+                if (valore === null || valore < 0) return;
+                onSalvaVersatoEsterno(p.strumento.id, valore);
+                setEsternoAperto(false);
+              }}
+            >
+              Salva
+            </Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground text-left"
+            onClick={() => {
+              setBozzaEsterno(String(p.versatoEsterno || ""));
+              setEsternoAperto(true);
+            }}
+          >
+            di cui {formatCurrency(p.versatoEsterno)} fuori da BBVA ·{" "}
+            {formatCurrency(p.versato - p.versatoEsterno)} dal conto — modifica
+          </button>
+        )}
         <Riga
           etichetta={p.valoreAl ? `Valore al ${formatDate(p.valoreAl)}` : "Valore"}
           valore={p.valore === undefined ? "non inserito" : formatCurrency(p.valore)}

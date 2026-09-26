@@ -303,4 +303,12 @@ describe("patrimonio", () => {
     expect(posizioni[0].rendimento).toBe(1500);
     expect(nonAssegnato).toBe(400);
   });
+
+  it("somma il versato fuori dal conto a quello dei movimenti", () => {
+    const strumenti = [{ id: "mf", nome: "Moneyfarm", tipo: "moneyfarm" as const }];
+    const movimenti = [movimento("2025-01-15", -400, "Investimenti", { strumentoId: "mf" })];
+    const { posizioni } = patrimonio(strumenti, [], movimenti, { mf: 8720 });
+    expect(posizioni[0].versato).toBe(9120);
+    expect(posizioni[0].versatoEsterno).toBe(8720);
+  });
 });
