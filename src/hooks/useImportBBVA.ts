@@ -10,17 +10,23 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
   calcolaImportHash,
+  catenaSaldi,
   leggiEstrattoBBVA,
+  leggiEstrattoPdf,
   type EstrattoLetto,
   type RigaEstratto,
 } from "../utils/importBBVA";
 import {
+  abbinaFatture,
   patternSuggerito,
   proponiCategoria,
+  testoRiga,
   type Proposta,
   type RegolaCategoria,
 } from "../utils/categorizzazione";
 import { normalizzaCategoria } from "../utils/analisiCalcoli";
+import { eIncassoFattura } from "../constants/fiscali";
+import type { Fattura } from "../types/fattura";
 
 /** Una riga dell'anteprima: quello che è stato letto più quello che sarà scritto. */
 export interface RigaAnteprima {
@@ -39,6 +45,8 @@ export interface RigaAnteprima {
 export interface EsitoImport {
   nuovi: number;
   saltati: number;
+  /** Fatture segnate incassate grazie al bonifico abbinato. */
+  fattureIncassate: string[];
   dal?: string;
   al?: string;
   saldo?: { data: string; saldo: number };
@@ -95,7 +103,19 @@ export function useImportBBVA() {
    */
   const preparaAnteprima = useCallback(
     async (file: File): Promise<{ estratto: EstrattoLetto; anteprima: RigaAnteprima[] }> => {
-      const estratto = leggiEstrattoBBVA(await file.arrayBuffer());
+      const dati = await file.arrayBuffer();
+      const estratto = file.name.toLowerCase().endsWith(".pdf")
+        ? leggiEstrattoPdf(await (await import("../utils/pdfTesto")).righeDiTestoPdf(dati))
+        : leggiEstrattoBBVA(dati);
+      // Il saldo dopo ogni movimento permette di accorgersi di una riga letta
+      // male: meglio fermarsi che importare un estratto bucato.
+      const { rotture } = catenaSaldi(estratto.righe);
+      if (rotture > 0) {
+        estratto.scartate.push({
+          riga: 0,
+          motivo: `${rotture} saldi non tornano: una riga potrebbe essere stata letta male`,
+        });
+      }
 
       const { data: esistenti, error } = await supabase
         .from("movimenti")
@@ -138,7 +158,8 @@ export function useImportBBVA() {
     async (
       anteprima: RigaAnteprima[],
       estratto: EstrattoLetto,
-      nomeFile: string
+      nomeFile: string,
+      fatture: Fattura[]
     ): Promise<EsitoImport> => {
       setInCorso(true);
       setErrore(null);
@@ -150,6 +171,31 @@ export function useImportBBVA() {
 
         const daScrivere = anteprima.filter((r) => !r.duplicato);
         const saltati = anteprima.length - daScrivere.length;
+
+        // Incassi → fatture. Candidate: quelle ancora aperte e quelle segnate
+        // incassate a mano, il cui movimento manuale ora lo sostituisce la banca.
+        const { data: manuali, error: erroreManuali } = await supabase
+          .from("movimenti")
+          .select("id, fattura_id")
+          .eq("fonte", "manuale")
+          .not("fattura_id", "is", null);
+        if (erroreManuali) throw erroreManuali;
+        const conIncassoManuale = new Set((manuali ?? []).map((m) => m.fattura_id as string));
+        const candidate = fatture
+          .filter((f) => f.data === null || conIncassoManuale.has(f.id))
+          .map((f) => ({ ...f, data: null }));
+
+        const abbinate = new Map<RigaAnteprima, Fattura[]>();
+        for (const r of [...daScrivere].sort((a, b) => a.riga.dataValuta.localeCompare(b.riga.dataValuta))) {
+          if (!eIncassoFattura(r.categoria)) continue;
+          const libere = candidate.filter((f) => f.data === null);
+          const trovate = abbinaFatture(
+            { testo: testoRiga(r.riga), importo: r.riga.importo, dataValuta: r.riga.dataValuta },
+            libere
+          );
+          for (const f of trovate) f.data = r.riga.dataValuta;
+          if (trovate.length) abbinate.set(r, trovate);
+        }
 
         if (daScrivere.length > 0) {
           const righe = daScrivere.map((r) => ({
@@ -164,11 +210,24 @@ export function useImportBBVA() {
             saldo_dopo: r.riga.disponibile ?? null,
             escludi_da_grafico: false,
             note: r.riga.osservazioni ?? null,
+            fattura_id: abbinate.get(r)?.[0]?.id ?? null,
           }));
 
           for (let i = 0; i < righe.length; i += 200) {
             const { error } = await supabase.from("movimenti").insert(righe.slice(i, i + 200));
             if (error) throw error;
+          }
+        }
+
+        const fattureIncassate: string[] = [];
+        for (const trovate of abbinate.values()) {
+          for (const f of trovate) {
+            const { error } = await supabase.from("fatture").update({ data: f.data }).eq("id", f.id);
+            if (error) throw error;
+            fattureIncassate.push(f.numero ?? f.cliente);
+            // Il bonifico vero sostituisce l'incasso segnato a mano.
+            const manuale = (manuali ?? []).find((m) => m.fattura_id === f.id);
+            if (manuale) await supabase.from("movimenti").delete().eq("id", manuale.id);
           }
         }
 
@@ -206,6 +265,7 @@ export function useImportBBVA() {
         return {
           nuovi: daScrivere.length,
           saltati,
+          fattureIncassate,
           dal: date[0],
           al: date[date.length - 1],
           saldo: estratto.saldoFinale,

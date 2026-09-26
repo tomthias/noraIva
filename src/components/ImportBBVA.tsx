@@ -26,24 +26,26 @@ import {
 import { formatCurrency, formatDate } from "../utils/format";
 import { useImportBBVA, type EsitoImport, type RigaAnteprima } from "../hooks/useImportBBVA";
 import type { EstrattoLetto } from "../utils/importBBVA";
+import type { Fattura } from "../types/fattura";
 import { ErroreEstratto } from "../utils/importBBVA";
 import { CATEGORIA_ENTRATE, CATEGORIA_SPESE, patternSuggerito } from "../utils/categorizzazione";
 import {
   CATEGORIA_INCASSO_FATTURA,
   CATEGORIA_INTERESSI,
-  CATEGORIA_SALDO_INIZIALE,
   CATEGORIA_STIPENDIO,
-  CATEGORIE_TASSE_LISTA,
+  CATEGORIE_STRUTTURALI,
 } from "../constants/fiscali";
 
 interface Props {
   /** Categorie già usate nei movimenti, per il menu a tendina. */
   categorieEsistenti: string[];
+  /** Per collegare i bonifici ricevuti alle fatture che saldano. */
+  fatture: Fattura[];
   /** Chiamata dopo un import riuscito: ricarica i dati dell'app. */
   onImportCompletato: () => void;
 }
 
-export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
+export function ImportBBVA({ categorieEsistenti, fatture, onImportCompletato }: Props) {
   const { ultimoImport, preparaAnteprima, conferma, inCorso } = useImportBBVA();
 
   const [estratto, setEstratto] = useState<EstrattoLetto | null>(null);
@@ -60,10 +62,9 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
       CATEGORIA_STIPENDIO,
       CATEGORIA_INCASSO_FATTURA,
       CATEGORIA_INTERESSI,
-      CATEGORIA_SALDO_INIZIALE,
       CATEGORIA_SPESE,
       CATEGORIA_ENTRATE,
-      ...CATEGORIE_TASSE_LISTA,
+      ...CATEGORIE_STRUTTURALI,
       ...categorieEsistenti,
     ];
     return Array.from(new Set(proposte)).sort();
@@ -122,7 +123,7 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
   const salva = async () => {
     if (!estratto) return;
     try {
-      const risultato = await conferma(anteprima, estratto, nomeFile);
+      const risultato = await conferma(anteprima, estratto, nomeFile, fatture);
       setEsito(risultato);
       azzera();
       onImportCompletato();
@@ -141,7 +142,8 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
       <div>
         <h2 className="text-2xl font-bold mb-1">Import</h2>
         <p className="text-muted-foreground">
-          Trascina l'export Excel di BBVA: i movimenti già presenti vengono saltati da soli.
+          Trascina l'export BBVA (Excel o PDF "Ultime transazioni"): i movimenti già presenti
+          vengono saltati da soli, e i bonifici che citano una fattura la segnano incassata.
         </p>
       </div>
 
@@ -172,6 +174,8 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
             </CardTitle>
             <CardDescription>
               {esito.nuovi} nuovi, {esito.saltati} già presenti
+              {esito.fattureIncassate.length > 0 &&
+                ` · fatture incassate: ${esito.fattureIncassate.join(", ")}`}
               {esito.dal && esito.al && ` — dal ${formatDate(esito.dal)} al ${formatDate(esito.al)}`}
               {esito.saldo &&
                 `. Saldo BBVA aggiornato a ${formatCurrency(esito.saldo.saldo)} al ${formatDate(esito.saldo.data)}`}
@@ -201,11 +205,11 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
           <p className="mb-1 font-medium">
             {leggendo ? "Sto leggendo il file…" : "Trascina qui l'export BBVA"}
           </p>
-          <p className="mb-4 text-sm text-muted-foreground">File .xlsx o .xls, un foglio solo</p>
+          <p className="mb-4 text-sm text-muted-foreground">File .xlsx, .xls o .pdf</p>
           <input
             ref={inputFile}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls,.pdf"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -245,8 +249,8 @@ export function ImportBBVA({ categorieEsistenti, onImportCompletato }: Props) {
                 {daGuardare > 0 && (
                   <p className="flex items-start gap-2 text-amber-400">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                    {daGuardare} righe hanno una categoria che cambia i conti (tasse, incassi
-                    fattura): controllale prima di confermare.
+                    {daGuardare} bonifici ricevuti sembrano incassi di fatture: controllali prima di
+                    confermare, verranno collegati alla fattura con lo stesso importo.
                   </p>
                 )}
                 {estratto.scartate.length > 0 && (

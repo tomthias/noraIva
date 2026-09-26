@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import type { Fattura } from "../types/fattura";
-import { calcolaRiepilogoPerFattura, calcolaTotaleFatture } from "../utils/calcoliFisco";
+import { quotaTasseMarginale } from "../utils/fisco";
 import { formatCurrency, formatDate } from "../utils/format";
 import { FormFattura } from "./FormFattura";
 import { YearFilter } from "./YearFilter";
@@ -18,6 +18,10 @@ interface Props {
   descrizioniSuggerite?: string[];
 }
 
+/** Anno di riferimento: incasso se c'è, altrimenti emissione. */
+const annoDi = (f: Fattura) =>
+  Number((f.data ?? f.dataEmissione ?? new Date().toISOString()).slice(0, 4));
+
 export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSuggerite = [] }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [annoSelezionato, setAnnoSelezionato] = useState<number | null>(ANNO);
@@ -25,7 +29,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
 
   // Estrai anni disponibili dalle fatture, includendo sempre anno corrente e prossimo
   const anniDisponibili = useMemo(() => {
-    const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
+    const anni = new Set(fatture.map((f) => annoDi(f)));
     // Aggiungi sempre anno corrente e prossimo anno
     anni.add(ANNO);
     anni.add(ANNO + 1);
@@ -41,13 +45,15 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
 
   // Filtra fatture per anno e search
   const fattureFiltrate = useMemo(() => {
-    let filtered = annoSelezionato === null ? fatture : fatture.filter((f) => f.data.startsWith(String(annoSelezionato)));
+    let filtered =
+      annoSelezionato === null ? fatture : fatture.filter((f) => annoDi(f) === annoSelezionato);
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((f) =>
         f.descrizione.toLowerCase().includes(query) ||
         (f.cliente || "").toLowerCase().includes(query) ||
+        (f.numero || "").toLowerCase().includes(query) ||
         (f.note || "").toLowerCase().includes(query)
       );
     }
@@ -55,8 +61,7 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
     return filtered;
   }, [fatture, annoSelezionato, searchQuery]);
 
-  const riepiloghi = calcolaRiepilogoPerFattura(fattureFiltrate);
-  const totaleFatturato = calcolaTotaleFatture(fattureFiltrate);
+  const totaleFatturato = fattureFiltrate.reduce((s, f) => s + f.importoLordo, 0);
 
   const handleSaveEdit = (id: string, dati: Omit<Fattura, "id">) => {
     onModifica(id, dati);
@@ -99,23 +104,29 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
         <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Data incasso</TableHead>
+            <TableHead>N.</TableHead>
+            <TableHead>Emessa</TableHead>
+            <TableHead>Incassata</TableHead>
             <TableHead>Descrizione</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead className="text-right">Importo lordo</TableHead>
-            <TableHead className="text-right">Tasse & Contributi</TableHead>
+            <TableHead className="text-right" title="INPS + imposta dell'anno di incasso, al margine">
+              Tasse
+            </TableHead>
             <TableHead className="text-right">Netto</TableHead>
             <TableHead className="text-center">Azioni</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {fattureFiltrate.map((fattura) => {
-            const riepilogo = riepiloghi.find((r) => r.id === fattura.id);
+            // Tasse di competenza al margine: INPS e imposta dell'anno in cui
+            // il compenso è (o sarà) incassato. Gli acconti non sono un costo.
+            const tasse = fattura.importoLordo * quotaTasseMarginale(annoDi(fattura));
 
             if (editingId === fattura.id) {
               return (
                 <TableRow key={fattura.id}>
-                  <TableCell colSpan={7} className="p-4">
+                  <TableCell colSpan={9} className="p-4">
                     <FormFattura
                       fattura={fattura}
                       onSubmit={(dati) => handleSaveEdit(fattura.id, dati)}
@@ -130,7 +141,19 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
 
             return (
               <TableRow key={fattura.id}>
-                <TableCell className="whitespace-nowrap">{formatDate(fattura.data)}</TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">{fattura.numero ?? "–"}</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {fattura.dataEmissione ? formatDate(fattura.dataEmissione) : "–"}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {fattura.data ? (
+                    formatDate(fattura.data)
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/15 text-amber-600">
+                      da incassare
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className="flex flex-col">
                     <span>{fattura.descrizione}</span>
@@ -144,10 +167,10 @@ export function TabellaFatture({ fatture, onModifica, onElimina, descrizioniSugg
                   {formatCurrency(fattura.importoLordo)}
                 </TableCell>
                 <TableCell className="text-right font-medium text-destructive">
-                  {riepilogo ? formatCurrency(riepilogo.tasseContributi) : "-"}
+                  {formatCurrency(tasse)}
                 </TableCell>
                 <TableCell className="text-right font-semibold text-green-600">
-                  {riepilogo ? formatCurrency(riepilogo.netto) : "-"}
+                  {formatCurrency(fattura.importoLordo - tasse)}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2 justify-center">

@@ -2,20 +2,24 @@
  * Utility per calcoli analitici e aggregazioni
  */
 
-import type { Fattura, Uscita, Entrata, Prelievo } from "../types/fattura";
+import type { FatturaIncassata as Fattura, Uscita, Entrata, Prelievo } from "../types/fattura";
+import { eIncassoFattura, eSaldoIniziale } from "../constants/fiscali";
 
 /**
  * Filtra entrate valide escludendo categorie speciali
  * - Esclude Saldo Iniziale (non è denaro fresco) - case insensitive
  * - Supporta sia "saldo iniziale" che "saldo_iniziale" (formato DB)
+ * - Esclude gli incassi delle fatture: i compensi arrivano già dalla tabella
+ *   `fatture`, contarli anche come movimento li raddoppierebbe
  * - Esclude items con escludiDaGrafico = true
+ *
+ * Le analisi lavorano solo sulle fatture INCASSATE (tipo `FatturaIncassata`):
+ * una fattura ancora da pagare non ha una data in cui metterla.
  */
 export function filtraEntrateValide(entrate: Entrata[]): Entrata[] {
-  return entrate.filter(e => {
-    const cat = e.categoria?.toLowerCase() || '';
-    const isSaldoIniziale = cat === 'saldo iniziale' || cat === 'saldo_iniziale';
-    return !isSaldoIniziale && !e.escludiDaGrafico;
-  });
+  return entrate.filter(
+    (e) => !eSaldoIniziale(e.categoria) && !eIncassoFattura(e.categoria) && !e.escludiDaGrafico
+  );
 }
 
 /**

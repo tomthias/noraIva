@@ -23,6 +23,10 @@ const TABELLE = [
   'regole_categorie',
   'import_estratti',
   'preferenze',
+  // Ricostruzione di settembre 2026
+  'scadenze_fiscali',
+  'strumenti_patrimonio',
+  'valori_patrimonio',
 ];
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;

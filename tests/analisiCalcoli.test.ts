@@ -6,7 +6,7 @@ import {
   calcolaSaldoCumulativo,
   filtraEntrateValide,
 } from "../src/utils/analisiCalcoli";
-import { CATEGORIE_TASSE_LISTA } from "../src/constants/fiscali";
+import { CATEGORIE_STRUTTURALI } from "../src/constants/fiscali";
 import type { Fattura, Uscita, Entrata, Prelievo } from "../src/types/fattura";
 
 const uscita = (
@@ -46,10 +46,10 @@ describe("normalizzaCategoria", () => {
     expect(normalizzaCategoria("Tasse - Inps")).toBe("Tasse - INPS");
   });
 
-  it("tutte le CATEGORIE_TASSE fanno round-trip", () => {
+  it("tutte le categorie strutturali fanno round-trip", () => {
     // Se una costante non è stabile sotto normalizzazione, il combobox dei
     // movimenti finisce per elencare la stessa categoria due volte.
-    for (const categoria of CATEGORIE_TASSE_LISTA) {
+    for (const categoria of CATEGORIE_STRUTTURALI) {
       expect(normalizzaCategoria(categoria)).toBe(categoria);
     }
   });

@@ -20,7 +20,13 @@ export function FormFattura({
   clientiSuggeriti = [],
   descrizioniSuggerite = [],
 }: Props) {
-  const [data, setData] = useState(fattura?.data || new Date().toISOString().split("T")[0]);
+  const oggi = new Date().toISOString().split("T")[0];
+  const [numero, setNumero] = useState(fattura?.numero || "");
+  const [dataEmissione, setDataEmissione] = useState(fattura?.dataEmissione || fattura?.data || oggi);
+  // Una fattura nuova nasce da incassare: si segna incassata quando arriva il
+  // bonifico, così le tasse partono dal giorno giusto.
+  const [incassata, setIncassata] = useState(Boolean(fattura?.data));
+  const [data, setData] = useState(fattura?.data || oggi);
   const [descrizione, setDescrizione] = useState(fattura?.descrizione || "");
   const [cliente, setCliente] = useState(fattura?.cliente || "");
   const [importoLordo, setImportoLordo] = useState(fattura?.importoLordo?.toString() || "");
@@ -35,7 +41,9 @@ export function FormFattura({
     const importoNum = parseFloat(importoLordo) || 0;
 
     onSubmit({
-      data,
+      data: incassata ? data : null,
+      numero: numero.trim() || undefined,
+      dataEmissione,
       descrizione,
       cliente,
       importoLordo: importoNum,
@@ -48,27 +56,61 @@ export function FormFattura({
       setCliente("");
       setImportoLordo("");
       setNote("");
+      setNumero("");
+      setIncassata(false);
       setSalvaDescrizioneFlag(false);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="data">Data incasso</Label>
+          <Label htmlFor="numero">Numero</Label>
+          <Input
+            id="numero"
+            value={numero}
+            onChange={(e) => setNumero(e.target.value)}
+            placeholder="23/2026"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="dataEmissione">Data emissione</Label>
+          <Input
+            type="date"
+            id="dataEmissione"
+            value={dataEmissione}
+            onChange={(e) => setDataEmissione(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="data" className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="incassata"
+              checked={incassata}
+              onChange={(e) => setIncassata(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            Già incassata il
+          </Label>
           <Input
             type="date"
             id="data"
             value={data}
             onChange={(e) => setData(e.target.value)}
-            required
+            disabled={!incassata}
+            required={incassata}
           />
-          <p className="text-xs text-muted-foreground">
-            Quando hai <strong>incassato</strong>, non quando hai emesso: il forfettario
-            tassa per cassa.
-          </p>
         </div>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-2">
+        Le tasse contano dal giorno dell'<strong>incasso</strong>, non dell'emissione: il
+        forfettario tassa per cassa. Una fattura non ancora pagata resta in "Da incassare".
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="cliente">Cliente</Label>
           <Combobox

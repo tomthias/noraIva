@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ANNO, CATEGORIE_TASSE_LISTA } from "../constants/fiscali";
+import { ANNO, CATEGORIE_STRUTTURALI } from "../constants/fiscali";
 import {
   BarChart,
   Bar,
@@ -148,7 +148,7 @@ export function GestioneMovimenti({
     const categorie = new Set([
       ...categorieUscite,
       ...categorieEntrate,
-      ...CATEGORIE_TASSE_LISTA
+      ...CATEGORIE_STRUTTURALI
     ]);
     return Array.from(categorie).sort();
   }, [uscite, entrate]);

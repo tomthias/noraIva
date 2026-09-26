@@ -5,10 +5,12 @@ import { useSupabaseCashFlow } from "./hooks/useSupabaseCashFlow";
 import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 import { AuthForm } from "./components/AuthForm";
 import { Sidebar, type SidebarSection } from "./components/Sidebar";
-import { RiepilogoCard } from "./components/RiepilogoCard";
-import { NettoDisponibile } from "./components/NettoDisponibile";
-import { SpieFiscozen } from "./components/SpieFiscozen";
-import { SogliaForfettario } from "./components/SogliaForfettario";
+import { Prelevabile } from "./components/dashboard/Prelevabile";
+import { Scadenzario } from "./components/dashboard/Scadenzario";
+import { FattureDaIncassare } from "./components/dashboard/FattureDaIncassare";
+import { GuadagnoSpesa } from "./components/dashboard/GuadagnoSpesa";
+import { LimiteForfettario } from "./components/dashboard/LimiteForfettario";
+import { Patrimonio } from "./components/Patrimonio";
 
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
@@ -16,28 +18,41 @@ import { GestioneMovimenti } from "./components/GestioneMovimenti";
 import { ImportBBVA } from "./components/ImportBBVA";
 import { GraficoClienti } from "./components/GraficoClienti";
 import { ScenarioSimulator } from "./components/ScenarioSimulator";
-import { YearFilter } from "./components/YearFilter";
 import { Analisi } from "./components/analisi/Analisi";
 import { Toaster } from "./components/ui/sonner";
 
-import { ANNO, ANNO_MINIMO_VISIBILE } from "./constants/fiscali";
+
 import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
-import { calcolaAccantonamento, calcolaTotaleFatture } from "./utils/calcoliFisco";
+import {
+  margineMensile,
+  patrimonio,
+  situazione,
+  verificaBanca,
+  type InputSituazione,
+} from "./utils/fisco";
 
 function App() {
   const { user, loading: authLoading, signIn, signOut } = useSupabaseAuth();
   const {
     fatture,
+    movimenti,
     prelievi,
     uscite,
     entrate,
+    scadenzeSalvate,
+    strumenti,
+    valori,
+    apertura,
+    cuscinetto,
+    mesiRiserva,
     isLoading: dataLoading,
     error,
     aggiungiFattura,
     modificaFattura,
     eliminaFattura,
+    incassaFattura,
     aggiungiPrelievo,
     modificaPrelievo,
     eliminaPrelievo,
@@ -48,12 +63,15 @@ function App() {
     modificaEntrata,
     eliminaEntrata,
     convertiTipoMovimento,
-    rettifiche,
-    impostaRettifica,
-    ancoraSaldo,
-    stimeFiscozen,
-    cuscinetto,
+    pagaScadenze,
+    annullaPagamento,
+    salvaScadenza,
+    eliminaScadenza,
+    aggiungiStrumento,
+    aggiornaValore,
+    assegnaStrumento,
     salvaCuscinetto,
+    salvaMesiRiserva,
     refresh,
   } = useSupabaseCashFlow();
 
@@ -69,52 +87,42 @@ function App() {
   const [showForm, setShowForm] = useState(false);
   const [activeSection, setActiveSection] = useState<SidebarSection>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [annoDashboard, setAnnoDashboard] = useState<number>(ANNO);
   // Descrizioni salvate in localStorage: lette una sola volta al primo render
   // (lazy initializer, non un effect: evita il render a vuoto iniziale).
   const [descrizioniSalvate, setDescrizioniSalvate] = useState<string[]>(caricaDescrizioniSalvate);
 
-  // Estrai anni disponibili dalle fatture, includendo sempre anno corrente
-  // Nascondi anni precedenti al 2026 (dati resettati)
-  const anniDisponibili = useMemo(() => {
-    const anni = new Set(fatture.map((f) => parseInt(f.data.substring(0, 4))));
-    // Aggiungi sempre anno corrente
-    anni.add(ANNO);
-    return Array.from(anni)
-      .filter((anno) => anno >= ANNO_MINIMO_VISIBILE)
-      .sort((a, b) => b - a);
-  }, [fatture]);
-
-  // Estrai clienti e descrizioni uniche per autocomplete
   const clientiSuggeriti = useMemo(() => {
     const clienti = new Set(fatture.map((f) => f.cliente).filter(Boolean));
     return Array.from(clienti).sort();
   }, [fatture]);
 
-  // Usa le descrizioni salvate da localStorage
   const descrizioniSuggerite = descrizioniSalvate;
 
-  // Filtra fatture per anno selezionato (per il riepilogo)
-  const fattureAnnoSelezionato = fatture.filter((f) => f.data.startsWith(String(annoDashboard)));
-
-  // Stesso calcolo della card del netto: le spie confrontano quei numeri,
-  // non una loro riedizione.
-  const accantonamentoDashboard = useMemo(
-    () =>
-      calcolaAccantonamento(
-        fatture,
-        prelievi,
-        uscite,
-        entrate,
-        annoDashboard,
-        rettifiche,
-        ancoraSaldo,
-        cuscinetto
-      ),
-    [fatture, prelievi, uscite, entrate, annoDashboard, rettifiche, ancoraSaldo, cuscinetto]
+  // UNA sola situazione, calcolata una volta: Dashboard, Simulatore e
+  // Patrimonio leggono tutti da qui.
+  const oggi = new Date().toISOString().slice(0, 10);
+  const input = useMemo<InputSituazione>(
+    () => ({
+      fatture,
+      movimenti,
+      scadenzeSalvate,
+      apertura,
+      cuscinetto,
+      mesiRiserva,
+      oggi,
+    }),
+    [fatture, movimenti, scadenzeSalvate, apertura, cuscinetto, mesiRiserva, oggi]
   );
-
-
+  const s = useMemo(() => situazione(input), [input]);
+  const banca = useMemo(() => verificaBanca(apertura, movimenti), [apertura, movimenti]);
+  const mesi = useMemo(
+    () => margineMensile(fatture, movimenti, s.scadenze, oggi),
+    [fatture, movimenti, s.scadenze, oggi]
+  );
+  const posizioni = useMemo(
+    () => patrimonio(strumenti, valori, movimenti).posizioni,
+    [strumenti, valori, movimenti]
+  );
 
   // Mostra schermata di caricamento durante verifica auth
   if (authLoading) {
@@ -170,41 +178,42 @@ function App() {
 
           {activeSection === "dashboard" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
-                  <p className="text-muted-foreground">Panoramica della tua situazione fiscale</p>
-                </div>
-                <YearFilter
-                  anni={anniDisponibili}
-                  annoSelezionato={annoDashboard}
-                  onChange={(anno) => setAnnoDashboard(anno ?? ANNO)}
-                />
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
+                <p className="text-muted-foreground">Quanto puoi prelevare oggi, e perché</p>
               </div>
-              <SogliaForfettario
-                incassiDaFatture={calcolaTotaleFatture(fattureAnnoSelezionato)}
-                rettifica={rettifiche[annoDashboard] ?? 0}
-                anno={annoDashboard}
-                onSalvaRettifica={(importo) => impostaRettifica(annoDashboard, importo)}
-                onAzzeraRettifica={() => impostaRettifica(annoDashboard, 0)}
+              <Prelevabile
+                s={s}
+                banca={banca}
+                mesiRiserva={mesiRiserva}
+                onSalvaCuscinetto={salvaCuscinetto}
+                onSalvaMesiRiserva={salvaMesiRiserva}
               />
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <RiepilogoCard fatture={fattureAnnoSelezionato} anno={annoDashboard} rettifica={rettifiche[annoDashboard] ?? 0} />
-                <NettoDisponibile
-                  fatture={fatture}
-                  prelievi={prelievi}
-                  uscite={uscite}
-                  entrate={entrate}
-                  annoSelezionato={annoDashboard}
-                  rettifiche={rettifiche}
-                  ancoraSaldo={ancoraSaldo}
-                  cuscinetto={cuscinetto}
-                  onSalvaCuscinetto={salvaCuscinetto}
-                  onSalvaRettificaAnnoPrecedente={(importo) => impostaRettifica(annoDashboard - 1, importo)}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+                <Scadenzario
+                  scadenze={s.scadenze}
+                  oggi={oggi}
+                  onPaga={(righe, data) => {
+                    pagaScadenze(righe, data);
+                    toast.success("F24 registrato come pagato");
+                  }}
+                  onAnnulla={annullaPagamento}
+                  onSalvaImporto={salvaScadenza}
+                  onRipristinaStima={eliminaScadenza}
                 />
+                <div className="space-y-6">
+                  <LimiteForfettario incassi={s.incassiAnno} anno={Number(oggi.slice(0, 4))} />
+                  <FattureDaIncassare
+                    fatture={fatture}
+                    oggi={oggi}
+                    onIncassa={(id, data) => {
+                      incassaFattura(id, data);
+                      toast.success("Fattura incassata");
+                    }}
+                  />
+                </div>
               </div>
-
-              <SpieFiscozen accantonamento={accantonamentoDashboard} stime={stimeFiscozen} />
+              <GuadagnoSpesa mesi={mesi} />
             </div>
           )}
 
@@ -232,7 +241,11 @@ function App() {
                 <div className="border rounded-lg p-6 bg-card">
                   <FormFattura
                     onSubmit={(dati, salvaDescrizioneFlag) => {
-                      aggiungiFattura(dati);
+                      // Una fattura già incassata porta con sé il movimento di
+                      // incasso: si crea da aperta e poi si incassa.
+                      aggiungiFattura({ ...dati, data: null }).then((nuova) => {
+                        if (nuova && dati.data) incassaFattura(nuova.id, dati.data, nuova);
+                      });
                       if (salvaDescrizioneFlag && dati.descrizione) {
                         salvaDescrizione(dati.descrizione);
                         setDescrizioniSalvate(caricaDescrizioniSalvate());
@@ -287,6 +300,7 @@ function App() {
           {activeSection === "import" && (
             <ImportBBVA
               categorieEsistenti={categorieEsistenti}
+              fatture={fatture}
               onImportCompletato={refresh}
             />
           )}
@@ -294,11 +308,24 @@ function App() {
           {activeSection === "analisi" && (
             <Analisi
               fatture={fatture}
+              movimenti={movimenti}
               uscite={uscite}
               entrate={entrate}
               prelievi={prelievi}
-              rettifiche={rettifiche}
-              ancoraSaldo={ancoraSaldo}
+              apertura={apertura}
+            />
+          )}
+
+          {activeSection === "patrimonio" && (
+            <Patrimonio
+              posizioni={posizioni}
+              strumenti={strumenti}
+              movimenti={movimenti}
+              fondoInvestimenti={s.fondoInvestimenti}
+              oggi={oggi}
+              onAggiornaValore={aggiornaValore}
+              onAssegna={assegnaStrumento}
+              onAggiungiStrumento={aggiungiStrumento}
             />
           )}
 
@@ -306,9 +333,9 @@ function App() {
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-bold mb-1">Simulatore</h2>
-                <p className="text-muted-foreground">Calcola il netto di una singola fattura</p>
+                <p className="text-muted-foreground">Cosa cambia con un incasso in più</p>
               </div>
-              <ScenarioSimulator />
+              <ScenarioSimulator input={input} />
             </div>
           )}
         </div>

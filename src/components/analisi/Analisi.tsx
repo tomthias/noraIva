@@ -1,10 +1,19 @@
 /**
- * Container principale sezione Analisi
- * Hub finanziario con statistiche, grafici e consigli personalizzati
+ * Sezione Analisi: dove vanno i soldi. Solo grafici e statistiche descrittive;
+ * i numeri che guidano le decisioni (netto, tasse, fondo) stanno in Dashboard
+ * e vengono tutti da `utils/fisco.ts`.
  */
 
 import { useMemo, useState } from "react";
-import type { Fattura, Uscita, Entrata, Prelievo } from "../../types/fattura";
+import type {
+  AperturaConto,
+  Fattura,
+  Movimento,
+  Uscita,
+  Entrata,
+  Prelievo,
+} from "../../types/fattura";
+import { eIncassata } from "../../types/fattura";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { YearFilter } from "../YearFilter";
 import { KPICards } from "./KPICards";
@@ -13,48 +22,38 @@ import { TimelineMovimenti } from "./TimelineMovimenti";
 import { RechartsBarChart } from "./RechartsBarChart";
 import { RechartsPieChart } from "./RechartsPieChart";
 import { RechartsLineChart } from "./RechartsLineChart";
-import { StipendioPrevisto } from "./StipendioPrevisto";
-import { BudgetRule } from "./BudgetRule";
-import { ConsigliFinanziari } from "./ConsigliFinanziari";
 import {
   calcolaKPI,
   aggregaPerCategoria,
   aggregaPerMese,
   classificaClienti,
-  calcolaSaldoCumulativo,
   getUltimiMovimenti,
 } from "../../utils/analisiCalcoli";
-import {
-  calcolaAccantonamento,
-  type AncoraSaldo,
-  type RettifichePerAnno,
-} from "../../utils/calcoliFisco";
-import { ANNO, ANNO_MINIMO_VISIBILE, eInteressi } from "../../constants/fiscali";
+import { cassa } from "../../utils/fisco";
+import { ANNO, eInteressi } from "../../constants/fiscali";
 import { formatCurrency } from "../../utils/format";
 
 interface Props {
   fatture: Fattura[];
+  movimenti: Movimento[];
   uscite: Uscita[];
   entrate: Entrata[];
   prelievi: Prelievo[];
-  /** Rettifiche degli incassi per anno (vedi Dashboard → Incassi). */
-  rettifiche?: RettifichePerAnno;
-  /** Saldo dichiarato dalla banca all'ultimo import: quando c'è, comanda lui. */
-  ancoraSaldo?: AncoraSaldo;
+  apertura: AperturaConto;
 }
 
 export function Analisi({
-  fatture,
+  fatture: tutteLeFatture,
+  movimenti,
   uscite,
   entrate,
   prelievi,
-  rettifiche = {},
-  ancoraSaldo,
+  apertura,
 }: Props) {
   const [annoSelezionato, setAnnoSelezionato] = useState<number>(ANNO);
+  // Le analisi lavorano sugli incassi: una fattura da pagare non ha ancora una data.
+  const fatture = useMemo(() => tutteLeFatture.filter(eIncassata), [tutteLeFatture]);
 
-  // Estrai anni disponibili, includendo sempre anno corrente
-  // Nascondi anni precedenti al 2026 (dati resettati)
   const anniDisponibili = useMemo(() => {
     const anni = new Set([
       ...fatture.map((f) => parseInt(f.data.substring(0, 4))),
@@ -64,9 +63,7 @@ export function Analisi({
     ]);
     // Aggiungi sempre anno corrente
     anni.add(ANNO);
-    return Array.from(anni)
-      .filter((anno) => anno >= ANNO_MINIMO_VISIBILE)
-      .sort((a, b) => b - a);
+    return Array.from(anni).sort((a, b) => b - a);
   }, [fatture, uscite, entrate, prelievi]);
 
   // Interessi accreditati nell'anno: solo quelli realmente arrivati.
@@ -103,23 +100,6 @@ export function Analisi({
   const prelieviAnno = useMemo(
     () => prelievi.filter((p) => p.data.startsWith(String(annoSelezionato))),
     [prelievi, annoSelezionato]
-  );
-
-  // Accantonamento fiscale: STESSA funzione usata dalla Dashboard.
-  // Prima questa logica era copia-incollata qui e i due schermi divergevano a
-  // ogni modifica (5 commit consecutivi di "align Analisi with Dashboard").
-  const accantonamento = useMemo(
-    () =>
-      calcolaAccantonamento(
-        fatture,
-        prelievi,
-        uscite,
-        entrate,
-        annoSelezionato,
-        rettifiche,
-        ancoraSaldo
-      ),
-    [fatture, prelievi, uscite, entrate, annoSelezionato, rettifiche, ancoraSaldo]
   );
 
   // Aggregazioni per grafici
@@ -174,85 +154,38 @@ export function Analisi({
     [fattureAnno]
   );
 
+  // Saldo del conto a fine mese: stessa funzione `cassa` della Dashboard, così
+  // l'ultimo punto della curva coincide con il saldo mostrato là.
   const saldoCumulativo = useMemo(() => {
-    const saldi = calcolaSaldoCumulativo(
-      fattureAnno,
-      usciteAnno,
-      entrateAnno,
-      prelieviAnno,
-      annoSelezionato,
-      // Parte dal saldo iniziale, così la curva coincide col cash reale
-      accantonamento.saldoIniziale
-    );
-
-    const perMese: Record<string, number> = {};
-    saldi.forEach((s) => {
-      const mese = s.data.substring(0, 7);
-      perMese[mese] = s.saldo;
-    });
-
     const mesiNomi = [
       "Gen", "Feb", "Mar", "Apr", "Mag", "Giu",
       "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
     ];
-
-    return Object.entries(perMese)
-      .map(([mese, saldo]) => {
-        const meseNum = parseInt(mese.split("-")[1]);
-        return {
-          label: mesiNomi[meseNum - 1],
-          value: saldo,
-        };
+    const oggi = new Date().toISOString().slice(0, 10);
+    return mesiNomi
+      .map((label, i) => {
+        const fineMese = new Date(Date.UTC(annoSelezionato, i + 1, 0)).toISOString().slice(0, 10);
+        return { label, fineMese };
       })
-      .sort((a, b) => mesiNomi.indexOf(a.label) - mesiNomi.indexOf(b.label));
-  }, [fattureAnno, usciteAnno, entrateAnno, prelieviAnno, annoSelezionato, accantonamento.saldoIniziale]);
+      .filter(({ fineMese }) => fineMese.slice(0, 7) <= oggi.slice(0, 7) && fineMese > apertura.data)
+      .map(({ label, fineMese }) => ({
+        label,
+        value: cassa(apertura, movimenti.filter((m) => m.data <= fineMese)),
+      }));
+  }, [movimenti, apertura, annoSelezionato]);
 
   const ultimiMovimenti = useMemo(
     () => getUltimiMovimenti(fatture, uscite, entrate, prelievi, 7),
     [fatture, uscite, entrate, prelievi]
   );
 
-  // Medie e derivati per i consigli finanziari.
-  const calcoliFinanziari = useMemo(() => {
-    // Media stipendio mensile (dell'anno corrente)
-    const totalePrelievi = prelieviAnno.reduce((sum, p) => sum + p.importo, 0);
-    const mesiConPrelievi = new Set(prelieviAnno.map(p => p.data.substring(0, 7))).size || 1;
-    const mediaStipendioMensile = totalePrelievi / mesiConPrelievi;
-
-    // Media uscite mensili (escluse tasse). Si divide per i mesi TRASCORSI, non
-    // per 12: a metà anno dividere per 12 dimezzava la media e gonfiava di
-    // conseguenza i "mesi di copertura" del fondo emergenza.
-    const usciteNonTasse = usciteAnno
-      .filter(u => !u.categoria?.toLowerCase().startsWith('tasse'))
-      .reduce((sum, u) => sum + u.importo, 0);
-    const oggi = new Date();
-    const mesiTrascorsi =
-      annoSelezionato === oggi.getFullYear() ? oggi.getMonth() + 1 : 12;
-    const mediaUsciteMensili = usciteNonTasse / mesiTrascorsi;
-
-    // Mese prossimo
-    const mesiNomi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-      "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
-    const meseProssimo = mesiNomi[(oggi.getMonth() + 1) % 12];
-
-    return {
-      nettoDisponibile: accantonamento.cashDisponibileReale,
-      tasseDaAccantonare: accantonamento.totaleDaAccantonare,
-      mediaStipendioMensile,
-      mediaUsciteMensili,
-      meseProssimo,
-      mediaFatturatoMensile: kpi.mediaFatturatoMensile,
-      numeroClienti: kpi.numeroClienti,
-    };
-  }, [accantonamento, usciteAnno, prelieviAnno, kpi, annoSelezionato]);
-
   return (
     <div className="space-y-6">
       {/* Header con filtro anno */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Analisi & Consigli</h2>
-          <p className="text-muted-foreground">Il tuo hub finanziario personale</p>
+          <h2 className="text-2xl font-bold">Analisi</h2>
+          <p className="text-muted-foreground">Dove vanno i soldi, anno per anno</p>
         </div>
         <YearFilter
           anni={anniDisponibili}
@@ -260,25 +193,6 @@ export function Analisi({
           onChange={(anno) => setAnnoSelezionato(anno ?? ANNO)}
         />
       </div>
-
-      {/* Sezione Consigli Finanziari */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <StipendioPrevisto
-          nettoDisponibile={calcoliFinanziari.nettoDisponibile}
-          tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
-          mese={calcoliFinanziari.meseProssimo}
-        />
-        <BudgetRule stipendioMensile={calcoliFinanziari.mediaStipendioMensile} />
-      </div>
-
-      {/* Consigli personalizzati */}
-      <ConsigliFinanziari
-        nettoDisponibile={calcoliFinanziari.nettoDisponibile}
-        tasseDaAccantonare={calcoliFinanziari.tasseDaAccantonare}
-        mediaFatturatoMensile={calcoliFinanziari.mediaFatturatoMensile}
-        mediaUsciteMensili={calcoliFinanziari.mediaUsciteMensili}
-        numeroClienti={calcoliFinanziari.numeroClienti}
-      />
 
       {/* KPI Cards - 3 colonne */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -398,7 +312,7 @@ export function Analisi({
       {/* Line Chart - Full width */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Saldo Cumulativo</CardTitle>
+          <CardTitle className="text-base">Saldo del conto a fine mese</CardTitle>
         </CardHeader>
         <CardContent>
           <RechartsLineChart

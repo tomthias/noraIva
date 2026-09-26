@@ -13,7 +13,10 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          data: string
+          /** Data di INCASSO. NULL = emessa, non ancora incassata. */
+          data: string | null
+          numero: string | null
+          data_emissione: string | null
           descrizione: string
           cliente: string
           importo_lordo: number
@@ -24,7 +27,9 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          data: string
+          data?: string | null
+          numero?: string | null
+          data_emissione?: string | null
           descrizione: string
           cliente: string
           importo_lordo: number
@@ -35,7 +40,9 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
-          data?: string
+          data?: string | null
+          numero?: string | null
+          data_emissione?: string | null
           descrizione?: string
           cliente?: string
           importo_lordo?: number
@@ -67,6 +74,7 @@ export interface Database {
           escludi_da_grafico: boolean
           note: string | null
           fattura_id: string | null
+          strumento_id: string | null
           created_at: string
           updated_at: string
         }
@@ -84,6 +92,7 @@ export interface Database {
           escludi_da_grafico?: boolean
           note?: string | null
           fattura_id?: string | null
+          strumento_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -101,6 +110,7 @@ export interface Database {
           escludi_da_grafico?: boolean
           note?: string | null
           fattura_id?: string | null
+          strumento_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -225,6 +235,106 @@ export interface Database {
           user_id?: string
           chiave?: string
           valore?: Json
+          updated_at?: string
+        }
+      }
+      scadenze_fiscali: {
+        Row: {
+          id: string
+          user_id: string
+          anno_imposta: number
+          tributo: string
+          tipo: string
+          data_scadenza: string
+          /** Negativo = credito compensato nell'F24. */
+          importo: number
+          pagata_il: string | null
+          movimento_id: string | null
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          anno_imposta: number
+          tributo: string
+          tipo: string
+          data_scadenza: string
+          importo: number
+          pagata_il?: string | null
+          movimento_id?: string | null
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          anno_imposta?: number
+          tributo?: string
+          tipo?: string
+          data_scadenza?: string
+          importo?: number
+          pagata_il?: string | null
+          movimento_id?: string | null
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      strumenti_patrimonio: {
+        Row: {
+          id: string
+          user_id: string
+          nome: string
+          tipo: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          nome: string
+          tipo: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          nome?: string
+          tipo?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      valori_patrimonio: {
+        Row: {
+          id: string
+          user_id: string
+          strumento_id: string
+          data: string
+          valore: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          strumento_id: string
+          data: string
+          valore: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          strumento_id?: string
+          data?: string
+          valore?: number
+          created_at?: string
           updated_at?: string
         }
       }

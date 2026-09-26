@@ -20,23 +20,25 @@ Invoice management webapp for Italian "Partita IVA" (freelance VAT) under the fl
 
 ### Core Layers
 
-- **Types** (`src/types/fattura.ts`): `Fattura`, `RiepilogoFattura`, `RiepilogoAnnuale` interfaces
-- **Constants** (`src/constants/fiscali.ts`): Tax parameters (78% profitability coefficient, 26.07% INPS, 5% substitute tax)
-- **Calculations** (`src/utils/calcoliFisco.ts`): Pure functions implementing Italian tax formulas
-- **State** (`src/hooks/useSupabaseCashFlow.ts`): Central hook managing invoice CRUD + Supabase persistence
+- **Types** (`src/types/fattura.ts`): `Fattura` (data incasso nullable), `Movimento`, `ScadenzaFiscale`, patrimonio
+- **Constants** (`src/constants/fiscali.ts`): aliquote per anno, acconti, soglie, categorie strutturali
+- **Motore** (`src/utils/fisco.ts`): **unica fonte dei numeri** — tasse, scadenzario, cassa, netto, fondo, patrimonio
+- **State** (`src/hooks/useSupabaseCashFlow.ts`): carica e scrive i dati; i conti li fa `fisco.ts`
 - **Movimenti** (`src/utils/movimenti.ts`): tabella unica `movimenti` (importo CON SEGNO)
-  ⇄ le tre viste storiche `prelievi` / `uscite` / `entrate` (importi positivi)
+  ⇄ le tre viste storiche `prelievi` / `uscite` / `entrate` (importi positivi), usate da Analisi e GestioneMovimenti
 - **Import BBVA** (`src/utils/importBBVA.ts`, `categorizzazione.ts`, `hooks/useImportBBVA.ts`):
-  lettura dell'estratto Excel, dedup, categoria proposta
-- **Storage** (`src/utils/storage.ts`): localStorage wrapper for local data (descriptions, etc.)
+  Excel o PDF "Ultime transazioni", dedup, categoria proposta, abbinamento bonifico → fattura
+- **Storage** (`src/utils/storage.ts`): localStorage solo per le descrizioni salvate
 
 ### Components
 
-- `RiepilogoCard`: Annual summary with all fiscal values
-- `NettoDisponibile`: "How much can I withdraw" card - **CRITICAL fiscal logic here**
-- `TabellaFatture`: Invoice list with inline editing
-- `FormFattura`: Add/edit invoice form
-- `ScenarioSimulator`: Simulate adding hypothetical invoices
+- `dashboard/Prelevabile`: netto prelevabile, cassa, tasse da tenere, cuscinetto, fondo investimenti
+- `dashboard/Scadenzario`: F24 aperti (reali o stimati), "segna pagato", importi reali
+- `dashboard/FattureDaIncassare`, `dashboard/LimiteForfettario`, `dashboard/GuadagnoSpesa`
+- `Patrimonio`: pensione, investimenti, Moneyfarm — mai prelevabile
+- `TabellaFatture` / `FormFattura`: numero, emissione, incasso
+- `ScenarioSimulator`: "se incasso X oggi" via `simulaIncasso`
+- `analisi/Analisi`: solo grafici descrittivi
 
 ### Test Pattern
 
@@ -48,376 +50,131 @@ GitHub Pages via GitHub Actions. Push to `main` triggers: test → build → dep
 
 ---
 
-# CRITICAL: Italian Tax System - Regime Forfettario
+# CRITICAL: Regime Forfettario — come l'app fa i conti
 
-**⚠️ READ THIS ENTIRE SECTION BEFORE MODIFYING ANY FISCAL CALCULATION CODE ⚠️**
+**⚠️ Leggi tutta questa sezione prima di toccare `src/utils/fisco.ts`.**
 
-## Overview
+La logica è stata ricostruita a settembre 2026 perché la versione precedente
+(rettifiche, tasse riconosciute dal nome della categoria, saldo iniziale come
+categoria, 8 schermate che rifacevano i conti) dava un netto sbagliato di
+migliaia di euro. Il modello attuale ricalcola **al centesimo** gli F24 reali
+del 2024 e del 2025 (`tests/fisco.test.ts`): se una modifica rompe quel
+backtest, è sbagliata la modifica.
 
-This app is for Italian freelancers under the "Regime Forfettario" (flat-rate tax regime). The tax system is complex because taxes are paid with a **1-year delay** using **advances (acconti)**.
+## Tre fonti, una funzione
 
-## Tax Parameters (from `constants/fiscali.ts`)
+| Fonte | Tabella | Cosa decide |
+|---|---|---|
+| Movimenti del conto | `movimenti` | la **cassa** = apertura + Σ movimenti dopo l'apertura |
+| Fatture con data di incasso | `fatture.data` | gli **incassi**, quindi le tasse e il limite 85k |
+| F24 reali | `scadenze_fiscali` | cosa è stato pagato/emesso; il resto lo stima l'app |
 
-| Parameter | Value | Description |
-|-----------|-------|-------------|
-| Coefficiente Redditività | 78% | For ATECO 74.12.01 (graphic design) |
-| INPS Gestione Separata | 26.07% | 2024–2026 (25% IVS + 0.72% maternità/ANF + 0.35% ISCRO) |
-| Imposta Sostitutiva | 5% | Startup rate — periodi d'imposta **2022–2026** |
-| Imposta Sostitutiva | 15% | Standard rate — **dal 2027** |
-
-**⚠️ Le aliquote NON sono costanti globali.** Attività iniziata il **23/06/2022**, quindi
-il 5% copre i primi 5 periodi d'imposta (2022–2026) e dal 2027 diventa 15%.
-Usa SEMPRE i getter di `constants/fiscali.ts`, mai i valori nudi:
-
-```ts
-getAliquotaSostitutiva(anno)  // 0.05 fino al 2026, 0.15 dal 2027
-getAliquotaInps(anno)         // per anno, con fallback stimato sugli anni futuri
-aliquoteStimate(anno)         // true se l'aliquota INPS di quell'anno è una stima
-```
-
-Tutte le funzioni di `calcoliFisco.ts` accettano un parametro `anno`.
-La Gestione Separata **non ha minimale** per i professionisti, e il massimale
-(122.295 € nel 2026) è sopra il tetto forfettario di 85.000 €: mai vincolante.
-
-## ⚠️ PRINCIPIO DI CASSA — `Fattura.data` è la data di INCASSO
-
-Il regime forfettario tassa **per cassa**: contano i compensi *percepiti*
-nell'anno, non le fatture *emesse*. Vale sia per il reddito imponibile sia per
-il limite degli 85.000 € (confermato dall'Agenzia delle Entrate, Telefisco
-18/09/2025: una fattura emessa a dicembre e incassata a gennaio conta nell'anno
-dell'incasso).
-
-**Convenzione di questa app**: il campo `data` di `Fattura` contiene la data di
-**incasso**, non di emissione. Tutti i filtri per anno (tasse, acconti, limite
-85k, grafici) si basano su quel campo. La UI lo dice esplicitamente: il form
-mostra "Data incasso" con la spiegazione, e la tabella ha la stessa intestazione.
-
-Conseguenza pratica: il fatturato mostrato dall'app coincide con gli **incassi**
-del gestionale del commercialista, non con il suo "fatturato emesso". Se i due
-numeri divergono, quasi certamente una fattura è stata registrata con la data
-sbagliata.
-
-Non esiste (per scelta) un campo separato per la data di emissione: se in futuro
-servisse, va aggiunta una colonna `data_emissione` lasciando `data` come incasso,
-mai il contrario.
-
-### Import BBVA e ancora del saldo
-
-**Il cash NON si ricostruisce più dal basso.** L'export mensile di BBVA porta
-la colonna "Disponibile", cioè il saldo del conto dopo ogni movimento: la banca
-sa già quanto c'è. Dal primo import in poi vale
+Tutto passa da `situazione()` in `fisco.ts`. Dashboard, Simulatore e Patrimonio
+leggono lo stesso oggetto. **Non rifare conti nei componenti.**
 
 ```
-cashDisponibileReale = saldo dell'ultimo estratto
-                     + movimenti MANUALI con data > data dell'estratto
+daTenere        = Σ righe F24 non pagate (reali + stimate, crediti inclusi)
+liberoDaTasse   = cassa − daTenere
+netto           = liberoDaTasse − cuscinetto          ← "netto prelevabile"
+fondoInvestim.  = max(0, netto − mesiRiserva × costoVitaMensile)
 ```
 
-- L'ancora sta in `import_estratti` (una riga per import), non si deduce
-  riordinando i movimenti: due movimenti dello stesso giorno non hanno ordine.
-- I movimenti con `fonte = 'import_bbva'` NON si sommano all'ancora: sono già
-  dentro il saldo. Sommarli lo raddoppierebbe.
-- La vecchia somma dal basso resta calcolata come `cashRicostruito`: se
-  diverge oltre 1 € la dashboard mostra lo scostamento. **Uno scostamento non
-  sposta il netto prelevabile**, dice solo che un movimento manca o è doppio.
-- Finché non c'è nessun import il comportamento è quello di prima.
-- Il dedup è `sha256(data | importo | disponibile | osservazioni)`. Il
-  `disponibile` è indispensabile: due movimenti identici nello stesso giorno
-  (due caffè da 1,50 €) hanno saldi progressivi diversi, senza quello il
-  secondo verrebbe scartato come duplicato.
-- `data` di un movimento importato è la **data valuta** (colonna B), non la
-  contabile (colonna C, che può essere futura): stesso principio di cassa di
-  `fatture.data`.
-
-### Categorie strutturali
-
-Con la tabella unica il "tipo" di un movimento è la sua categoria, e alcune
-categorie pilotano i calcoli, non solo i grafici. Vanno riconosciute con i
-predicati di `constants/fiscali.ts` (`eStipendio`, `eSaldoIniziale`,
-`eIncassoFattura`, `eInteressi`), mai con un confronto di stringhe: esistono
-varianti storiche in database (`Stipendio` singolare, `Fatture`,
-`saldo_iniziale`) e un `===` le manca.
-
-`Incasso Fattura` è escluso dal cash ricostruito: i compensi entrano già dalla
-tabella `fatture`, contarli anche come movimento li conterebbe due volte.
-
-### Rettifiche degli incassi annuali
-
-> **Meccanismo legacy, per gli anni storici.** Con l'import gli incassi
-> arrivano con la data valuta del bonifico, cioè per costruzione la data di
-> incasso: le rettifiche servono sempre meno e per gli anni nuovi non
-> dovrebbero servire affatto.
-
-Quando le fatture registrate non rispecchiano l'incassato reale (date di
-emissione invece che di incasso, o anni non presenti in database), si applica
-una **rettifica** da Dashboard → card "Incassi" → matita.
-
-```
-incassi anno = somma fatture dell'anno + rettifica[anno]
-```
-
-**La rettifica si SOMMA, non sostituisce.** È la differenza fra i due modelli:
-con un valore che sostituisce il totale, ogni fattura aggiunta dopo smetteva di
-contare e andava riaggiornato tutto a mano. Sommando, il totale resta
-progressivo.
-
-- In UI si digita il **totale incassato**; il codice salva `totale − sommaFatture`.
-- Storage: `localStorage` (`rettifiche-incassi`), gestito da `utils/storage.ts`.
-  **Legato al browser, non sincronizzato.** Se serve su più dispositivi va
-  spostato su Supabase in una tabella `rettifiche_incassi`.
-- Corregge l'imponibile **solo ai fini fiscali** (tasse, acconti, limite 85k).
-  Il **cash disponibile continua a derivare dai movimenti reali**: rettificare
-  non fa comparire soldi sul conto.
-- Vale per qualsiasi anno, incluso il precedente: è così che si alimentano gli
-  acconti quando le fatture dell'anno prima non ci sono. L'anno precedente può
-  non essere selezionabile nel filtro, quindi la si inserisce dall'avviso rosso
-  in Dashboard.
-- Va **ridotta man mano che le fatture vengono ridatate per cassa**, altrimenti
-  quell'importo viene contato due volte. La UI mostra sempre la scomposizione
-  "X da fatture + Y di rettifica".
-- Rettifica `0` = assente (viene rimossa dallo storage).
-
-## Tax Calculation Formula
-
-```
-Fatturato (Invoiced) × 78% = Reddito Imponibile Lordo (Gross Taxable Income)
-Reddito Imponibile × 26.07% = Contributi INPS
-Reddito Imponibile - INPS = Reddito Imponibile Netto
-Reddito Netto × 5% = Imposta Sostitutiva
-TASSE TOTALI = INPS + Imposta Sostitutiva
-```
-
-**Example with 10,000€ invoiced:**
-```
-10,000 × 78% = 7,800€ (reddito imponibile)
-7,800 × 26.07% = 2,033.46€ (INPS)
-7,800 - 2,033.46 = 5,766.54€ (reddito netto)
-5,766.54 × 5% = 288.33€ (imposta sostitutiva)
-TOTALE TASSE = 2,033.46 + 288.33 = 2,321.79€
-```
-
----
-
-## The Advance Payment System (Sistema Saldo e Acconti)
-
-### Core Concept
-
-In Italy, you pay taxes for Year N in Year N+1, using this system:
-
-1. **Saldo (Balance)**: The remaining taxes for Year N (after subtracting advances already paid)
-2. **Acconti (Advances)**: Prepayments for Year N+1 (calculated on Year N taxes)
-
-### Timeline
-
-```
-YEAR N (e.g., 2025):
-├── You invoice clients and earn income
-├── June: Pay Saldo N-1 + 1° Acconto N (based on Year N-1 taxes)
-└── November: Pay 2° Acconto N (based on Year N-1 taxes)
-
-YEAR N+1 (e.g., 2026):
-├── June: Pay Saldo N + 1° Acconto N+1 (based on Year N taxes)
-└── November: Pay 2° Acconto N+1 (based on Year N taxes)
-```
-
-### Advance Percentages
-
-**Imposta Sostitutiva (Substitute Tax) — total 100%:**
-- 1° Acconto: **40%** of previous year's tax (June)
-- 2° Acconto: **60%** of previous year's tax (November)
-- Soglie: sotto **51,65 €** nessun acconto; fra 51,65 € e **257,52 €** unica rata a novembre
-
-**INPS Gestione Separata — total 80%:**
-- 1° Acconto: **40%** of previous year's contribution (June)
-- 2° Acconto: **40%** of previous year's contribution (November)
-
-**⚠️ I due tributi hanno acconti DIVERSI.** Applicare 40%/60% al *totale* delle tasse
-sovrastima l'acconto INPS del 20%. Usa `calcolaAccontiInps()` e `calcolaAccontiImposta()`
-di `calcoliFisco.ts`, mai una percentuale sul totale.
-
-### How Saldo (Balance) is Calculated
-
-```
-Saldo Anno N = Tasse Dovute Anno N - Acconti Versati Anno N
-
-Where:
-- Tasse Dovute Anno N = actual taxes based on Year N income
-- Acconti Versati Anno N = advances paid during Year N (based on Year N-1)
-```
-
-**Key insight**: If you earned MORE in Year N than Year N-1, your saldo will be positive (you owe money). If you earned LESS, your saldo could be zero or negative (credit).
-
-### Concrete Example
-
-**Year 2025:** Invoiced 52,796€ → Taxes due: 12,258€
-
-**June 2025 payment:**
-- Saldo 2024: (2024 taxes - 2024 advances paid)
-- 1° Acconto 2025: 40% × 2024 taxes (let's say 2024 taxes were 11,850€ → 4,740€)
-
-**November 2025 payment:**
-- 2° Acconto 2025: 60% × 2024 taxes = 7,110€
-
-**Total advances paid in 2025:** 4,740 + 7,110 = 11,850€ (based on 2024)
-
-**June 2026 payment:**
-- Saldo 2025: 12,258€ - 11,850€ = **408€** (taxes 2025 - advances paid)
-- 1° Acconto 2026: 40% × 12,258€ = **4,903€**
-
-**November 2026 payment:**
-- 2° Acconto 2026: 60% × 12,258€ = **7,355€**
-
----
-
-## Calculating "Totale da Tenere da Parte"
-
-When viewing Year N, the user needs to set aside money for:
-
-### 1. Current Year Deadlines (Scadenze Anno Corrente)
-
-Based on **Year N-1 taxes**, due to be paid in Year N:
-
-```
-scadenzeAnnoCorrente =
-    saldoAnnoPrecedente           // Year N-1 taxes minus advances paid in N-1
-  + primoAccontoAnnoCorrente      // 40% of Year N-1 taxes
-  + secondoAccontoAnnoCorrente    // 60% of Year N-1 taxes
-  - accontiGiaVersatiAnnoCorrente // Taxes already paid this year
-```
-
-### 2. Next Year Projection (Proiezione Anno Prossimo)
-
-Based on **Year N taxes** (current year), to be paid in Year N+1:
-
-```
-proiezioneAnnoProssimo =
-    saldoAnnoCorrente        // Year N taxes minus advances that WILL BE paid in N
-  + primoAccontoAnnoProssimo // 40% of Year N taxes
-```
-
-### 3. Total to Set Aside
-
-```
-totaleDaAccantonare = scadenzeAnnoCorrente + proiezioneAnnoProssimo
-```
-
----
-
-## Calculating "Netto Prelevabile Sicuro"
-
-This shows how much the user can safely withdraw:
-
-```
-nettoSicuro = cashDisponibileReale - totaleDaAccantonare
-```
-
-### CRITICAL: What is "Cash Disponibile Reale"?
-
-```
-cashDisponibileReale =
-    totaleFatturato           // All invoiced amounts
-  + totaleEntrate             // Extra income (bonuses, refunds, etc.)
-  + saldoIniziale             // Initial bank balance - DO NOT EXCLUDE!
-  - totalePrelievi            // Withdrawals (stipends)
-  - totaleUscite              // Expenses (including taxes paid)
-```
-
-**⚠️ CRITICAL**: The `saldoIniziale` (initial bank balance) MUST be included. This is real money in the bank account!
-
----
-
-## Common Mistakes to AVOID
-
-### 1. ❌ DO NOT use fallback logic for advances
-
-```typescript
-// WRONG - causes huge jumps when adding first invoice
-const acconto = tasseCorrenti > 0
-  ? tasseCorrenti * 0.4
-  : tassePrecedenti * 0.4;
-
-// CORRECT - always use current year taxes (even if 0)
-const acconto = tasseCorrenti * 0.4;
-```
-
-**Why**: If Year N has no invoices yet, using Year N-1 taxes inflates the "totale da tenere da parte". When you add the first small invoice, the calculation suddenly uses the small current year taxes, causing a massive drop that confuses the user.
-
-### 2. ❌ DO NOT exclude Saldo Iniziale
-
-The initial bank balance is real money. The "Netto Prelevabile Sicuro" must reflect the actual bank account balance.
-
-### 3. ❌ DO NOT forget current year deadlines
-
-The "Totale da Tenere da Parte" must include BOTH:
-- Current year deadlines (based on previous year taxes)
-- Next year projection (based on current year taxes)
-
-### 4. ❌ DO NOT confuse year filtering
-
-- **Cumulative data**: All years up to selected year (for cash flow)
-- **Single year data**: Only selected year (for calculating that year's taxes)
-- **Previous year data**: Year N-1 (for calculating advances due in Year N)
-
----
-
-## Key Files for Fiscal Logic
-
-| File | Purpose |
-|------|---------|
-| `src/utils/calcoliFisco.ts` | **Unica fonte di verità.** `calcolaAccantonamento()` + funzioni pure |
-| `src/constants/fiscali.ts` | Aliquote per anno, percentuali acconto, soglie, limiti |
-| `src/components/NettoDisponibile.tsx` | Dashboard: solo presentazione, consuma `calcolaAccantonamento()` |
-| `src/components/analisi/Analisi.tsx` | Analisi: consuma la **stessa** funzione |
-| `src/components/SogliaForfettario.tsx` | Avviso limiti 85.000 € / 100.000 € |
-
-**⚠️ NON reimplementare la logica di accantonamento nei componenti.** Prima era
-copia-incollata fra Dashboard e Analisi e divergeva a ogni modifica (5 commit
-consecutivi di "align Analisi with Dashboard"). Ogni cambiamento fiscale va fatto
-in `calcolaAccantonamento()` e coperto da `tests/accantonamento.test.ts`.
-
----
-
-## Testing Fiscal Changes
-
-### Mandatory Test Scenarios
-
-1. **Year with invoices, all taxes paid**: Verify totale da tenere da parte shows only next year projection
-2. **Year with invoices, no taxes paid yet**: Verify includes full current year deadlines
-3. **Year with NO invoices** (but previous year had invoices): Verify current year deadlines are still shown
-4. **Adding first invoice to empty year**: Verify NO sudden jumps in calculations
-5. **Year switching**: Values should be consistent, no discontinuities
-
-Questi scenari sono coperti da `tests/accantonamento.test.ts`: se cambi la logica
-fiscale, i test devono restare verdi o vanno aggiornati consapevolmente.
-
-### Verification Process
-
-1. Calculate expected values **by hand** first
-2. Compare with app output
-3. Check that adding/removing small invoices doesn't cause disproportionate changes
-4. Test with real-world data if available
-
----
-
-## Quick Reference: Variable Names
-
-| Variable | Meaning |
-|----------|---------|
-| `annoSelezionato` | Year N (selected year) |
-| `annoPrecedente` | Year N-1 |
-| `tasseTeoricheAnnoCorrente` | Taxes calculated on Year N invoices |
-| `tasseTeoricheAnnoPrecedente` | Taxes calculated on Year N-1 invoices |
-| `saldoAnnoPrecedente` | Year N-1 taxes - advances paid in N-1 |
-| `saldoAnnoCorrente` | Year N taxes - advances to be paid in N |
-| `primoAccontoAnnoCorrente` | 40% of Year N-1 taxes (due June Year N) |
-| `secondoAccontoAnnoCorrente` | 60% of Year N-1 taxes (due Nov Year N) |
-| `primoAccontoAnnoProssimo` | 40% of Year N taxes (due June Year N+1) |
-| `accontiVersatiNellAnno` | Taxes actually paid in Year N |
-
----
+- **Cassa**: `preferenze.apertura_conto` {data, saldo} + i movimenti con data
+  successiva. Nessuna categoria "Saldo Iniziale". Il controllo è
+  `verificaBanca()`: saldo dell'ultimo movimento importato (`saldo_dopo`)
+  contro la cassa alla stessa data. Uno scostamento = movimento mancante o doppio.
+- **Incassi dell'anno** = Σ fatture con `data` nell'anno. `data` è la data di
+  **incasso** (principio di cassa, Telefisco 18/09/2025); `null` = emessa e non
+  ancora pagata, non conta. La data di emissione sta in `data_emissione` e serve
+  solo al bollo. Niente rettifiche.
+- **Costo di vita**: media degli ultimi 12 mesi di tutti i movimenti tranne
+  quelli strutturali (tasse, investimenti, lavoro, incassi fattura). Gli
+  stipendi verso il conto personale sono vita.
+
+## Regole fiscali (verificate sugli F24 reali)
+
+| Regola | Valore |
+|---|---|
+| Reddito | incassi × 78% (ATECO 74.12.01) |
+| INPS Gestione Separata | reddito × 26,07% (2024–2026, circ. INPS 8/2026). Nessun minimale dovuto, massimale mai vincolante |
+| Imposta sostitutiva | aliquota × max(0, reddito − **INPS VERSATO nell'anno**) |
+| Aliquota imposta | 5% per i periodi 2022–2026 (start-up, attività dal 23/06/2022), **15% dal 2027** |
+| Acconti INPS | 40% + 40% dei contributi dell'anno prima |
+| Acconti imposta | **50% + 50%** (art. 58 DL 124/2019 + ris. 93/E/2019: attività soggetta a ISA) |
+| Soglie acconto imposta | < 51,65 € niente; < 257,52 € tutto a novembre |
+| Metodo | storico: gli acconti N+1 si calcolano sulle tasse N |
+| Bollo fatture | 2 € per fattura > 77,47 €; trimestri I–III entro 30/11, IV entro 28/02 |
+
+**⚠️ La deduzione è per CASSA.** L'imposta dell'anno N deduce l'INPS pagato
+nell'anno N (saldo N-1 + acconti N), non l'INPS calcolato sul reddito N. La
+versione precedente sbagliava qui.
+
+**⚠️ Gli acconti dell'imposta sono 50/50, non 40/60.** Gli F24 lo confermano:
+803,50 + 803,50 (2024), 613 + 613 (2025), 724 + 724 (2026).
+
+**⚠️ Saldi negativi = crediti.** Il saldo imposta 2024 era −381 €, compensato
+nell'F24 di luglio 2025. Mai `Math.max(0, …)` su un saldo.
+
+**2027**: l'aliquota sale al 15% ma gli acconti 2027 si calcolano sull'imposta
+2026 al 5%, quindi il saldo 2027 (giugno 2028) sarà alto. Lo scadenzario lo avvisa.
+
+Usa sempre `getAliquotaSostitutiva(anno)` e `getAliquotaInps(anno)`.
+
+## Lo scadenzario
+
+`scadenzario(fatture, salvate, oggi)` restituisce le righe F24:
+- le **salvate** (`scadenze_fiscali`, `calcolata: false`): F24 reali, pagati o emessi;
+- le **stimate** (`calcolata: true`), aggiunte solo se manca la riga salvata
+  con lo stesso anno/tributo/tipo, per l'anno scorso e l'anno in corso:
+  acconti dell'anno, saldo dell'anno, acconti dell'anno dopo, bollo.
+
+Una riga salvata **vince sempre** sulla stima. Quando Fiscozen emette l'F24,
+si scrive l'importo reale (matita nello scadenzario) e la stima sparisce.
+
+"Segna pagato" crea UN movimento `Tasse` per il totale dell'F24 e marca le
+righe con `pagata_il` e `movimento_id`. Cassa e daTenere scendono della stessa
+cifra: **il netto non cambia pagando le tasse** (c'è un test).
+
+Le tasse pagate NON si deducono più dai movimenti per categoria: la categoria
+`Tasse` serve solo a tenerle fuori dal costo di vita.
+
+## Categorie strutturali
+
+Riconosciute con i predicati di `constants/fiscali.ts`, mai con `===`:
+`eTassa`, `eStipendio`, `eInvestimento`, `eLavoro`, `eIncassoFattura`, `eInteressi`.
+
+- **Tasse**: bonifico verso Intesa per pagare l'F24 (causale "Tasse…")
+- **Stipendi**: bonifico verso il conto personale ("Stipendio…" o solo "Mattia marinangeli")
+- **Investimenti**: Moneyfarm, "Verso.agg. mand.", "Mm288318" → collegabili a uno strumento del patrimonio
+- **Lavoro**: Fiscozen, Claude, Vercel… (costi dell'attività, fuori dal costo di vita)
+- **Incasso Fattura**: bonifico ricevuto con `fattura_id`
+
+## Import BBVA
+
+- Excel o PDF "Ultime transazioni" (`leggiEstrattoPdf`, testo via pdfjs in `pdfTesto.ts`).
+- `catenaSaldi()` verifica che saldo precedente + importo = saldo: una rottura è una riga persa.
+- Dedup: `sha256(data valuta | importo | saldo dopo)`. Il testo NON entra quando
+  c'è il saldo: Excel e PDF descrivono lo stesso movimento con parole diverse.
+- Abbinamento incasso → fattura (`abbinaFatture`): numero citato in causale con
+  importo che torna (anche più fatture in un bonifico), altrimenti la fattura
+  aperta con lo stesso importo emessa per prima. L'importo deve SEMPRE tornare.
+- Un incasso segnato a mano viene sostituito dal bonifico importato.
+
+## Dati di partenza (migrazione settembre 2026)
+
+`scripts/ricostruzione-dati.mts` ha ricostruito movimenti (406, dal 30/11/2024,
+estratto BBVA), fatture 2025–2026 (PDF Fiscozen) e scadenzario (F24 2024–2026).
+Apertura: 22.393,75 € al 29/11/2024. Fattura 6/2026 annullata.
+
+## Testing
+
+`tests/fisco.test.ts` è il riferimento: backtest sugli F24 reali, soglie,
+15% dal 2027, crediti, "pagare non cambia il netto", simulazione di un incasso.
+Ogni modifica fiscale passa da lì. Usa `toBeCloseTo()`.
 
 ## Sources
 
-- [QuickFisco - Calcolo acconti Regime Forfettario](https://quickfisco.it/blog/calcolo-acconti-saldo-regime-forfettario-scadenze-esempi/)
-- [INPS - Gestione Separata aliquote 2025](https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2025.01.gestione-separata-le-aliquote-contributive-per-il-2025.html)
-- [TaxMan - Scadenze fiscali 2025](https://www.taxmanapp.it/blog/2025/03/12/scadenze-fiscali-2025-liberi-professionisti-in-regime-forfettario/)
-- [Regime-Forfettario.it - Versamento acconti](https://www.regime-forfettario.it/versamento-imposta-acconti-regime-forfettario/)
+- [INPS – Gestione Separata aliquote 2026](https://www.inps.it/it/it/inps-comunica/notizie/dettaglio-news-page.news.2026.02.gestione-separata-le-aliquote-contributive-per-il-2026.html)
+- [Il Sole 24 Ore – Acconti al 50% anche per forfettari](https://www.ilsole24ore.com/art/partite-iva-acconti-ridotti-50percento-anche-forfettari-e-minimi-ACn36Sy)
+- [EC News – Forfettari, scadenze di versamento](https://www.ecnews.it/fiscale/in-pratica/guida-agli-adempimenti/contribuenti-forfettari-le-scadenze-di-versamento-delle-imposte/)
+- [Fiscozen – Contributi INPS nel forfettario](https://www.fiscozen.it/guide/regime-forfettario-contributi-inps/)

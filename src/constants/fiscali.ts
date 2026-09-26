@@ -74,15 +74,6 @@ export function aliquoteStimate(anno: number): boolean {
   return !(anno in ALIQUOTE_INPS_GS);
 }
 
-// ---------------------------------------------------------------------------
-// Retrocompatibilità: valori dell'anno corrente.
-// Preferire sempre i getter sopra nei calcoli che dipendono dall'anno.
-// ---------------------------------------------------------------------------
-export const ALIQUOTA_IMPOSTA_SOSTITUTIVA = getAliquotaSostitutiva(
-  new Date().getFullYear()
-);
-export const ALIQUOTA_CONTRIBUTI_GS = getAliquotaInps(new Date().getFullYear());
-
 /**
  * Coefficiente di redditività: 78%
  * Codice ATECO 74.12.01 - Attività di design di grafica e comunicazione visiva
@@ -90,37 +81,6 @@ export const ALIQUOTA_CONTRIBUTI_GS = getAliquotaInps(new Date().getFullYear());
  * è considerata reddito imponibile ai fini fiscali
  */
 export const COEFFICIENTE_REDDITIVITA = 0.78;
-
-/**
- * Chiave localStorage per salvare le fatture
- */
-export const STORAGE_KEY = "fatture-mattia-2025";
-
-/**
- * Categorie per le tasse - usate per distinguere tra:
- * - Saldo: pagamento del saldo anno precedente
- * - Acconto: pagamento acconti anno corrente
- * - INPS: contributi previdenziali
- * - Imposta Sostitutiva: imposta sostitutiva IRPEF
- */
-export const CATEGORIE_TASSE = {
-  SALDO: "Tasse - Saldo",
-  ACCONTO: "Tasse - Acconto",
-  INPS: "Tasse - INPS",
-  IMPOSTA_SOSTITUTIVA: "Tasse - Imposta Sostitutiva",
-  // Categoria generica per retrocompatibilità
-  GENERICO: "Tasse",
-} as const;
-
-/**
- * Array di tutte le categorie tasse per suggerimenti
- */
-export const CATEGORIE_TASSE_LISTA = [
-  CATEGORIE_TASSE.ACCONTO,
-  CATEGORIE_TASSE.SALDO,
-  CATEGORIE_TASSE.INPS,
-  CATEGORIE_TASSE.IMPOSTA_SOSTITUTIVA,
-] as const;
 
 // ============================================================================
 // CATEGORIE STRUTTURALI DEI MOVIMENTI
@@ -147,6 +107,18 @@ export const CATEGORIA_INCASSO_FATTURA = "Incasso Fattura";
 /** Punto di partenza del conto, non denaro fresco. */
 export const CATEGORIA_SALDO_INIZIALE = "Saldo Iniziale";
 
+/**
+ * Pagamento di un F24. Una categoria sola: saldo o acconto, INPS o imposta,
+ * lo dice lo scadenzario (`scadenze_fiscali`), non il nome della categoria.
+ */
+export const CATEGORIA_TASSE = "Tasse";
+
+/** Versamento su un fondo del patrimonio: esce dalla cassa, non è una spesa. */
+export const CATEGORIA_INVESTIMENTI = "Investimenti";
+
+/** Costi dell'attività (Fiscozen, software…): fuori dal costo di vita. */
+export const CATEGORIA_LAVORO = "Lavoro";
+
 /** Accredito mensile degli interessi sulla liquidità BBVA. */
 export const CATEGORIA_INTERESSI = "Interessi BBVA";
 
@@ -162,6 +134,30 @@ export const eSaldoIniziale = (categoria: string | null | undefined): boolean =>
 export const eIncassoFattura = (categoria: string | null | undefined): boolean =>
   /^(incasso fattura|fatture?)$/i.test((categoria ?? "").trim());
 
+/** true per "Tasse", "Tasse - Saldo", "TASSE"… (pagamenti di F24). */
+export const eTassa = (categoria: string | null | undefined): boolean =>
+  /^tasse/i.test((categoria ?? "").trim());
+
+/** true per "Investimenti", "Investimento", "Moneyfarm", "Pensione…". */
+export const eInvestimento = (categoria: string | null | undefined): boolean =>
+  /^(invest|moneyfarm|pension)/i.test((categoria ?? "").trim());
+
+/** true per "Lavoro": costi dell'attività, tenuti fuori dal costo di vita. */
+export const eLavoro = (categoria: string | null | undefined): boolean =>
+  /^lavoro/i.test((categoria ?? "").trim());
+
+/**
+ * Le categorie che pilotano i calcoli, per i menu di scelta: sbagliarle sposta
+ * il netto prelevabile o il costo di vita, non solo un grafico.
+ */
+export const CATEGORIE_STRUTTURALI = [
+  CATEGORIA_TASSE,
+  CATEGORIA_STIPENDIO,
+  CATEGORIA_INVESTIMENTI,
+  CATEGORIA_LAVORO,
+  CATEGORIA_INCASSO_FATTURA,
+] as const;
+
 /** true per "Interessi" (storico) e "Interessi BBVA" (import). */
 export const eInteressi = (categoria: string | null | undefined): boolean =>
   /^interessi/i.test((categoria ?? "").trim());
@@ -176,9 +172,17 @@ export const eInteressi = (categoria: string | null | undefined): boolean =>
 export const ACCONTO_INPS_1 = 0.4; // scadenza 30 giugno
 export const ACCONTO_INPS_2 = 0.4; // scadenza 30 novembre
 
-/** Imposta sostitutiva: acconto totale 100%, 40% a giugno e 60% a novembre. */
-export const ACCONTO_IMPOSTA_1 = 0.4;
-export const ACCONTO_IMPOSTA_2 = 0.6;
+/**
+ * Imposta sostitutiva: acconto totale 100%, in due rate UGUALI del 50%.
+ *
+ * La regola generale (art. 17 DPR 435/2001) sarebbe 40% + 60%, ma l'art. 58
+ * DL 124/2019 porta le rate al 50% + 50% per chi esercita un'attività soggetta
+ * a ISA, e la risoluzione AdE 93/E/2019 estende la regola ai forfettari.
+ * Il design grafico (ATECO 74.12) rientra: gli F24 reali lo confermano
+ * (803,50 + 803,50 nel 2024, 613 + 613 nel 2025, 724 + 724 nel 2026).
+ */
+export const ACCONTO_IMPOSTA_1 = 0.5;
+export const ACCONTO_IMPOSTA_2 = 0.5;
 
 /** Sotto questa imposta dell'anno precedente non è dovuto alcun acconto. */
 export const SOGLIA_ACCONTO_MINIMA = 51.65;
@@ -189,6 +193,15 @@ export const SOGLIA_ACCONTO_MINIMA = 51.65;
  */
 export const SOGLIA_ACCONTO_RATA_UNICA = 257.52;
 
+/**
+ * Imposta di bollo sulle fatture elettroniche senza IVA: 2 € per ogni fattura
+ * sopra 77,47 €. Si versa a trimestri; sotto i 5.000 € annui i primi tre
+ * trimestri si possono pagare insieme entro il 30 novembre, il quarto entro
+ * fine febbraio dell'anno dopo (è quello che fa Fiscozen).
+ */
+export const BOLLO_FATTURA = 2;
+export const SOGLIA_BOLLO_FATTURA = 77.47;
+
 // ============================================================================
 // LIMITI DEL REGIME FORFETTARIO
 // ============================================================================
@@ -198,34 +211,3 @@ export const LIMITE_RICAVI_FORFETTARIO = 85_000;
 
 /** Oltre 100.000 € si esce dal regime nell'anno STESSO, con IVA dovuta. */
 export const LIMITE_USCITA_IMMEDIATA = 100_000;
-
-/**
- * Anni precedenti a questo non sono selezionabili nei filtri: i dati sono
- * stati resettati e quelli storici non sono attendibili.
- */
-export const ANNO_MINIMO_VISIBILE = 2026;
-
-/**
- * Rettifiche degli incassi, precaricate al primo avvio.
- *
- * Una rettifica è l'incassato che le fatture registrate NON rappresentano:
- * fatture datate per emissione invece che per incasso, o anni non presenti in
- * database. Si SOMMA al totale calcolato, non lo sostituisce — così ogni nuova
- * fattura continua a incrementare il totale normalmente.
- *
- *     incassi anno = somma fatture dell'anno + rettifica
- *
- * 2026: il commercialista riportava 52.924 € incassati contro 44.464 € di
- * fatture registrate → rettifica di 8.460 €.
- *
- * Va ridotta man mano che le fatture vengono ridatate per cassa, altrimenti
- * quell'importo viene contato due volte. La Dashboard mostra sempre la
- * scomposizione "da fatture + rettifica" per tenerlo sotto controllo.
- *
- * ⚠️ Manca il 2025. Il commercialista ha fornito il *fatturato* 2025
- * (54.796 €), non l'*incassato*, e i due valori non coincidono. Senza quel
- * dato gli acconti 2026 restano a zero.
- */
-export const RETTIFICHE_INCASSI_INIZIALI: Record<number, number> = {
-  2026: 8_460,
-};

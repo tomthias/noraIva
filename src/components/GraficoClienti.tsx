@@ -37,7 +37,7 @@ export function GraficoClienti({ fatture, anno }: Props) {
   const datiClienti = useMemo(() => {
     // Filtra per anno se specificato
     const fattureFiltrate = anno
-      ? fatture.filter((f) => f.data.startsWith(String(anno)))
+      ? fatture.filter((f) => f.data?.startsWith(String(anno)))
       : fatture;
 
     // Raggruppa per cliente

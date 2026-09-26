@@ -260,16 +260,19 @@ export function saldoPiuRecente(righe: RigaEstratto[]): EstrattoLetto["saldoFina
 /**
  * Impronta di un movimento importato, per non reimportarlo il mese dopo.
  *
- * Comprende il `disponibile` proprio perché due movimenti identici nello
- * stesso giorno (due caffè da 1,50 €) hanno saldi progressivi diversi: senza,
- * il secondo verrebbe scambiato per un duplicato del primo e scartato.
+ * Data valuta, importo e saldo dopo il movimento bastano a identificarlo:
+ * due movimenti identici nello stesso giorno (due caffè da 1,50 €) hanno saldi
+ * progressivi diversi. Il testo NON entra nella chiave quando c'è il saldo:
+ * l'Excel e il PDF di BBVA descrivono lo stesso movimento con parole diverse,
+ * e lo stesso movimento importato dai due formati deve restare uno.
  */
 export async function calcolaImportHash(riga: RigaEstratto): Promise<string> {
   const chiave = [
     riga.dataValuta,
     riga.importo.toFixed(2),
-    riga.disponibile === undefined ? "" : riga.disponibile.toFixed(2),
-    (riga.osservazioni ?? riga.descrizione).trim().toLowerCase(),
+    riga.disponibile === undefined
+      ? (riga.osservazioni ?? riga.descrizione).trim().toLowerCase()
+      : riga.disponibile.toFixed(2),
   ].join("|");
 
   const bytes = new TextEncoder().encode(chiave);
@@ -277,4 +280,97 @@ export async function calcolaImportHash(riga: RigaEstratto): Promise<string> {
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+// ============================================================================
+// PDF "Ultime transazioni"
+// ============================================================================
+
+/**
+ * Legge il PDF "Ultime transazioni" dell'app BBVA, già ridotto a righe di
+ * testo (una per riga visiva, colonne separate da almeno due spazi).
+ *
+ * Ogni movimento occupa più righe:
+ *
+ *   28/09/2026   Budgetair.it  amsterdam  nl      -354,52 €    25.248,05 EUR
+ *   Data valuta: 26/09/2026   Pagamento con carta
+ *   (eventuali righe di continuazione della causale)
+ *
+ * Le righe arrivano dalla più recente alla più vecchia. Il saldo dopo ogni
+ * movimento permette di verificare che non manchi niente: `catenaSaldi`.
+ */
+export function leggiEstrattoPdf(linee: string[]): EstrattoLetto {
+  const righe: RigaEstratto[] = [];
+  const scartate: EstrattoLetto["scartate"] = [];
+  let corrente: RigaEstratto | undefined;
+
+  const intestazione = /^\s*(data\s+causale|ultime transazioni)|^\s*\d+\s*\/\s*\d+\s*$/i;
+  const rigaMovimento =
+    /^\s*(\d{2}\/\d{2}\/\d{4})\s{2,}(.*?)\s{2,}(-?[\d.]+,\d{2})\s*€\s+(-?[\d.]+,\d{2})\s*EUR/;
+  const rigaValuta = /^\s*Data valuta:\s*(\d{2}\/\d{2}\/\d{4})\s*(.*)$/;
+
+  linee.forEach((linea, i) => {
+    if (!linea.trim() || intestazione.test(linea)) return;
+
+    const m = linea.match(rigaMovimento);
+    if (m) {
+      const causale = m[2].replace(/\s{2,}/g, " ").trim();
+      corrente = {
+        dataValuta: leggiData(m[1])!,
+        dataContabile: leggiData(m[1]),
+        parolaChiave: causale,
+        descrizione: causale,
+        importo: leggiNumero(m[3])!,
+        disponibile: leggiNumero(m[4]),
+        riga: i + 1,
+      };
+      righe.push(corrente);
+      return;
+    }
+
+    const v = linea.match(rigaValuta);
+    if (v && corrente) {
+      corrente.dataValuta = leggiData(v[1]) ?? corrente.dataValuta;
+      const dettaglio = v[2].replace(/\s{2,}/g, " ").trim();
+      if (dettaglio) corrente.osservazioni = dettaglio;
+      return;
+    }
+
+    if (corrente) {
+      const extra = linea.replace(/\s{2,}/g, " ").trim();
+      corrente.osservazioni = [corrente.osservazioni, extra].filter(Boolean).join(" ");
+      return;
+    }
+
+    scartate.push({ riga: i + 1, motivo: "riga fuori da un movimento" });
+  });
+
+  for (const r of righe) {
+    if (r.osservazioni) r.descrizione = `${r.parolaChiave} — ${r.osservazioni}`;
+  }
+
+  return { righe, foglio: "PDF", saldoFinale: saldoPiuRecente(righe), scartate };
+}
+
+/**
+ * Controlla che il saldo di ogni movimento sia il saldo del precedente più
+ * l'importo. Una rottura vuol dire una riga letta male o mancante.
+ * `righe` in ordine di estratto: dal più recente al più vecchio.
+ */
+export function catenaSaldi(righe: RigaEstratto[]): { rotture: number; saldoIniziale?: number } {
+  let rotture = 0;
+  for (let i = 0; i + 1 < righe.length; i++) {
+    const dopo = righe[i];
+    const prima = righe[i + 1];
+    if (dopo.disponibile === undefined || prima.disponibile === undefined) continue;
+    if (Math.abs(prima.disponibile + dopo.importo - dopo.disponibile) > 0.005) rotture++;
+  }
+  const ultima = righe[righe.length - 1];
+  return {
+    rotture,
+    saldoIniziale:
+      ultima?.disponibile === undefined
+        ? undefined
+        : Math.round((ultima.disponibile - ultima.importo) * 100) / 100,
+  };
 }

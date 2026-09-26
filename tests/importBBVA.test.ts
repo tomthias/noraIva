@@ -10,6 +10,8 @@ import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import {
   calcolaImportHash,
+  catenaSaldi,
+  leggiEstrattoPdf,
   leggiData,
   leggiEstrattoBBVA,
   leggiNumero,
@@ -209,5 +211,55 @@ describe("calcolaImportHash", () => {
     const originale = await calcolaImportHash(base);
     expect(await calcolaImportHash({ ...base, importo: -2 })).not.toBe(originale);
     expect(await calcolaImportHash({ ...base, dataValuta: "2026-08-09" })).not.toBe(originale);
+  });
+
+  it("con il saldo non dipende dal testo: Excel e PDF danno la stessa impronta", async () => {
+    const dalPdf = { ...base, descrizione: "Bar — Pagamento con carta", osservazioni: "Pagamento con carta" };
+    expect(await calcolaImportHash(dalPdf)).toBe(await calcolaImportHash(base));
+  });
+});
+
+describe("leggiEstrattoPdf", () => {
+  // Righe come le produce il PDF "Ultime transazioni" (importi fittizi).
+  const linee = [
+    "Ultime transazioni",
+    "          Data                     Causale                          Importo        Saldo",
+    " 28/09/2026    Budgetair.it     amsterdam     nl           -354,52 €    25.248,05 EUR",
+    " Data valuta: 26/09/2026   Pagamento con carta",
+    " 07/09/2026    Bonifico ricevuto                            3.970,00 €    25.602,57 EUR",
+    " Data valuta: 07/09/2026   Ft 0022 del 31.08.26,",
+    " 07/09/2026    Bonifico eseguito                             -150,00 €    21.632,57 EUR",
+    " Data valuta: 07/09/2026   Un felice nuovo capitolo della vostra vita, marco e cate. felice di",
+    "                           esserci stato",
+    "                                                                                   1/18",
+  ];
+  const { righe, saldoFinale } = leggiEstrattoPdf(linee);
+
+  it("legge data valuta, importo con segno e saldo", () => {
+    expect(righe).toHaveLength(3);
+    expect(righe[0]).toMatchObject({
+      dataValuta: "2026-09-26",
+      dataContabile: "2026-09-28",
+      importo: -354.52,
+      disponibile: 25_248.05,
+      osservazioni: "Pagamento con carta",
+    });
+    expect(righe[1].importo).toBe(3970);
+  });
+
+  it("unisce le righe di continuazione della causale", () => {
+    expect(righe[2].osservazioni).toContain("esserci stato");
+  });
+
+  it("il saldo finale è quello del movimento più recente", () => {
+    expect(saldoFinale).toEqual({ data: "2026-09-26", saldo: 25_248.05 });
+  });
+
+  it("la catena dei saldi si chiude senza rotture", () => {
+    expect(catenaSaldi(righe)).toEqual({ rotture: 0, saldoIniziale: 21_782.57 });
+  });
+
+  it("segnala una riga mancante come rottura della catena", () => {
+    expect(catenaSaldi([righe[0], righe[2]]).rotture).toBe(1);
   });
 });

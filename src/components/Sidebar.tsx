@@ -6,6 +6,7 @@ import {
   Calculator,
   BarChart2,
   Upload,
+  Landmark,
   LogOut,
   Menu,
   X
@@ -18,7 +19,8 @@ export type SidebarSection =
   | "movimenti"
   | "import"
   | "simulatore"
-  | "analisi";
+  | "analisi"
+  | "patrimonio";
 
 interface SidebarProps {
   activeSection: SidebarSection;
@@ -34,6 +36,7 @@ const menuItems: { id: SidebarSection; label: string; icon: React.ReactNode }[] 
   { id: "movimenti", label: "Movimenti", icon: <ArrowDownUp className="h-5 w-5" /> },
   { id: "import", label: "Import", icon: <Upload className="h-5 w-5" /> },
   { id: "analisi", label: "Analisi", icon: <BarChart2 className="h-5 w-5" /> },
+  { id: "patrimonio", label: "Patrimonio", icon: <Landmark className="h-5 w-5" /> },
   { id: "simulatore", label: "Simulatore", icon: <Calculator className="h-5 w-5" /> },
 ];
 
