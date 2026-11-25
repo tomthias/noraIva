@@ -29,6 +29,7 @@ import type {
 import type { Database } from "../types/database";
 import { normalizzaCategoria } from "../utils/analisiCalcoli";
 import {
+  BUDGET_MENSILE_PREDEFINITO,
   CATEGORIA_INCASSO_FATTURA,
   CATEGORIA_STIPENDIO,
   eStipendio,
@@ -160,6 +161,8 @@ export function useSupabaseCashFlow() {
   const [cuscinetto, setCuscinetto] = useState(0);
   /** Mesi di vita da coprire prima di alimentare il fondo investimenti. */
   const [mesiRiserva, setMesiRiserva] = useState(3);
+  /** Tetto di spesa mensile, affitto compreso, viaggi e fisioterapia esclusi. */
+  const [budgetMensile, setBudgetMensile] = useState(BUDGET_MENSILE_PREDEFINITO);
   /** Versato su ogni strumento fuori dal conto (prima di BBVA), per id. */
   const [versatoEsterno, setVersatoEsterno] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -229,6 +232,7 @@ export function useSupabaseCashFlow() {
       }
       setCuscinetto(Number(preferenza("cuscinetto") ?? 0) || 0);
       setMesiRiserva(Number(preferenza("mesi_riserva_vita") ?? 3) || 0);
+      setBudgetMensile(Number(preferenza("budget_mensile") ?? BUDGET_MENSILE_PREDEFINITO) || BUDGET_MENSILE_PREDEFINITO);
       setVersatoEsterno((preferenza("versato_esterno") as Record<string, number>) ?? {});
     } catch (err) {
       console.error("Error loading data:", err);
@@ -561,6 +565,14 @@ export function useSupabaseCashFlow() {
     [salvaPreferenza]
   );
 
+  const salvaBudgetMensile = useCallback(
+    async (valore: number) => {
+      setBudgetMensile(valore);
+      await salvaPreferenza("budget_mensile", valore);
+    },
+    [salvaPreferenza]
+  );
+
   const salvaVersatoEsterno = useCallback(
     async (strumentoId: string, importo: number) => {
       const nuovo = { ...versatoEsterno, [strumentoId]: Math.max(0, importo) };
@@ -663,6 +675,7 @@ export function useSupabaseCashFlow() {
     cuscinetto,
     mesiRiserva,
     versatoEsterno,
+    budgetMensile,
     isLoading,
     error,
     aggiungiFattura,
@@ -684,6 +697,7 @@ export function useSupabaseCashFlow() {
     salvaMesiRiserva,
     salvaApertura,
     salvaVersatoEsterno,
+    salvaBudgetMensile,
     aggiungiPrelievo,
     modificaPrelievo,
     eliminaPrelievo: eliminaMovimento,

@@ -17,12 +17,14 @@
  */
 
 import {
+  CATEGORIA_FISIOTERAPIA,
   CATEGORIA_INCASSO_FATTURA,
   CATEGORIA_INTERESSI,
   CATEGORIA_INVESTIMENTI,
   CATEGORIA_LAVORO,
   CATEGORIA_STIPENDIO,
   CATEGORIA_TASSE,
+  CATEGORIA_VIAGGI,
 } from "../constants/fiscali";
 import type { Fattura } from "../types/fattura";
 import type { RigaEstratto } from "./importBBVA";
@@ -86,6 +88,16 @@ function regolaPredefinita(riga: RigaEstratto): Proposta | undefined {
   const soloNome = (riga.osservazioni ?? "").trim().toLowerCase() === "mattia marinangeli";
   if (uscita && (contiene(testo, "stipendio", "stipendi") || soloNome)) {
     return regola(CATEGORIA_STIPENDIO, "bonifico verso il tuo conto personale");
+  }
+
+  // Le fatture del fisioterapista arrivano come "Ft-192-2026-e": rimborsate
+  // dall'assicurazione, fuori dal budget.
+  if (uscita && /ft-\d+-\d{4}-e\b/.test(testo)) {
+    return regola(CATEGORIA_FISIOTERAPIA, "fattura del fisioterapista");
+  }
+
+  if (uscita && contiene(testo, "flydubai", "budgetair", "wizz", "ryanair", "easyjet", "airbnb", "booking.com", "volotea")) {
+    return regola(CATEGORIA_VIAGGI, "volo o alloggio");
   }
 
   if (uscita && contiene(testo, "fiscozen", "claude.ai", "vercel", "openai", "figma", "adobe", "notion")) {

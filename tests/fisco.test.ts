@@ -11,6 +11,7 @@ import {
   simulaIncasso,
   quotaTasseMarginale,
   patrimonio,
+  budgetMese,
   type InputSituazione,
 } from "../src/utils/fisco";
 import type { Fattura, Movimento, ScadenzaFiscale } from "../src/types/fattura";
@@ -282,6 +283,32 @@ describe("cassa e situazione", () => {
   it("una fattura non ancora incassata non genera tasse", () => {
     const conAperta = situazione({ ...base, fatture: [...FATTURE_2026, fattura(null, 2340)] });
     expect(conAperta.daTenere).toBeCloseTo(situazione(base).daTenere, 6);
+  });
+});
+
+describe("spese accantonate e budget", () => {
+  const movimenti = [
+    movimento("2026-09-01", -570, "Affitto"),
+    movimento("2026-09-03", -1000, "Stipendi"),
+    movimento("2026-09-09", -390.8, "Fisioterapia"),
+    movimento("2026-09-22", -617.74, "Viaggi"),
+    movimento("2026-09-10", -130, "Coworking"),
+    movimento("2026-09-12", 44, "Rimborsi"),
+    movimento("2026-09-15", -499, "Lavoro"),
+    movimento("2026-09-20", -4818.24, "Tasse"),
+  ];
+
+  it("il budget conta affitto e Revolut, non fisioterapia, viaggi, lavoro e tasse", () => {
+    const b = budgetMese(movimenti, "2026-09", 1600);
+    expect(b.speso).toBeCloseTo(570 + 1000 + 130 - 44, 2);
+    expect(b.residuo).toBeCloseTo(1600 - 1656, 2);
+    expect(b.voci[0]).toEqual({ categoria: "Stipendi", importo: 1000 });
+  });
+
+  it("il costo di vita esclude le spese accantonate", () => {
+    const costo = costoVitaMensile(movimenti, "2026-09-30", { data: "2026-08-31", saldo: 0 });
+    // Meno di un mese di dati: si divide per 1, non per una frazione di mese.
+    expect(costo).toBeCloseTo(1656, 2);
   });
 });
 

@@ -73,6 +73,13 @@ describe("regole predefinite", () => {
       .toBe(CATEGORIA_LAVORO);
   });
 
+  it("riconosce fisioterapia e viaggi, che stanno fuori dal budget", () => {
+    expect(proponiCategoria(riga({ parolaChiave: "Bonifico eseguito", osservazioni: "Ft-192-2026-e", importo: -390.8 })).categoria)
+      .toBe("Fisioterapia");
+    expect(proponiCategoria(riga({ parolaChiave: "Flydubai dubai ae", osservazioni: "Pagamento con carta", importo: -617.74 })).categoria)
+      .toBe("Viaggi");
+  });
+
   it("un bonifico con causale solo 'Mattia marinangeli' è uno stipendio", () => {
     expect(proponiCategoria(riga({
       parolaChiave: "Bonifico eseguito",

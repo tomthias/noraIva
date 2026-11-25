@@ -142,6 +142,21 @@ export const eTassa = (categoria: string | null | undefined): boolean =>
 export const eInvestimento = (categoria: string | null | undefined): boolean =>
   /^(invest|moneyfarm|pension)/i.test((categoria ?? "").trim());
 
+/**
+ * Spese pagate con soldi accantonati apposta (viaggi) o che verranno
+ * rimborsate (fisioterapia, coperta al 100% dall'assicurazione): escono dal
+ * conto ma NON dal budget mensile né dal costo di vita.
+ */
+export const CATEGORIA_FISIOTERAPIA = "Fisioterapia";
+export const CATEGORIA_VIAGGI = "Viaggi";
+
+/** true per "Fisioterapia", "Ginocchio 2026" (storico) e "Viaggi". */
+export const eAccantonata = (categoria: string | null | undefined): boolean =>
+  /^(fisioterap|ginocchio|viagg)/i.test((categoria ?? "").trim());
+
+/** Tetto di spesa mensile predefinito (affitto compreso, accantonate escluse). */
+export const BUDGET_MENSILE_PREDEFINITO = 1600;
+
 /** true per "Lavoro": costi dell'attività, tenuti fuori dal costo di vita. */
 export const eLavoro = (categoria: string | null | undefined): boolean =>
   /^lavoro/i.test((categoria ?? "").trim());

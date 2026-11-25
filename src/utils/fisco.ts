@@ -25,6 +25,7 @@ import {
   SOGLIA_ACCONTO_RATA_UNICA,
   BOLLO_FATTURA,
   SOGLIA_BOLLO_FATTURA,
+  eAccantonata,
   eIncassoFattura,
   eInvestimento,
   eLavoro,
@@ -303,6 +304,10 @@ export function verificaBanca(
   return { data, saldoBanca, saldoApp, scostamento: saldoApp - saldoBanca };
 }
 
+/** Spesa di vita: tutto tranne i movimenti strutturali e le spese accantonate. */
+export const eSpesaDiVita = (m: Movimento): boolean =>
+  !eMovimentoStrutturale(m) && !eAccantonata(m.categoria);
+
 /** Movimenti che NON sono vita: incassi, tasse, investimenti, lavoro, saldi. */
 export function eMovimentoStrutturale(m: Movimento): boolean {
   return (
@@ -329,7 +334,8 @@ function mesiFra(dal: string, al: string): number {
 /**
  * Quanto costa vivere al mese: media degli ultimi 12 mesi (o da quando
  * esistono movimenti) di stipendi e spese, meno rimborsi e altre entrate.
- * Esclusi tasse, investimenti, costi di lavoro e incassi delle fatture.
+ * Esclusi tasse, investimenti, costi di lavoro, incassi delle fatture e le
+ * spese accantonate (viaggi, fisioterapia rimborsata).
  */
 export function costoVitaMensile(
   movimenti: Movimento[],
@@ -338,7 +344,7 @@ export function costoVitaMensile(
 ): number {
   const inizio = [meseMenoDodici(oggi), apertura?.data ?? ""].sort().at(-1)!;
   const vita = movimenti.filter(
-    (m) => m.data > inizio && m.data <= oggi && !eMovimentoStrutturale(m)
+    (m) => m.data > inizio && m.data <= oggi && eSpesaDiVita(m)
   );
   return -somma(vita.map((m) => m.importo)) / mesiFra(inizio, oggi);
 }
@@ -442,6 +448,8 @@ export interface MeseMargine {
   tasse: number;
   lavoro: number;
   vita: number;
+  /** Viaggi e fisioterapia: spese pagate con soldi messi da parte apposta. */
+  accantonate: number;
   margine: number;
 }
 
@@ -482,16 +490,57 @@ export function margineMensile(
     const delMese = movimenti.filter((mv) => mv.data.startsWith(mese));
     const tasseMese = incassato * pressioneFiscale(fatture, scadenze, anno(mese));
     const lavoro = -somma(delMese.filter((mv) => eLavoro(mv.categoria)).map((mv) => mv.importo));
-    const vita = -somma(delMese.filter((mv) => !eMovimentoStrutturale(mv)).map((mv) => mv.importo));
+    const vita = -somma(delMese.filter(eSpesaDiVita).map((mv) => mv.importo));
+    const accantonate = -somma(
+      delMese.filter((mv) => !eMovimentoStrutturale(mv) && eAccantonata(mv.categoria)).map((mv) => mv.importo)
+    );
     return {
       mese,
       incassato,
       tasse: tasseMese,
       lavoro,
       vita,
-      margine: incassato - tasseMese - lavoro - vita,
+      accantonate,
+      margine: incassato - tasseMese - lavoro - vita - accantonate,
     };
   });
+}
+
+// ============================================================================
+// BUDGET DEL MESE
+// ============================================================================
+
+export interface BudgetMese {
+  mese: string; // YYYY-MM
+  budget: number;
+  speso: number;
+  residuo: number;
+  /** Per categoria, dalla più pesante. Rimborsi in negativo. */
+  voci: { categoria: string; importo: number }[];
+}
+
+/**
+ * Quanto hai speso in un mese contro il tetto: le stesse spese del costo di
+ * vita (stipendi verso Revolut compresi, affitto compreso), fuori tasse,
+ * investimenti, lavoro e spese accantonate.
+ */
+export function budgetMese(movimenti: Movimento[], mese: string, budget: number): BudgetMese {
+  const spese = movimenti.filter((m) => m.data.startsWith(mese) && eSpesaDiVita(m));
+  const perCategoria = new Map<string, number>();
+  for (const m of spese) {
+    const c = m.categoria ?? "Altro";
+    perCategoria.set(c, (perCategoria.get(c) ?? 0) - m.importo);
+  }
+  const speso = -somma(spese.map((m) => m.importo));
+  return {
+    mese,
+    budget,
+    speso,
+    residuo: budget - speso,
+    voci: [...perCategoria.entries()]
+      .map(([categoria, importo]) => ({ categoria, importo }))
+      .sort((a, b) => b.importo - a.importo),
+  };
 }
 
 // ============================================================================

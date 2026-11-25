@@ -46,6 +46,7 @@ export function GuadagnoSpesa({ mesi }: { mesi: MeseMargine[] }) {
               <th className="text-right font-normal py-1">Tasse</th>
               <th className="text-right font-normal py-1">Lavoro</th>
               <th className="text-right font-normal py-1">Vita</th>
+              <th className="text-right font-normal py-1" title="Viaggi e fisioterapia: pagati con soldi accantonati">Accant.</th>
               <th className="text-right font-normal py-1">Margine</th>
             </tr>
           </thead>
@@ -63,6 +64,7 @@ export function GuadagnoSpesa({ mesi }: { mesi: MeseMargine[] }) {
                 <td className="py-1.5 text-right text-muted-foreground">{formatCurrency(-m.tasse)}</td>
                 <td className="py-1.5 text-right text-muted-foreground">{formatCurrency(-m.lavoro)}</td>
                 <td className="py-1.5 text-right text-muted-foreground">{formatCurrency(-m.vita)}</td>
+                <td className="py-1.5 text-right text-muted-foreground">{formatCurrency(-m.accantonate)}</td>
                 <td className={`py-1.5 text-right font-medium ${m.margine >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                   {formatCurrency(m.margine)}
                 </td>
@@ -72,8 +74,8 @@ export function GuadagnoSpesa({ mesi }: { mesi: MeseMargine[] }) {
         </table>
         <p className="mt-3 text-xs text-muted-foreground">
           Barra verde: incassato. Barra rossa: spese di vita (stipendi verso il conto personale
-          compresi). Esclusi tasse pagate, investimenti e costi di lavoro, che hanno una colonna
-          a parte.
+          compresi). Tasse, lavoro e spese accantonate (viaggi, fisioterapia) hanno colonne a
+          parte; gli investimenti non sono una spesa e non compaiono.
         </p>
       </CardContent>
     </Card>

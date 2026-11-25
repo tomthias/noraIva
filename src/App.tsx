@@ -11,6 +11,7 @@ import { FattureDaIncassare } from "./components/dashboard/FattureDaIncassare";
 import { GuadagnoSpesa } from "./components/dashboard/GuadagnoSpesa";
 import { LimiteForfettario } from "./components/dashboard/LimiteForfettario";
 import { Patrimonio } from "./components/Patrimonio";
+import { BudgetMese } from "./components/dashboard/BudgetMese";
 
 import { TabellaFatture } from "./components/TabellaFatture";
 import { FormFattura } from "./components/FormFattura";
@@ -26,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, X } from "lucide-react";
 import { caricaDescrizioniSalvate, salvaDescrizione } from "./utils/storage";
 import {
+  budgetMese,
   margineMensile,
   patrimonio,
   situazione,
@@ -48,6 +50,7 @@ function App() {
     cuscinetto,
     mesiRiserva,
     versatoEsterno,
+    budgetMensile,
     isLoading: dataLoading,
     error,
     aggiungiFattura,
@@ -74,6 +77,7 @@ function App() {
     salvaCuscinetto,
     salvaMesiRiserva,
     salvaVersatoEsterno,
+    salvaBudgetMensile,
     refresh,
   } = useSupabaseCashFlow();
 
@@ -121,6 +125,20 @@ function App() {
     () => margineMensile(fatture, movimenti, s.scadenze, oggi),
     [fatture, movimenti, s.scadenze, oggi]
   );
+  const budget = useMemo(() => {
+    const mese = (i: number) => {
+      const d = new Date(Date.UTC(Number(oggi.slice(0, 4)), Number(oggi.slice(5, 7)) - 1 - i, 1));
+      return d.toISOString().slice(0, 7);
+    };
+    return {
+      corrente: budgetMese(movimenti, mese(0), budgetMensile),
+      precedenti: [1, 2, 3, 4, 5, 6].map((i) => budgetMese(movimenti, mese(i), budgetMensile)),
+    };
+  }, [movimenti, budgetMensile, oggi]);
+  const giorniRimasti =
+    new Date(Date.UTC(Number(oggi.slice(0, 4)), Number(oggi.slice(5, 7)), 0)).getUTCDate() -
+    Number(oggi.slice(8, 10));
+
   const posizioni = useMemo(
     () => patrimonio(strumenti, valori, movimenti, versatoEsterno).posizioni,
     [strumenti, valori, movimenti, versatoEsterno]
@@ -204,6 +222,12 @@ function App() {
                   onRipristinaStima={eliminaScadenza}
                 />
                 <div className="space-y-6">
+                  <BudgetMese
+                    corrente={budget.corrente}
+                    precedenti={budget.precedenti}
+                    giorniRimasti={giorniRimasti}
+                    onSalvaBudget={salvaBudgetMensile}
+                  />
                   <LimiteForfettario incassi={s.incassiAnno} anno={Number(oggi.slice(0, 4))} />
                   <FattureDaIncassare
                     fatture={fatture}
